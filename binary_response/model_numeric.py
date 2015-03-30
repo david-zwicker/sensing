@@ -8,13 +8,15 @@ from __future__ import division
 
 import itertools
 import time
+import multiprocessing as mp
 
 import numpy as np
 
 
+
 class ReceptorLibrary(object):
     """ represents a single receptor library """
-
+    
 
     def __init__(self, num_receptors, num_substrates, hs, frac=1):
         """ initialize the receptor library by setting the number of receptors,
@@ -101,7 +103,7 @@ class ReceptorLibrary(object):
         return MI
             
             
-    def mutual_information_monte_carlo(self, num=1000):
+    def mutual_information_monte_carlo(self, num=10000):
         """ calculate the mutual information by sampling `num` mixtures """
         base = 2 ** np.arange(self.Nr-1, -1, -1)
 
@@ -138,7 +140,7 @@ class ReceptorLibrary(object):
             calc_MI = self.mutual_information_brute_force
         else:
             raise ValueError('Unknown method `%s`' % method)
-        
+
         MIs = np.empty(avg_num)
         for k in xrange(avg_num):
             self.choose_sensitivites()
@@ -146,8 +148,34 @@ class ReceptorLibrary(object):
         
         return MIs.mean(), MIs.std()
 
-            
-            
+
+    def average_mutual_information_mp(self, method='monte_carlo', avg_num=32):
+        """ calculate a mean mutual information by averaging over `avg_num`
+        different sensitivity matrices. Uses multiprocessing """
+        # run the calculations in multiple processes  
+        pool = mp.Pool()
+        arguments = (method, self.Nr, self.Ns, self.hs, self.frac)
+        MIs = pool.map(_ReceptorLibrary_mp_calc_MI, [arguments] * avg_num)
+
+        # collect the results and calculate the statistics
+        MIs = np.array(MIs)
+        return MIs.mean(), MIs.std()
+
+
+
+def _ReceptorLibrary_mp_calc_MI(args):
+    """ helper function for multiprocessing """
+    method = args[0]
+    obj = ReceptorLibrary(*args[1:])
+    if method == 'monte_carlo':
+        return obj.mutual_information_monte_carlo()
+    elif method == 'brute_force':
+        return obj.mutual_information_brute_force()
+    else:
+        raise ValueError('Unknown method `%s`' % method)
+
+
+   
 def performance_test(Ns=15, Nr=3, frac=0.5):
     """ test the performance of the brute force and the monte carlo method """
     num = 2**Ns
