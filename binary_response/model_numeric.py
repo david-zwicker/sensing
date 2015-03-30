@@ -17,6 +17,8 @@ import numpy as np
 class ReceptorLibrary(object):
     """ represents a single receptor library """
     
+    monte_carlo_count = 10000
+    
 
     def __init__(self, num_receptors, num_substrates, hs, frac=1):
         """ initialize the receptor library by setting the number of receptors,
@@ -103,8 +105,12 @@ class ReceptorLibrary(object):
         return MI
             
             
-    def mutual_information_monte_carlo(self, num=10000):
-        """ calculate the mutual information by sampling `num` mixtures """
+    def mutual_information_monte_carlo(self, num=None):
+        """ calculate the mutual information by sampling `num` mixtures. If 
+        `num` is not given, the class variable `monte_carlo_count` is used. """
+        if num is None:
+            num = self.monte_carlo_count        
+        
         base = 2 ** np.arange(self.Nr-1, -1, -1)
 
         # calculate the probability of seeing each substrate independently
