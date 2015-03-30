@@ -33,6 +33,7 @@ class ReceptorLibrary(object):
         self.hs = hs
         self.frac = frac
         
+        np.random.seed()
         self.choose_sensitivites()
 
 
