@@ -1,2 +1,2 @@
-from model_numeric import ReceptorLibraryNumeric, ensemble_average_mp
+from model_numeric import ReceptorLibraryNumeric
 from model_theory import ReceptorLibraryTheory

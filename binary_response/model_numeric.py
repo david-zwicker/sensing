@@ -165,48 +165,28 @@ class ReceptorLibraryNumeric(object):
             return MI
     
     
-    def average_mutual_information(self, method='monte_carlo', avg_num=32):
-        """ calculate a mean mutual information by averaging over `avg_num`
-        different sensitivity matrices """
-        if method == 'monte_carlo':
-            calc_MI = self.mutual_information_monte_carlo
-        elif method == 'brute_force':
-            calc_MI = self.mutual_information_brute_force
-        else:
-            raise ValueError('Unknown method `%s`' % method)
-
-        MIs = np.empty(avg_num)
-        for k in xrange(avg_num):
-            self.choose_sensitivites()
-            MIs[k] = calc_MI()
+    def ensemble_average(self, method, avg_num=32, multiprocessing=False, 
+                         ret_all=False):
+        """ calculate an ensemble average of the result of the `method` of
+        multiple different receptor libraries """
         
-        return MIs.mean(), MIs.std()
-
-
-    def average_mutual_information_mp(self, method='monte_carlo', avg_num=32):
-        """ calculate a mean mutual information by averaging over `avg_num`
-        different sensitivity matrices. Uses multiprocessing """
-        # run the calculations in multiple processes  
-        pool = mp.Pool()
-        arguments = (method, self.Nr, self.Ns, self.hs, self.frac)
-        MIs = pool.map(_ReceptorLibrary_mp_calc_MI, [arguments] * avg_num)
-
+        if multiprocessing:
+            # run the calculations in multiple processes  
+            arguments = (self.parameters, method)
+            pool = mp.Pool()
+            result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
+        else:
+            # run the calculations in this process
+            result = [getattr(ReceptorLibraryNumeric(*self.parameters),
+                              method)()
+                      for _ in xrange(avg_num)]
+    
         # collect the results and calculate the statistics
-        MIs = np.array(MIs)
-        return MIs.mean(), MIs.std()
-
-
-
-def _ReceptorLibrary_mp_calc_MI(args):
-    """ helper function for multiprocessing """
-    method = args[0]
-    obj = ReceptorLibraryNumeric(*args[1:])
-    if method == 'monte_carlo':
-        return obj.mutual_information_monte_carlo()
-    elif method == 'brute_force':
-        return obj.mutual_information_brute_force()
-    else:
-        raise ValueError('Unknown method `%s`' % method)
+        result = np.array(result)
+        if ret_all:
+            return result
+        else:
+            return result.mean(axis=0), result.std(axis=0)
 
 
 
@@ -214,23 +194,6 @@ def _ReceptorLibrary_mp_calc(args):
     """ helper function for multiprocessing """
     obj = ReceptorLibraryNumeric(*args[0])
     return getattr(obj, args[1])()
-
-
-
-def ensemble_average_mp(model, method, avg_num=32, ret_all=False):
-    """ calculate an ensemble average of the result of the `method` of multiple
-    different receptor libraries using the parameters of `model` """
-    # run the calculations in multiple processes  
-    pool = mp.Pool()
-    arguments = (model.parameters, method)
-    result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
-
-    # collect the results and calculate the statistics
-    result = np.array(result)
-    if ret_all:
-        return result
-    else:
-        return result.mean(axis=0), result.std(axis=0)
 
    
    
