@@ -20,7 +20,7 @@ class ReceptorLibraryNumeric(object):
     monte_carlo_steps = 10000  #< default number of monte carlo steps
     
 
-    def __init__(self, num_receptors, num_substrates, hs, frac=1):
+    def __init__(self, num_substrates, num_receptors, hs, frac=1):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the weights `hs` of the 
         substrates, and the fraction `frac` of substrates a single receptor
@@ -28,13 +28,20 @@ class ReceptorLibraryNumeric(object):
         assert len(hs) == num_substrates
         assert num_receptors < 63 #< prevent integer overflow
         
-        self.Nr = num_receptors
         self.Ns = num_substrates
+        self.Nr = num_receptors
         self.hs = hs
         self.frac = frac
         
         np.random.seed()
         self.choose_sensitivites()
+
+
+    @property
+    def parameters(self):
+        """ return the parameters of the model that can be used to reconstruct
+        it by calling the __init__ method with these arguments """
+        return (self.Ns, self.Nr, self.hs, self.frac)
 
 
     def choose_sensitivites(self):
@@ -72,7 +79,28 @@ class ReceptorLibraryNumeric(object):
         return l_mean, np.sqrt(l_var)
             
             
-    def mutual_information_brute_force(self):
+    def activity_single_monte_carlo(self, num=None):
+        """ calculates the average activity of each receptor """ 
+        if num is None:
+            num = self.monte_carlo_steps        
+    
+        # calculate the probability of seeing each substrate independently
+        prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
+        
+        count_a = np.zeros(self.Nr)
+        for _ in xrange(num):
+            # choose a mixture vector according to substrate probabilities
+            m = (np.random.random(self.Ns) < prob_h)
+            
+            # get the associated output ...
+            a = np.dot(self.sens, m).astype(np.bool)
+            
+            count_a[a] += 1
+            
+        return count_a/num
+
+            
+    def mutual_information_brute_force(self, ret_prob_activity=False):
         """ calculate the mutual information by constructing all possible
         mixtures """
         base = 2 ** np.arange(self.Nr-1, -1, -1)
@@ -80,33 +108,29 @@ class ReceptorLibraryNumeric(object):
         # calculate the probability of seeing each substrate independently
         prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
 
-        count_ma = np.zeros(2**self.Nr, np.uint)
+        # prob_a contains the probability of finding activity a as an output.
         prob_a = np.zeros(2**self.Nr)
         for m in itertools.product((0, 1), repeat=self.Ns):
             # get the associated output ...
-            a = (np.dot(self.sens, m) > 0.5)
+            a = np.dot(self.sens, m).astype(np.bool)
             # ... and represent it as a single integer
             a = np.dot(base, a)
 
             # probability of finding this substrate
             ma = np.array(m, np.bool)
             pm = np.prod(prob_h[ma]) * np.prod(1 - prob_h[~ma])
-            count_ma[a] += 1
             prob_a[a] += pm
-            
-        # count_ma contains the counts of how many mixtures m map to the same
-        # activity a. prob_a contains the probability of finding activity a
-        # as an output.
         
         # calculate the mutual information
-        MI = -sum(p_a*np.log(p_a)
-                  for c_ma, p_a in itertools.izip(count_ma, prob_a)
-                  if c_ma > 0)
+        MI = -sum(pa*np.log(pa) for pa in prob_a if pa != 0)
         
-        return MI
+        if ret_prob_activity:
+            return MI, prob_a.mean()
+        else:
+            return MI
             
             
-    def mutual_information_monte_carlo(self, num=None):
+    def mutual_information_monte_carlo(self, num=None, ret_prob_activity=False):
         """ calculate the mutual information by sampling `num` mixtures. If 
         `num` is not given, the class variable `monte_carlo_steps` is used. """
         if num is None:
@@ -123,7 +147,7 @@ class ReceptorLibraryNumeric(object):
             m = (np.random.random(self.Ns) < prob_h)
             
             # get the associated output ...
-            a = (np.dot(self.sens, m) > 0.5)
+            a = np.dot(self.sens, m).astype(np.bool)
             # ... and represent it as a single integer
             a = np.dot(base, a)
             # increment counter for this output
@@ -132,10 +156,13 @@ class ReceptorLibraryNumeric(object):
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 
 
-        prob_a = count_a[count_a > 0] / num
-        MI = -np.sum(prob_a*np.log(prob_a))
+        prob_a = count_a / num
+        MI = -sum(pa*np.log(pa) for pa in prob_a if pa != 0)
 
-        return MI
+        if ret_prob_activity:
+            return MI, prob_a.mean()
+        else:
+            return MI
     
     
     def average_mutual_information(self, method='monte_carlo', avg_num=32):
@@ -182,6 +209,30 @@ def _ReceptorLibrary_mp_calc_MI(args):
         raise ValueError('Unknown method `%s`' % method)
 
 
+
+def _ReceptorLibrary_mp_calc(args):
+    """ helper function for multiprocessing """
+    obj = ReceptorLibraryNumeric(*args[0])
+    return getattr(obj, args[1])()
+
+
+
+def ensemble_average_mp(model, method, avg_num=32, ret_all=False):
+    """ calculate an ensemble average of the result of the `method` of multiple
+    different receptor libraries using the parameters of `model` """
+    # run the calculations in multiple processes  
+    pool = mp.Pool()
+    arguments = (model.parameters, method)
+    result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
+
+    # collect the results and calculate the statistics
+    result = np.array(result)
+    if ret_all:
+        return result
+    else:
+        return result.mean(axis=0), result.std(axis=0)
+
+   
    
 def performance_test(Ns=15, Nr=3, frac=0.5):
     """ test the performance of the brute force and the monte carlo method """
