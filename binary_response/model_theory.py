@@ -7,6 +7,7 @@ Created on Mar 31, 2015
 from __future__ import division
 
 import numpy as np
+import scipy.misc
 
 
 
@@ -54,8 +55,27 @@ class ReceptorLibraryTheory(object):
         return l_mean, np.sqrt(l_var)
     
     
-    def activity_pattern(self):
+    def prob_activity(self):
+        """ return the probability with which a given receptor is activated """
         assert len(np.unique(self.hs)) == 1
+        h = self.hs[0]
         
-        
-        
+        if self.frac == 0:
+            return 0
+        d = np.arange(0, self.Ns + 1)
+        terms = (scipy.misc.comb(self.Ns, d) * 
+                 np.exp(h*d)/(1 + np.exp(h))**self.Ns *
+                 (1 - (1 - self.frac*d/self.Ns)**self.Ns))
+        return terms.sum()
+
+
+    def mutual_information(self):
+        """ return theoretical estimate of the mutual information between input
+        and output """
+        assert len(np.unique(self.hs)) == 1
+        Pa_val = self.prob_activity()
+        if Pa_val == 0:
+            return 0
+        else:
+            return -self.Nr*Pa_val*np.log(Pa_val)
+
