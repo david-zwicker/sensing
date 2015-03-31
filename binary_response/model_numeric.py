@@ -14,10 +14,10 @@ import numpy as np
 
 
 
-class ReceptorLibrary(object):
+class ReceptorLibraryNumeric(object):
     """ represents a single receptor library """
     
-    monte_carlo_count = 10000
+    monte_carlo_steps = 10000  #< default number of monte carlo steps
     
 
     def __init__(self, num_receptors, num_substrates, hs, frac=1):
@@ -84,7 +84,7 @@ class ReceptorLibrary(object):
         prob_a = np.zeros(2**self.Nr)
         for m in itertools.product((0, 1), repeat=self.Ns):
             # get the associated output ...
-            a = np.dot(self.sens, m) > 0.5
+            a = (np.dot(self.sens, m) > 0.5)
             # ... and represent it as a single integer
             a = np.dot(base, a)
 
@@ -108,9 +108,9 @@ class ReceptorLibrary(object):
             
     def mutual_information_monte_carlo(self, num=None):
         """ calculate the mutual information by sampling `num` mixtures. If 
-        `num` is not given, the class variable `monte_carlo_count` is used. """
+        `num` is not given, the class variable `monte_carlo_steps` is used. """
         if num is None:
-            num = self.monte_carlo_count        
+            num = self.monte_carlo_steps        
         
         base = 2 ** np.arange(self.Nr-1, -1, -1)
 
@@ -122,11 +122,11 @@ class ReceptorLibrary(object):
             # choose a mixture vector according to substrate probabilities
             m = (np.random.random(self.Ns) < prob_h)
             
-            # get the associated output
-            a = np.dot(self.sens, m) > 0.5
-            # represent it as a single integer
+            # get the associated output ...
+            a = (np.dot(self.sens, m) > 0.5)
+            # ... and represent it as a single integer
             a = np.dot(base, a)
-            # count how often each output occurs
+            # increment counter for this output
             count_a[a] += 1
             
         # count_a contains the number of times output pattern a was observed.
@@ -173,7 +173,7 @@ class ReceptorLibrary(object):
 def _ReceptorLibrary_mp_calc_MI(args):
     """ helper function for multiprocessing """
     method = args[0]
-    obj = ReceptorLibrary(*args[1:])
+    obj = ReceptorLibraryNumeric(*args[1:])
     if method == 'monte_carlo':
         return obj.mutual_information_monte_carlo()
     elif method == 'brute_force':
@@ -187,7 +187,7 @@ def performance_test(Ns=15, Nr=3, frac=0.5):
     """ test the performance of the brute force and the monte carlo method """
     num = 2**Ns
     hs = np.random.random(Ns)
-    model = ReceptorLibrary(Nr, Ns, hs, frac=frac)
+    model = ReceptorLibraryNumeric(Nr, Ns, hs, frac=frac)
     
     start = time.time()
     model.simulate_brute_force()
