@@ -19,6 +19,7 @@ class ReceptorLibraryNumeric(object):
     
     parameters_default = {
         'monte_carlo_steps': 10000, #< default number of monte carlo steps
+        'monte_carlo_strategy': 'frequency',
         'max_num_receptors': 28,    #< prevents memory overflows
         'sensitivity_matrix': None, #< will be calculated if not given
         'random_seed': None,        #< seed for the random number generator    
@@ -148,32 +149,62 @@ class ReceptorLibraryNumeric(object):
             
             
     def mutual_information_monte_carlo(self, num=None, ret_prob_activity=False):
-        """ calculate the mutual information by sampling `num` mixtures. If 
+        """ calculate the mutual information by strategy `num` mixtures. If 
         `num` is not given, the parameter `monte_carlo_steps` is used. """
         if num is None:
-            num = int(self.parameters['monte_carlo_steps'])        
-        
+            num = int(self.parameters['monte_carlo_steps'])
+                
         base = 2 ** np.arange(self.Nr-1, -1, -1)
 
         # calculate the probability of seeing each substrate independently
         prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
         
-        count_a = np.zeros(2**self.Nr)
-        for _ in xrange(num):
-            # choose a mixture vector according to substrate probabilities
-            m = (np.random.random(self.Ns) < prob_h)
+        strategy = self.parameters['monte_carlo_strategy']
+        if strategy == 'frequency':
+            # sample mixtures according to the probabilities of finding
+            # substrates
+            count_a = np.zeros(2**self.Nr)
+            for _ in xrange(num):
+                # choose a mixture vector according to substrate probabilities
+                m = (np.random.random(self.Ns) < prob_h)
+                
+                # get the associated output ...
+                a = np.dot(self.sens, m).astype(np.bool)
+                # ... and represent it as a single integer
+                a = np.dot(base, a)
+                # increment counter for this output
+                count_a[a] += 1
+                
+            # count_a contains the number of times output pattern a was observed.
+            # We can thus construct P_a(a) from count_a. 
+    
+            prob_a = count_a / num
             
-            # get the associated output ...
-            a = np.dot(self.sens, m).astype(np.bool)
-            # ... and represent it as a single integer
-            a = np.dot(base, a)
-            # increment counter for this output
-            count_a[a] += 1
-            
-        # count_a contains the number of times output pattern a was observed.
-        # We can thus construct P_a(a) from count_a. 
+        elif strategy == 'uniform':
+            # sample mixtures with each substrate being equally likely and
+            # correct the probabilities 
+            prob_a = np.zeros(2**self.Nr)
+            for _ in xrange(num):
+                # choose a mixture vector according to substrate probabilities
+                m = np.random.randint(2, size=self.Ns)
+                
+                # get the associated output ...
+                a = np.dot(self.sens, m).astype(np.bool)
+                # ... and represent it as a single integer
+                a = np.dot(base, a)
 
-        prob_a = count_a / num
+                # probability of finding this substrate
+                ma = np.array(m, np.bool)
+                pm = np.prod(prob_h[ma]) * np.prod(1 - prob_h[~ma])
+                prob_a[a] += pm
+                
+            # normalize the probabilities    
+            prob_a /= prob_a.sum()
+            
+        else:
+            raise ValueError('Unknown strategy strategy `%s`' % strategy)
+            
+        # calculate the mutual information from the result pattern
         MI = -sum(pa*np.log(pa) for pa in prob_a if pa != 0)
 
         if ret_prob_activity:
