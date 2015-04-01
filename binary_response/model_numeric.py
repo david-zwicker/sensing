@@ -20,6 +20,7 @@ class ReceptorLibraryNumeric(object):
     parameters_default = {
         'monte_carlo_steps': 10000, #< default number of monte carlo steps
         'max_num_receptors': 28,    #< prevents memory overflows
+        'sensitivity_matrix': None, #< will be calculated if not given
         'random_seed': None,        #< seed for the random number generator    
     }
     
@@ -60,7 +61,11 @@ class ReceptorLibraryNumeric(object):
         """ creates a sensitivity matrix """
         shape = (self.Nr, self.Ns)
         # choose receptor substrate interaction randomly
-        self.sens = (np.random.random(shape) < self.frac).astype(np.int)
+        if self.parameters['sensitivity_matrix'] is None:
+            self.sens = (np.random.random(shape) < self.frac).astype(np.int)
+        else:
+            self.sens = self.parameters['sensitivity_matrix']
+            assert self.sens.shape == shape
             
             
     def mixture_size_distribution(self):
