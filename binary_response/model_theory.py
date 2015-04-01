@@ -113,9 +113,9 @@ class ReceptorLibraryTheory(object):
 #             
 #             # mutual information from the probabilities and the frequency of 
 #             # finding these patterns
-#             val1 = -sum(binom * p_a * np.log(p_a))
+#             val1 = -sum(binom * p_a * np.log2(p_a))
             
-            val2 = -self.Nr*(p1*np.log(p1) + (1 - p1)*np.log(1 - p1))
+            val2 = -self.Nr*(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
             
             return val2
         

@@ -140,7 +140,7 @@ class ReceptorLibraryNumeric(object):
             prob_a[a] += pm
         
         # calculate the mutual information
-        MI = -sum(pa*np.log(pa) for pa in prob_a if pa != 0)
+        MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
         
         if ret_prob_activity:
             return MI, prob_a.mean()
@@ -205,7 +205,7 @@ class ReceptorLibraryNumeric(object):
             raise ValueError('Unknown strategy strategy `%s`' % strategy)
             
         # calculate the mutual information from the result pattern
-        MI = -sum(pa*np.log(pa) for pa in prob_a if pa != 0)
+        MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
 
         if ret_prob_activity:
             return MI, prob_a.mean()
