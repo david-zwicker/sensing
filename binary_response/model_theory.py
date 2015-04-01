@@ -69,17 +69,22 @@ class ReceptorLibraryTheory(object):
         if self.frac == 0:
             return 0
 
-        # consider all possible number of components in mixtures
-        d_s = np.arange(0, self.Ns + 1)
+#         # consider all possible number of components in mixtures
+#         d_s = np.arange(0, self.Ns + 1)
+#         
+#         # probability that a receptor is activated by d_s substrates
+#         p_a1 = 1 - (1 - self.frac)**d_s
+#         
+#         # probability P(|m| = d_s) of having d_s components in a mixture
+#         p_m = scipy.misc.comb(self.Ns, d_s) * np.exp(h*d_s)/(1 + np.exp(h))**self.Ns
+# 
+#         # probability that a receptor is activated by a typical mixture
+#         val_ex = np.sum(p_m * p_a1)
         
-        # probability that a receptor is activated by d_s substrates
-        p_a1 = 1 - (1 - self.frac)**d_s
+        term = (1 + (1 - self.frac)*np.exp(h))/(1 + np.exp(h))
+        val = 1 - term ** self.Ns
         
-        # probability P(|m| = d_s) of having d_s components in a mixture
-        p_m = scipy.misc.comb(self.Ns, d_s) * np.exp(h*d_s)/(1 + np.exp(h))**self.Ns
-
-        # probability that a receptor is activated by a typical mixture
-        return np.sum(p_m * p_a1)
+        return val
 
 
     def mutual_information(self):
@@ -94,21 +99,25 @@ class ReceptorLibraryTheory(object):
             return 0
         else:
             
-            # output patterns consist of Nr receptors that are all activated
-            # with probability p1
+#             # output patterns consist of Nr receptors that are all activated
+#             # with probability p1
+#             
+#             # probability of finding a particular pattern of exactly d_r
+#             # activated receptors
+#             d_r = np.arange(0, self.Nr + 1)
+#             p_a = p1**d_r * (1 - p1)**(self.Nr - d_r)
+#             
+#             # number of possibilities of activity patterns with exactly d_r
+#             # activated receptors
+#             binom = scipy.misc.comb(self.Nr, d_r)
+#             
+#             # mutual information from the probabilities and the frequency of 
+#             # finding these patterns
+#             val1 = -sum(binom * p_a * np.log(p_a))
             
-            # probability of finding a particular pattern of exactly d_r
-            # activated receptors
-            d_r = np.arange(0, self.Nr + 1)
-            p_a = p1**d_r * (1 - p1)**(self.Nr - d_r)
+            val2 = -self.Nr*(p1*np.log(p1) + (1 - p1)*np.log(1 - p1))
             
-            # number of possibilities of activity patterns with exactly d_r
-            # activated receptors
-            binom = scipy.misc.comb(self.Nr, d_r)
-            
-            # mutual information from the probabilities and the frequency of 
-            # finding these patterns
-            return -sum(binom * p_a * np.log(p_a))
+            return val2
 
 
 

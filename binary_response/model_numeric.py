@@ -17,10 +17,14 @@ import numpy as np
 class ReceptorLibraryNumeric(object):
     """ represents a single receptor library """
     
-    monte_carlo_steps = 10000  #< default number of monte carlo steps
+    parameters_default = {
+        'monte_carlo_steps': 10000,  #< default number of monte carlo steps
+        'max_num_receptors': 28,     #< prevents memory overflows   
+    }
     
 
-    def __init__(self, num_substrates, num_receptors, hs, frac=1):
+    def __init__(self, num_substrates, num_receptors, hs, frac=1,
+                 parameters=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the weights `hs` of the 
         substrates, and the fraction `frac` of substrates a single receptor
@@ -33,15 +37,22 @@ class ReceptorLibraryNumeric(object):
         self.hs = hs
         self.frac = frac
         
+        # set the internal parameters
+        self.parameters = self.parameters_default.copy()
+        if parameters is not None:
+            self.parameters.update(parameters)
+        
+        assert num_receptors <= self.parameters['max_num_receptors']
+        
         np.random.seed()
         self.choose_sensitivites()
 
 
     @property
-    def parameters(self):
+    def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
-        return (self.Ns, self.Nr, self.hs, self.frac)
+        return (self.Ns, self.Nr, self.hs, self.frac, self.parameters)
 
 
     def choose_sensitivites(self):
@@ -82,7 +93,7 @@ class ReceptorLibraryNumeric(object):
     def activity_single_monte_carlo(self, num=None):
         """ calculates the average activity of each receptor """ 
         if num is None:
-            num = self.monte_carlo_steps        
+            num = self.parameters['monte_carlo_steps']        
     
         # calculate the probability of seeing each substrate independently
         prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
@@ -134,7 +145,7 @@ class ReceptorLibraryNumeric(object):
         """ calculate the mutual information by sampling `num` mixtures. If 
         `num` is not given, the class variable `monte_carlo_steps` is used. """
         if num is None:
-            num = self.monte_carlo_steps        
+            num = self.parameters['monte_carlo_steps']        
         
         base = 2 ** np.arange(self.Nr-1, -1, -1)
 
@@ -172,12 +183,12 @@ class ReceptorLibraryNumeric(object):
         
         if multiprocessing:
             # run the calculations in multiple processes  
-            arguments = (self.parameters, method)
+            arguments = (self.init_arguments, method)
             pool = mp.Pool()
             result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
         else:
             # run the calculations in this process
-            result = [getattr(ReceptorLibraryNumeric(*self.parameters),
+            result = [getattr(ReceptorLibraryNumeric(*self.init_arguments),
                               method)()
                       for _ in xrange(avg_num)]
     
