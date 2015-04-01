@@ -99,7 +99,7 @@ class ReceptorLibraryNumeric(object):
     def activity_single_monte_carlo(self, num=None):
         """ calculates the average activity of each receptor """ 
         if num is None:
-            num = self.parameters['monte_carlo_steps']        
+            num = int(self.parameters['monte_carlo_steps'])        
     
         # calculate the probability of seeing each substrate independently
         prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
@@ -149,9 +149,9 @@ class ReceptorLibraryNumeric(object):
             
     def mutual_information_monte_carlo(self, num=None, ret_prob_activity=False):
         """ calculate the mutual information by sampling `num` mixtures. If 
-        `num` is not given, the class variable `monte_carlo_steps` is used. """
+        `num` is not given, the parameter `monte_carlo_steps` is used. """
         if num is None:
-            num = self.parameters['monte_carlo_steps']        
+            num = int(self.parameters['monte_carlo_steps'])        
         
         base = 2 ** np.arange(self.Nr-1, -1, -1)
 
