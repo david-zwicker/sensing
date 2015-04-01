@@ -118,6 +118,18 @@ class ReceptorLibraryTheory(object):
             val2 = -self.Nr*(p1*np.log(p1) + (1 - p1)*np.log(1 - p1))
             
             return val2
+        
+        
+    def frac_optimal(self):
+        """ return the estimated optimal activity fraction for the simple case
+        where all h are the same. The estimate relies on an approximation that
+        all receptors are independent and is thus independent of the number of 
+        receptors. The estimate is thus only good in the limit of low Nr """
+        assert len(np.unique(self.hs)) == 1
+        
+        Ns2 = 2**(1/self.Ns)
+        eh = np.exp(self.hs[0])
+        return (Ns2 - 1)/Ns2 * (1 + eh)/eh
 
 
 

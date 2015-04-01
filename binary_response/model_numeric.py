@@ -249,17 +249,24 @@ def performance_test(Ns=15, Nr=3, frac=0.5):
     """ test the performance of the brute force and the monte carlo method """
     num = 2**Ns
     hs = np.random.random(Ns)
-    model = ReceptorLibraryNumeric(Nr, Ns, hs, frac=frac)
+    model = ReceptorLibraryNumeric(Ns, Nr, hs, frac=frac)
     
     start = time.time()
-    model.simulate_brute_force()
+    model.mutual_information_brute_force()
     time_brute_force = time.time() - start
     print('Brute force: %g sec' % time_brute_force)
     
     start = time.time()
-    model.simulate_monte_carlo(num)
+    model.parameters['monte_carlo_strategy'] = 'frequency'
+    model.mutual_information_monte_carlo(num)
     time_monte_carlo = time.time() - start
-    print('Monte carlo: %g sec' % time_monte_carlo)
+    print('Monte carlo, strat `frequency`: %g sec' % time_monte_carlo)
+    
+    start = time.time()
+    model.parameters['monte_carlo_strategy'] = 'uniform'
+    model.mutual_information_monte_carlo(num)
+    time_monte_carlo = time.time() - start
+    print('Monte carlo, strat `uniform`: %g sec' % time_monte_carlo)
     
     
             
