@@ -18,8 +18,9 @@ class ReceptorLibraryNumeric(object):
     """ represents a single receptor library """
     
     parameters_default = {
-        'monte_carlo_steps': 10000,  #< default number of monte carlo steps
-        'max_num_receptors': 28,     #< prevents memory overflows   
+        'monte_carlo_steps': 10000, #< default number of monte carlo steps
+        'max_num_receptors': 28,    #< prevents memory overflows
+        'random_seed': None,        #< seed for the random number generator    
     }
     
 
@@ -44,7 +45,7 @@ class ReceptorLibraryNumeric(object):
         
         assert num_receptors <= self.parameters['max_num_receptors']
         
-        np.random.seed()
+        np.random.seed(self.parameters['random_seed'])
         self.choose_sensitivites()
 
 
