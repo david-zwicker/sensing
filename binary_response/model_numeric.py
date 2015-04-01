@@ -12,9 +12,11 @@ import multiprocessing as mp
 
 import numpy as np
 
+from .model_base import ReceptorLibraryBase
 
 
-class ReceptorLibraryNumeric(object):
+
+class ReceptorLibraryNumeric(ReceptorLibraryBase):
     """ represents a single receptor library """
     
     parameters_default = {
@@ -32,19 +34,15 @@ class ReceptorLibraryNumeric(object):
         the number of substrates it can respond to, the weights `hs` of the 
         substrates, and the fraction `frac` of substrates a single receptor
         responds to """
-        assert len(hs) == num_substrates
-        assert num_receptors < 63 #< prevent integer overflow
-        
-        self.Ns = num_substrates
-        self.Nr = num_receptors
-        self.hs = hs
-        self.frac = frac
-        
+        super(ReceptorLibraryNumeric, self).__init__(num_substrates,
+                                                     num_receptors, hs, frac)        
+
         # set the internal parameters
         self.parameters = self.parameters_default.copy()
         if parameters is not None:
             self.parameters.update(parameters)
         
+        assert num_receptors < 63 #< prevent integer overflow
         assert num_receptors <= self.parameters['max_num_receptors']
         
         np.random.seed(self.parameters['random_seed'])
