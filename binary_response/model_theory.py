@@ -26,8 +26,8 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
     def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        assert len(np.unique(self.hs)) == 1
-        h = self.hs[0]
+        assert len(np.unique(self._hs)) == 1
+        h = self._hs[0]
         
         if self.frac == 0:
             return 0
@@ -53,7 +53,7 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
     def mutual_information(self):
         """ return a theoretical estimate of the mutual information between
         input and output """
-        assert len(np.unique(self.hs)) == 1
+        assert len(np.unique(self._hs)) == 1
         
         # probability that a single receptor is activated
         p1 = self.activity_single()
@@ -88,10 +88,9 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
         where all h are the same. The estimate relies on an approximation that
         all receptors are independent and is thus independent of the number of 
         receptors. The estimate is thus only good in the limit of low Nr """
-        assert len(np.unique(self.hs)) == 1
+        assert len(np.unique(self._hs)) == 1
         
         Ns2 = 2**(1/self.Ns)
-        eh = np.exp(self.hs[0])
-        return (Ns2 - 1)/Ns2 * (1 + eh)/eh
+        return (Ns2 - 1)/Ns2 / self.substrate_probability[0]
     
     

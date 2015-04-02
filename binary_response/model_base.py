@@ -24,28 +24,44 @@ class ReceptorLibraryBase(object):
         self.Ns = num_substrates
         self.Nr = num_receptors
         if hs is None:
-            self.hs = np.zeros(self.Ns) 
+            self.commonness = np.zeros(self.Ns) 
         else:
             assert len(hs) == self.Ns
-            self.hs = np.array(hs)
+            self.commonness = np.array(hs)
         self.frac = frac
 
     
     @property
     def commonness(self):
         """ return the commonness vector """
-        return self.hs
+        return self._hs
     
     @commonness.setter
-    def commonness(self, value):
-        assert len(value) == self.Ns
-        self.hs = value       
+    def commonness(self, hs):
+        """ sets the commonness and the associated substrate probability """
+        if len(hs) != self.Ns:
+            raise ValueError('Length of the commonness vector must match the '
+                             'number of substrates.')
+        self._hs = hs
     
     
     @property
     def substrate_probability(self):
         """ return the probability of finding each substrate """
-        return np.exp(self.hs)/(1 + np.exp(self.hs))
+        return 1/(1 + np.exp(-self._hs))
+    
+    @substrate_probability.setter
+    def substrate_probability(self, ps):
+        """ sets the substrate probability and the associated commonness """
+        if len(ps) != self.Ns:
+            raise ValueError('Length of the probability vector must match the '
+                             'number of substrates.')
+        if np.any(ps < 0) or np.any(ps > 1):
+            raise ValueError('All probabilities must be within [0, 1]')
+        
+        with np.errstate(all='ignore'):
+            # self._hs = np.log(ps/(1 + ps))
+            self._hs = np.log(ps) - np.log1p(-ps)
             
             
     def mixture_size_distribution(self):
@@ -53,11 +69,10 @@ class ReceptorLibraryBase(object):
         number of components. Returns an array of length Ns + 1 of probabilities
         for finding mixtures with the number of components given by the index
         into the array """
-        # calculate the probability of seeing each substrate independently
-        prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
         res = np.zeros(self.Ns + 1)
         res[0] = 1
-        for k, p in enumerate(prob_h, 1):
+        # iterate over each substrate and consider its individual probability
+        for k, p in enumerate(self.substrate_probability, 1):
 #             r = res[:k].copy()
 #             res[:k] *= 1 - p  #< substrate not in the mixture 
 #             res[1:k+1] += r*p #< substrate in the mixture
@@ -72,10 +87,9 @@ class ReceptorLibraryBase(object):
     def mixture_size_statistics(self):
         """ calculates the mean and the standard deviation of the number of
         components in mixtures """
-        exp_h = np.exp(self.hs)
-        denom = 1 + exp_h
-        l_mean = np.sum(exp_h/denom)
-        l_var = np.sum(exp_h/denom**2)
+        prob_s = self.substrate_probability
+        l_mean = np.sum(prob_s)
+        l_var = np.sum(prob_s/(1 + np.exp(self._hs)))
         
         return l_mean, np.sqrt(l_var)
     
@@ -93,42 +107,33 @@ class ReceptorLibraryBase(object):
             `geometric`: the probability of substrates decreases by a factor of
                 `alpha` from each substrate to the next.        
         """
-        self.hs = np.empty(self.Ns)
-        
         if scheme == 'const':
             # all substrates are equally likely
-            self.hs[:] = np.log(mean_mixture_size/(self.Ns- mean_mixture_size))
+            ps = np.full(self.Ns, mean_mixture_size/self.Ns)
         
         elif scheme == 'single':
             # the first substrate has a different commonness than the others
+            ps = np.empty(self.Ns)
             if 'p1' in kwargs:
-                p1 = kwargs['p1']
-                p0 = (mean_mixture_size - p1) / (self.Ns - 1)
+                # use the given probability for the first substrate
+                ps[0] = kwargs['p1']
+                ps[1:] = (mean_mixture_size - ps[0]) / (self.Ns - 1)
                  
             elif 'p_ratio' in kwargs:
+                # use the given ratio between the first and the other substrates
                 ratio = kwargs['p_ratio']
                 denom = self.Ns + ratio - 1
-                p1 = mean_mixture_size * ratio / denom
-                p0 = mean_mixture_size / denom
+                ps[0] = mean_mixture_size * ratio / denom
+                ps[1:] = mean_mixture_size / denom
                 
             else:
                 raise ValueError('Either `p1` or `p_ratio` must be given')
-                
-            assert 0 <= p1 <= 1 and 0 <= p0 <= 1
-            
-            if p1 == 0:
-                self.hs[0] = -99
-            elif p1 == 1:
-                self.hs[0] = 99
-            else:
-                self.hs[0] = np.log(p1/(1 - p1))
-                
-            self.hs[1:] = np.log(p0/(1 - p0))
+
             
         elif scheme == 'geometric':
             # substrates have geometrically decreasing commonness 
             alpha = kwargs.pop('alpha', 0.9)
-            
+
             if alpha == 1:
                 p0 = mean_mixture_size/self.Ns
             else:
@@ -140,12 +145,14 @@ class ReceptorLibraryBase(object):
                                  'is %g for alpha=%g'
                                  % (mean_mixture_size, alpha))
                 
-            i = np.arange(1, self.Ns + 1)
-            self.hs = np.log(p0 * alpha**i/(alpha - p0 * alpha**i))
+            ps = p0 * alpha**np.arange(self.Ns)
             
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
-            
+        
+        # set the probability which also calculates the commonness
+        self.substrate_probability = ps
+
 
         
 def test_consistency():
@@ -164,7 +171,11 @@ def test_consistency():
     assert np.allclose(p_m, model.mixture_size_distribution())
 
     # test random commonness and the associated distribution
-    model.hs = np.random.random(size=Ns)
+    hs = np.random.random(size=Ns)
+    model.commonness = hs
+    assert np.allclose(hs, model.commonness)
+    model.substrate_probability = model.substrate_probability
+    assert np.allclose(hs, model.commonness)
     dist = model.mixture_size_distribution()
     assert np.allclose(dist.sum(), 1)
     ks = np.arange(0, Ns + 1)

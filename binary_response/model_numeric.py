@@ -36,11 +36,11 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     """ represents a single receptor library """
     
     parameters_default = {
+        'max_num_receptors': 28,    #< prevents memory overflows
+        'random_seed': None,        #< seed for the random number generator
+        'sensitivity_matrix': None, #< will be calculated if not given
         'monte_carlo_steps': 10000, #< default number of monte carlo steps
         'monte_carlo_strategy': 'frequency',
-        'max_num_receptors': 28,    #< prevents memory overflows
-        'sensitivity_matrix': None, #< will be calculated if not given
-        'random_seed': None,        #< seed for the random number generator
         'anneal_Tmax': 1e0,         #< Max (starting) temperature for annealing
         'anneal_Tmin': 1e-3,        #< Min (ending) temperature for annealing
         'verbosity': 1,             #< verbosity level    
@@ -61,7 +61,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         if parameters is not None:
             self.parameters.update(parameters)
         
-        assert num_receptors < 63 #< prevent integer overflow
+        # prevent integer overflow in collecting activity patterns
+        assert num_receptors < 63 
         assert num_receptors <= self.parameters['max_num_receptors']
         
         np.random.seed(self.parameters['random_seed'])
@@ -74,7 +75,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         it by calling the __init__ method with these arguments """
         return {'num_substrates': self.Ns,
                 'num_receptors': self.Nr,
-                'hs': self.hs,
+                'hs': self._hs,
                 'frac': self.frac,
                 'parameters': self.parameters}
 
@@ -109,13 +110,12 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         if num is None:
             num = int(self.parameters['monte_carlo_steps'])        
     
-        # calculate the probability of seeing each substrate independently
-        prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
-        
+        prob_s = self.substrate_probability
+    
         count_a = np.zeros(self.Nr)
         for _ in xrange(num):
             # choose a mixture vector according to substrate probabilities
-            m = (np.random.random(self.Ns) < prob_h)
+            m = (np.random.random(self.Ns) < prob_s)
             
             # get the associated output ...
             a = np.dot(self.sens, m).astype(np.bool)
@@ -130,8 +130,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         mixtures """
         base = 2 ** np.arange(self.Nr-1, -1, -1)
 
-        # calculate the probability of seeing each substrate independently
-        prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
+        prob_s = self.substrate_probability
 
         # prob_a contains the probability of finding activity a as an output.
         prob_a = np.zeros(2**self.Nr)
@@ -143,7 +142,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
 
             # probability of finding this substrate
             ma = np.array(m, np.bool)
-            pm = np.prod(prob_h[ma]) * np.prod(1 - prob_h[~ma])
+            pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
             prob_a[a] += pm
         
         # calculate the mutual information
@@ -162,10 +161,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             num = int(self.parameters['monte_carlo_steps'])
                 
         base = 2 ** np.arange(self.Nr-1, -1, -1)
+        prob_s = self.substrate_probability
 
-        # calculate the probability of seeing each substrate independently
-        prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
-        
         strategy = self.parameters['monte_carlo_strategy']
         if strategy == 'frequency':
             # sample mixtures according to the probabilities of finding
@@ -173,7 +170,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             count_a = np.zeros(2**self.Nr)
             for _ in xrange(num):
                 # choose a mixture vector according to substrate probabilities
-                m = (np.random.random(self.Ns) < prob_h)
+                m = (np.random.random(self.Ns) < prob_s)
                 
                 # get the associated output ...
                 a = np.dot(self.sens, m).astype(np.bool)
@@ -202,7 +199,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
 
                 # probability of finding this substrate
                 ma = np.array(m, np.bool)
-                pm = np.prod(prob_h[ma]) * np.prod(1 - prob_h[~ma])
+                pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
                 prob_a[a] += pm
                 
             # normalize the probabilities    
@@ -345,6 +342,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                 if ret_info:
                     info['values'].append(value)
 
+        # sort the best state and store it in the current object
         state_best = self.sort_sensitivities(state_best)
         self.sens = state_best.copy()
 
@@ -371,8 +369,13 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         if self.parameters['verbosity'] == 0:
             annealer.updates = 0
 
-
+        # do the optimization
         MI, state = annealer.optimize()
+
+        # sort the best state and store it in the current object
+        state = self.sort_sensitivities(state)
+        self.sens = state.copy()
+        
         if ret_info:
             return MI, state, annealer.info
         else:
@@ -423,7 +426,7 @@ class ReceptorOptimizerAnnealer(Annealer):
         self.info['states_considered'] = self.steps
         self.info['performance'] = self.steps / self.info['total_time']
         
-        return -energy_best, state_best    
+        return -energy_best, state_best
    
    
    
