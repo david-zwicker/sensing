@@ -93,25 +93,5 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
         Ns2 = 2**(1/self.Ns)
         eh = np.exp(self.hs[0])
         return (Ns2 - 1)/Ns2 * (1 + eh)/eh
-
-
-
-def test_consistency():
-    """ does some simple consistency tests """
-    # construct random model
-    Ns = np.random.randint(10, 20)
-    Nr = np.random.randint(2, 6)
-    hval = np.random.random() - 0.5
-    frac = np.random.random()
-    model = ReceptorLibraryTheory(Ns, Nr, [hval]*Ns, frac)
     
-    # probability of having d_s components in a mixture
-    d_s = np.arange(0, Ns + 1)
-    p_m = scipy.misc.comb(Ns, d_s) * np.exp(hval*d_s)/(1 + np.exp(hval))**Ns
     
-    assert np.allclose(p_m, model.mixture_size_distribution())
-
-
-
-if __name__ == '__main__':
-    test_consistency()
