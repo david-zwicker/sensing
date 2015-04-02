@@ -81,25 +81,49 @@ class ReceptorLibraryBase(object):
     
     
     def set_commonness(self, scheme='const', mean_mixture_size=1, **kwargs):
-        """ picks a commonness vector according to the supplied parameters """
+        """ picks a commonness vector according to the supplied parameters:
+        `mean_mixture_size` is determines the mean number of components in each
+        mixture. The value of the commonness vector are furthermore influenced  
+        by the `scheme`, which can be any of the following:
+            `const`: all substrates are equally probable
+            `single`: the first substrate has a different probability, which can
+                either be specified directly by supplying the parameter `p1` or
+                the `ratio` between p1 and the probabilities of the other
+                substrates can be specified.
+            `geometric`: the probability of substrates decreases by a factor of
+                `alpha` from each substrate to the next.        
+        """
         self.hs = np.empty(self.Ns)
         
         if scheme == 'const':
             # all substrates are equally likely
             self.hs[:] = np.log(mean_mixture_size/(self.Ns- mean_mixture_size))
         
-        elif scheme == 'singular':
-            # the first substrate has a different commonness than the others 
-            p1 = kwargs.pop('p1', 0.5)
-            assert 0 <= p1 <= 1
+        elif scheme == 'single':
+            # the first substrate has a different commonness than the others
+            if 'p1' in kwargs:
+                p1 = kwargs['p1']
+                p0 = (mean_mixture_size - p1) / (self.Ns - 1)
+                 
+            elif 'p_ratio' in kwargs:
+                ratio = kwargs['p_ratio']
+                denom = self.Ns + ratio - 1
+                p1 = mean_mixture_size * ratio / denom
+                p0 = mean_mixture_size / denom
+                
+            else:
+                raise ValueError('Either `p1` or `p_ratio` must be given')
+                
+            assert 0 <= p1 <= 1 and 0 <= p0 <= 1
+            
             if p1 == 0:
                 self.hs[0] = -99
             elif p1 == 1:
                 self.hs[0] = 99
             else:
                 self.hs[0] = np.log(p1/(1 - p1))
-            self.hs[1:] = np.log((p1 - mean_mixture_size) / 
-                                 (1 + mean_mixture_size - self.Ns - p1))
+                
+            self.hs[1:] = np.log(p0/(1 - p0))
             
         elif scheme == 'geometric':
             # substrates have geometrically decreasing commonness 
@@ -152,12 +176,14 @@ def test_consistency():
     # test setting the commonness
     mean_mixture_size = np.random.randint(1, 10)
     commoness_schemes = [('const', {}),
-                         ('singular', {'p0': np.random.random()}),
+                         ('single', {'p1': np.random.random()}),
+                         ('single', {'p_ratio': 0.1 + np.random.random()}),
                          ('geometric', {'alpha':0.9 + 0.1*np.random.random()})]
     
     for scheme, params in commoness_schemes:
         model.set_commonness(scheme, mean_mixture_size, **params)
-        assert np.allclose(model.mixture_size_statistics()[0], mean_mixture_size)
+        assert np.allclose(model.mixture_size_statistics()[0],
+                           mean_mixture_size)
     
     
 
