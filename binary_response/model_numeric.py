@@ -366,8 +366,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         # prepare the class that manages the simulated annealing
         annealer = ReceptorOptimizerAnnealer(self, target)
         annealer.steps = steps
-        annealer.Tmax = self.parmaeters['anneal_Tmax']
-        annealer.Tmin = self.parmaeters['anneal_Tmin']
+        annealer.Tmax = self.parameters['anneal_Tmax']
+        annealer.Tmin = self.parameters['anneal_Tmin']
         if self.parameters['verbosity'] == 0:
             annealer.updates = 0
 
