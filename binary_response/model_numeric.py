@@ -85,6 +85,20 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             assert self.sens.shape == shape
             
             
+    def sort_sensitivities(self, sensitivities=None):
+        """ return the sorted `sensitivities` or sorts the internal
+        sensitivities in place """
+        sens = self.sens if sensitivities is None else sensitivities
+
+        data = [(sum(item), list(item)) for item in sens]
+        sens = np.array([item[1] for item in sorted(data)])
+
+        if sensitivities is None:
+            self.sens = sens
+        else:
+            return sens
+            
+            
     def activity_single_monte_carlo(self, num=None):
         """ calculates the average activity of each receptor """ 
         if num is None:
@@ -294,8 +308,10 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                 if ret_info:
                     info['values'].append(value)
 
+        state_best = self.sort_sensitivities(state_best)
+
         if ret_info:
-            return value_best, state_best, info['values']
+            return value_best, state_best, info
         else:
             return value_best, state_best
 
