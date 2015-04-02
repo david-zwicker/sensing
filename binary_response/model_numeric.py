@@ -41,6 +41,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         'max_num_receptors': 28,    #< prevents memory overflows
         'sensitivity_matrix': None, #< will be calculated if not given
         'random_seed': None,        #< seed for the random number generator
+        'anneal_Tmax': 1e0,         #< Max (starting) temperature for annealing
+        'anneal_Tmin': 1e-3,        #< Min (ending) temperature for annealing
         'verbosity': 1,             #< verbosity level    
     }
     
@@ -364,8 +366,11 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         # prepare the class that manages the simulated annealing
         annealer = ReceptorOptimizerAnnealer(self, target)
         annealer.steps = steps
+        annealer.Tmax = self.parmaeters['anneal_Tmax']
+        annealer.Tmin = self.parmaeters['anneal_Tmin']
         if self.parameters['verbosity'] == 0:
             annealer.updates = 0
+
 
         MI, state = annealer.optimize()
         if ret_info:
@@ -384,8 +389,6 @@ def _ReceptorLibrary_mp_calc(args):
    
 class ReceptorOptimizerAnnealer(Annealer):
     """ class that manages the simulated annealing """
-    Tmax =  1e1     # Max (starting) temperature
-    Tmin =  1e-2    # Min (ending) temperature
     updates = 20    # Number of outputs
     copy_strategy = 'method'
 
