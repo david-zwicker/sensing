@@ -30,6 +30,23 @@ class ReceptorLibraryBase(object):
             self.hs = np.array(hs)
         self.frac = frac
 
+    
+    @property
+    def commonness(self):
+        """ return the commonness vector """
+        return self.hs
+    
+    @commonness.setter
+    def commonness(self, value):
+        assert len(value) == self.Ns
+        self.hs = value       
+    
+    
+    @property
+    def substrate_probability(self):
+        """ return the probability of finding each substrate """
+        return np.exp(self.hs)/(1 + np.exp(self.hs))
+            
             
     def mixture_size_distribution(self):
         """ calculates the probabilities of finding a mixture with a given
@@ -75,7 +92,12 @@ class ReceptorLibraryBase(object):
             # the first substrate has a different commonness than the others 
             p1 = kwargs.pop('p1', 0.5)
             assert 0 <= p1 <= 1
-            self.hs[0] = np.log(p1/(1 - p1))
+            if p1 == 0:
+                self.hs[0] = -99
+            elif p1 == 1:
+                self.hs[0] = 99
+            else:
+                self.hs[0] = np.log(p1/(1 - p1))
             self.hs[1:] = np.log((p1 - mean_mixture_size) / 
                                  (1 + mean_mixture_size - self.Ns - p1))
             

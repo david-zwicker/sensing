@@ -2,13 +2,27 @@
 Created on Mar 27, 2015
 
 @author: zwicker
+
+General note on multiprocessing
+-------------------------------
+Some of the functions support multiprocessing to distribute a calculation among
+several processors. If this is used, it is best practice to safe-guard the main
+program with the following construct
+
+if __name__ == '__main__': 
+    <main code of the program>
+
+This is also explained in
+https://docs.python.org/2/library/multiprocessing.html#using-a-pool-of-workers
 '''
 
 from __future__ import division
 
+import copy
 import itertools
 import time
 import multiprocessing as mp
+import random
 
 import numpy as np
 
@@ -28,7 +42,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     }
     
 
-    def __init__(self, num_substrates, num_receptors, hs, frac=1,
+    def __init__(self, num_substrates, num_receptors, hs=None, frac=1,
                  parameters=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the weights `hs` of the 
@@ -53,7 +67,11 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
-        return (self.Ns, self.Nr, self.hs, self.frac, self.parameters)
+        return {'num_substrates': self.Ns,
+                'num_receptors': self.Nr,
+                'hs': self.hs,
+                'frac': self.frac,
+                'parameters': self.parameters}
 
 
     def choose_sensitivites(self):
@@ -65,34 +83,6 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         else:
             self.sens = self.parameters['sensitivity_matrix']
             assert self.sens.shape == shape
-            
-            
-    def mixture_size_distribution(self):
-        """ calculates the probabilities of finding a mixture with a given
-        number of components. Returns an array of length Ns + 1 of probabilities
-        for finding mixtures with the number of components given by the index
-        into the array """
-        # calculate the probability of seeing each substrate independently
-        prob_h = np.exp(self.hs)/(1 + np.exp(self.hs))
-        res = np.zeros(self.Ns + 1)
-        res[0] = 1
-        for k, p in enumerate(prob_h, 1):
-            r = res[:k].copy()
-            res[:k] *= 1 - p  #< substrate not in the mixture 
-            res[1:k+1] += r*p #< substrate in the mixture
-            
-        return res
-            
-            
-    def mixture_size_statistics(self):
-        """ calculates the mean and the standard deviation of the number of
-        components in mixtures """
-        exp_h = np.exp(self.hs)
-        denom = 1 + exp_h
-        l_mean = np.sum(exp_h/denom)
-        l_var = np.sum(exp_h/denom**2)
-        
-        return l_mean, np.sqrt(l_var)
             
             
     def activity_single_monte_carlo(self, num=None):
@@ -221,9 +211,10 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             arguments = (self.init_arguments, method)
             pool = mp.Pool()
             result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
+            
         else:
             # run the calculations in this process
-            result = [getattr(ReceptorLibraryNumeric(*self.init_arguments),
+            result = [getattr(ReceptorLibraryNumeric(**self.init_arguments),
                               method)()
                       for _ in xrange(avg_num)]
     
@@ -233,12 +224,86 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return result
         else:
             return result.mean(axis=0), result.std(axis=0)
+        
+        
+    def optimize_library(self, target, steps=100, multiprocessing=False,
+                         ret_info=False):
+        """ optimizes the current library to maximize the result of the target
+        function. By default, the function returns the best value and the
+        associated sensitivity matrix as result.        
+        
+        `steps` determines how many optimization steps we try 
+        `multiprocessing` is a flag deciding whether multiple processes are used
+            to calculate the result. Note that this has an overhead and might
+            actually decrease overall performance for small problems
+        `ret_info` determines whether extra information is returned from the
+            optimization 
+        """
+        # get the target function to call
+        target_function = getattr(self, target)
+
+        # initialize the optimizer
+        value = target_function()
+        value_best, state_best = value, self.sens.copy()
+        if ret_info:
+            info = {'values': []}
+        
+        if multiprocessing:
+            # run the calculations in multiple processes
+            pool = mp.Pool()
+            pool_size = len(pool._pool)
+            for _ in xrange(steps // pool_size):
+                joblist = []
+                init_arguments = self.init_arguments
+                for _ in xrange(pool_size):
+                    # modify the current state and add it to the job list
+                    i = random.randrange(self.sens.size)
+                    self.sens.flat[i] = 1 - self.sens.flat[i]
+                    init_arguments['parameters']['sensitivity_matrix'] = self.sens
+                    joblist.append((copy.deepcopy(init_arguments), target))
+                    self.sens.flat[i] = 1 - self.sens.flat[i]
+                    
+                # run all the jobs
+                results = pool.map(_ReceptorLibrary_mp_calc, joblist)
+                
+                # find the best result                
+                res_best = np.argmax(results)
+                if results[res_best] > value_best:
+                    value_best = results[res_best]
+                    state_best = joblist[res_best][0]['parameters']['sensitivity_matrix']
+                    # use the best state as a basis for the next iteration
+                    self.sens = state_best
+                if ret_info:
+                    info['values'].append(results[res_best])
+                
+        else:  
+            # run the calculations in this process
+            for _ in xrange(steps):
+                # modify the current state
+                i = random.randrange(self.sens.size)
+                self.sens.flat[i] = 1 - self.sens.flat[i]
+    
+                # initialize the optimizer
+                value = target_function()
+                if value > value_best:
+                    # save the state as the new best value
+                    value_best, state_best = value, self.sens.copy()
+                else:
+                    # undo last change
+                    self.sens.flat[i] = 1 - self.sens.flat[i]
+                if ret_info:
+                    info['values'].append(value)
+
+        if ret_info:
+            return value_best, state_best, info['values']
+        else:
+            return value_best, state_best
 
 
 
 def _ReceptorLibrary_mp_calc(args):
     """ helper function for multiprocessing """
-    obj = ReceptorLibraryNumeric(*args[0])
+    obj = ReceptorLibraryNumeric(**args[0])
     return getattr(obj, args[1])()
 
    
