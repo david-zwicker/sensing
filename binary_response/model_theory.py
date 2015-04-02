@@ -83,14 +83,29 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
             return val2
         
         
-    def frac_optimal(self):
+    def frac_optimal(self, assume_homogeneous=False):
         """ return the estimated optimal activity fraction for the simple case
         where all h are the same. The estimate relies on an approximation that
         all receptors are independent and is thus independent of the number of 
-        receptors. The estimate is thus only good in the limit of low Nr """
-        assert len(np.unique(self._hs)) == 1
+        receptors. The estimate is thus only good in the limit of low Nr.
         
+        If `assume_homogeneous` is True, the calculation is also done in the
+            case of heterogeneous mixtures, where the probability of the
+            homogeneous system with the same average number of substrates is
+            used instead.
+        """
+        if assume_homogeneous:
+            # calculate the idealized substrate probability
+            m_mean = self.mixture_size_statistics()[0]
+            p0 = m_mean / self.Ns
+             
+        else:
+            # check whether the mixtures are all homogeneous
+            assert len(np.unique(self._hs)) == 1
+            p0 = self.substrate_probability[0]
+            
+        # calculate the fraction for the homogeneous case
         Ns2 = 2**(1/self.Ns)
-        return (Ns2 - 1)/Ns2 / self.substrate_probability[0]
+        return (Ns2 - 1)/(Ns2 * p0)
     
     
