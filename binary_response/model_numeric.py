@@ -26,6 +26,8 @@ import random
 
 import numpy as np
 
+from simanneal import Annealer
+
 from .model_base import ReceptorLibraryBase
 
 
@@ -38,7 +40,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         'monte_carlo_strategy': 'frequency',
         'max_num_receptors': 28,    #< prevents memory overflows
         'sensitivity_matrix': None, #< will be calculated if not given
-        'random_seed': None,        #< seed for the random number generator    
+        'random_seed': None,        #< seed for the random number generator
+        'verbosity': 1,             #< verbosity level    
     }
     
 
@@ -240,13 +243,45 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return result.mean(axis=0), result.std(axis=0)
         
         
-    def optimize_library(self, target, steps=100, multiprocessing=False,
+    def optimize_library(self, target, method='descent', steps=100, 
                          ret_info=False):
         """ optimizes the current library to maximize the result of the target
         function. By default, the function returns the best value and the
         associated sensitivity matrix as result.        
         
         `steps` determines how many optimization steps we try 
+        `ret_info` determines whether extra information is returned from the
+            optimization 
+
+        `method` determines the method used for optimization. Supported are
+            `descent`: simple gradient descent for `steps` number of steps
+            `descent_parallel`: multiprocessing gradient descent. Note that this
+                has an overhead and might actually decrease overall performance
+                for small problems.
+            `anneal`: simulated annealing
+        """
+        if method == 'descent':
+            return self.optimize_library_descent(target, steps,
+                                                 multiprocessing=False,
+                                                 ret_info=ret_info)
+        elif method == 'descent_parallel':
+            return self.optimize_library_descent(target, steps,
+                                                 multiprocessing=True,
+                                                 ret_info=ret_info)
+        elif method == 'anneal':
+            return self.optimize_library_anneal(target, steps, ret_info)
+            
+        else:
+            raise ValueError('Unknown optimization method `%s`' % method)
+            
+        
+    def optimize_library_descent(self, target, steps=100, multiprocessing=False, 
+                                 ret_info=False):
+        """ optimizes the current library to maximize the result of the target
+        function using gradient descent. By default, the function returns the
+        best value and the associated sensitivity matrix as result.        
+        
+        `steps` determines how many optimization steps we try
         `multiprocessing` is a flag deciding whether multiple processes are used
             to calculate the result. Note that this has an overhead and might
             actually decrease overall performance for small problems
@@ -309,11 +344,34 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                     info['values'].append(value)
 
         state_best = self.sort_sensitivities(state_best)
+        self.sens = state_best.copy()
 
         if ret_info:
             return value_best, state_best, info
         else:
             return value_best, state_best
+        
+    
+    def optimize_library_anneal(self, target, steps, ret_info):
+        """ optimizes the current library to maximize the result of the target
+        function using simulated annealing. By default, the function returns the
+        best value and the associated sensitivity matrix as result.        
+        
+        `steps` determines how many optimization steps we try
+        `ret_info` determines whether extra information is returned from the
+            optimization 
+        """        
+        # prepare the class that manages the simulated annealing
+        annealer = ReceptorOptimizerAnnealer(self, target)
+        annealer.steps = steps
+        if self.parameters['verbosity'] == 0:
+            annealer.updates = 0
+
+        MI, state = annealer.optimize()
+        if ret_info:
+            return MI, state, annealer.info
+        else:
+            return MI, state    
 
 
 
@@ -322,6 +380,48 @@ def _ReceptorLibrary_mp_calc(args):
     obj = ReceptorLibraryNumeric(**args[0])
     return getattr(obj, args[1])()
 
+   
+   
+class ReceptorOptimizerAnnealer(Annealer):
+    """ class that manages the simulated annealing """
+    Tmax =  1e1     # Max (starting) temperature
+    Tmin =  1e-2    # Min (ending) temperature
+    updates = 20    # Number of outputs
+    copy_strategy = 'method'
+
+
+    def __init__(self, model, target):
+        """ initialize the optimizer with a `model` to run and a `target`
+        function to call. """
+        self.info = {}
+        self.model = model
+        self.target_func = getattr(model, target)
+        super(ReceptorOptimizerAnnealer, self).__init__(model.sens)
+   
+   
+    def move(self):
+        """ change a single entry in the sensitivity matrix """   
+        i = random.randrange(self.state.size)
+        self.state.flat[i] = 1 - self.state.flat[i]
+
+      
+    def energy(self):
+        """ returns the energy of the current state """
+        self.model.sens = self.state
+        MI = self.target_func()
+        return -MI
+    
+
+    def optimize(self):
+        """ optimizes the receptors and returns the best receptor set together
+        with the achieved mutual information """
+        state_best, energy_best = self.anneal()
+        self.info['total_time'] = time.time() - self.start    
+        self.info['states_considered'] = self.steps
+        self.info['performance'] = self.steps / self.info['total_time']
+        
+        return -energy_best, state_best    
+   
    
    
 def performance_test(Ns=15, Nr=3, frac=0.5):
