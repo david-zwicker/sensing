@@ -30,6 +30,26 @@ class ReceptorLibraryBase(object):
             self.commonness = np.array(hs)
         self.frac = frac
 
+
+    @property
+    def init_arguments(self):
+        """ return the parameters of the model that can be used to reconstruct
+        it by calling the __init__ method with these arguments """
+        return {'num_substrates': self.Ns,
+                'num_receptors': self.Nr,
+                'hs': self._hs,
+                'frac': self.frac}
+
+
+    @classmethod
+    def create_test_instance(cls):
+        """ creates a test instance used for consistency tests """
+        Ns = np.random.randint(3, 6)
+        Nr = np.random.randint(2, 4)
+        hs = np.random.random(Ns)
+        frac = np.random.random()
+        return cls(Ns, Nr, hs, frac)
+
     
     @property
     def commonness(self):
@@ -42,7 +62,7 @@ class ReceptorLibraryBase(object):
         if len(hs) != self.Ns:
             raise ValueError('Length of the commonness vector must match the '
                              'number of substrates.')
-        self._hs = hs
+        self._hs = np.asarray(hs)
     
     
     @property
@@ -56,6 +76,7 @@ class ReceptorLibraryBase(object):
         if len(ps) != self.Ns:
             raise ValueError('Length of the probability vector must match the '
                              'number of substrates.')
+        ps = np.asarray(ps)
         if np.any(ps < 0) or np.any(ps > 1):
             raise ValueError('All probabilities must be within [0, 1]')
         
@@ -179,27 +200,26 @@ class ReceptorLibraryBase(object):
 def test_consistency():
     """ does some simple consistency tests """
     # construct random model
-    Ns = np.random.randint(10, 30)
-    Nr = np.random.randint(2, 6)
-    hval = np.random.random() - 0.5
-    frac = np.random.random()
-    model = ReceptorLibraryBase(Ns, Nr, [hval]*Ns, frac)
+    model = ReceptorLibraryBase.create_test_instance()
     
     # probability of having d_s components in a mixture for h_i = h
-    d_s = np.arange(0, Ns + 1)
-    p_m = scipy.misc.comb(Ns, d_s) * np.exp(hval*d_s)/(1 + np.exp(hval))**Ns
+    hval = np.random.random() - 0.5
+    model.commonness = [hval] * model.Ns
+    d_s = np.arange(0, model.Ns + 1)
+    p_m = (scipy.misc.comb(model.Ns, d_s)
+           * np.exp(hval*d_s)/(1 + np.exp(hval))**model.Ns)
     
     assert np.allclose(p_m, model.mixture_size_distribution())
 
     # test random commonness and the associated distribution
-    hs = np.random.random(size=Ns)
+    hs = np.random.random(size=model.Ns)
     model.commonness = hs
     assert np.allclose(hs, model.commonness)
     model.substrate_probability = model.substrate_probability
     assert np.allclose(hs, model.commonness)
     dist = model.mixture_size_distribution()
     assert np.allclose(dist.sum(), 1)
-    ks = np.arange(0, Ns + 1)
+    ks = np.arange(0, model.Ns + 1)
     dist_mean = (ks*dist).sum()
     dist_var = (ks*ks*dist).sum() - dist_mean**2 
     assert np.allclose((dist_mean, np.sqrt(dist_var)),
@@ -213,8 +233,8 @@ def test_consistency():
                          ('random_uniform', {})]
     
     for scheme, params in commoness_schemes:
-        mean_mixture_sizes = (np.random.randint(1, Ns//2),
-                              np.random.randint(Ns//2 + 1, Ns))
+        mean_mixture_sizes = (np.random.randint(1, model.Ns//2 + 1),
+                              np.random.randint(1, model.Ns//3 + 1) + model.Ns//2)
         for mean_mixture_size in mean_mixture_sizes:
             model.set_commonness(scheme, mean_mixture_size, **params)
             assert np.allclose(model.mixture_size_statistics()[0],
