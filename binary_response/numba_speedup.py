@@ -67,8 +67,10 @@ def ReceptorLibraryNumeric_mutual_information_brute_force_numba(Ns, Nr, sens,
 def ReceptorLibraryNumeric_mutual_information_brute_force(self):
     """ updates the energy of the `idx_r`-th receptor """
     return ReceptorLibraryNumeric_mutual_information_brute_force_numba(
-        self.Ns, self.Nr, self.sens, prob_s=self.substrate_probability,
-        ak=np.empty(self.Nr, np.uint), prob_a=np.zeros(2**self.Nr)
+        self.Ns, self.Nr, self.sens,
+        self.substrate_probability, #< prob_s
+        np.empty(self.Nr, np.uint), #< ak
+        np.zeros(2**self.Nr) #< prob_a
     )
 
 
