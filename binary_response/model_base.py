@@ -142,10 +142,31 @@ class ReceptorLibraryBase(object):
             if p0 > 1:
                 raise ValueError('It is not possible to choose commonness '
                                  'parameters such that the mean mixture size '
-                                 'is %g for alpha=%g'
-                                 % (mean_mixture_size, alpha))
+                                 'of %d components is %g for alpha=%g'
+                                 % (self.Ns, mean_mixture_size, alpha))
                 
             ps = p0 * alpha**np.arange(self.Ns)
+            
+        elif scheme == 'random_uniform':
+            # substrates have random probability chosen from a uniform dist.
+            if mean_mixture_size <= 0.5*self.Ns:
+                a, b = 0, 2*mean_mixture_size/self.Ns
+            else:
+                a, b = 2*mean_mixture_size/self.Ns - 1, 1
+                
+            # choose random probabilities
+            ps = np.random.uniform(a, b, size=self.Ns)
+            ps_mean = ps.sum()
+            
+            # correct the probabilities to ensure the mean
+            if ps_mean < mean_mixture_size:
+                # increase ps to match mean 
+                ps_c = 1 - ps #< consider the compliment
+                ps_c *= (self.Ns - mean_mixture_size)/(self.Ns - ps_mean)
+                ps = 1 - ps_c
+            else:
+                # decrease ps to match mean
+                ps *= mean_mixture_size/ps_mean
             
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
@@ -158,7 +179,7 @@ class ReceptorLibraryBase(object):
 def test_consistency():
     """ does some simple consistency tests """
     # construct random model
-    Ns = np.random.randint(10, 200)
+    Ns = np.random.randint(10, 30)
     Nr = np.random.randint(2, 6)
     hval = np.random.random() - 0.5
     frac = np.random.random()
@@ -185,16 +206,19 @@ def test_consistency():
                        model.mixture_size_statistics())
     
     # test setting the commonness
-    mean_mixture_size = np.random.randint(1, 10)
     commoness_schemes = [('const', {}),
                          ('single', {'p1': np.random.random()}),
                          ('single', {'p_ratio': 0.1 + np.random.random()}),
-                         ('geometric', {'alpha':0.9 + 0.1*np.random.random()})]
+                         ('geometric', {'alpha': np.random.uniform(0.98, 1)}),
+                         ('random_uniform', {})]
     
     for scheme, params in commoness_schemes:
-        model.set_commonness(scheme, mean_mixture_size, **params)
-        assert np.allclose(model.mixture_size_statistics()[0],
-                           mean_mixture_size)
+        mean_mixture_sizes = (np.random.randint(1, Ns//2),
+                              np.random.randint(Ns//2 + 1, Ns))
+        for mean_mixture_size in mean_mixture_sizes:
+            model.set_commonness(scheme, mean_mixture_size, **params)
+            assert np.allclose(model.mixture_size_statistics()[0],
+                               mean_mixture_size)
     
     
 
