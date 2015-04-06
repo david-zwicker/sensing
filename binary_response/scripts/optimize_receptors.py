@@ -62,10 +62,10 @@ def main():
     parser.add_argument('-d', nargs='+', type=float, required=True,
                         default=argparse.SUPPRESS,
                         help='average number of substrates per mixture')
+    parser.add_argument('-steps', '-s', nargs='+', type=int, default=100000,
+                        help='steps in simulated annealing')
     parser.add_argument('-repeat', '-r', type=int, default=1,
                         help='number of repeats for each parameter set')
-    parser.add_argument('-steps', '-s', type=int, default=100000,
-                        help='steps in simulated annealing')
     parser.add_argument('-parallel', '-p', action='store_true',
                         default=False, help='use multiple processes')
     parser.add_argument('-quite', '-q', action='store_true',
@@ -76,10 +76,10 @@ def main():
     
     # fetch the arguments and build the parameter list
     args = parser.parse_args()
-    arg_list = (args.Ns, args.Nr, args.d, range(args.repeat))
+    arg_list = (args.Ns, args.Nr, args.d, args.steps, range(args.repeat))
     parameter_list = [{'Ns': Ns, 'Nr': Nr, 'd': d,
-                       'steps': args.steps, 'quite': args.quite}
-                      for Ns, Nr, d, _ in itertools.product(*arg_list)]
+                       'steps': steps, 'quite': args.quite}
+                      for Ns, Nr, d, steps, _ in itertools.product(*arg_list)]
         
     # do the optimization
     if args.parallel:

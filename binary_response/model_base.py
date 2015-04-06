@@ -126,7 +126,10 @@ class ReceptorLibraryBase(object):
                 the `ratio` between p1 and the probabilities of the other
                 substrates can be specified.
             `geometric`: the probability of substrates decreases by a factor of
-                `alpha` from each substrate to the next.        
+                `alpha` from each substrate to the next.
+            `linear`: the probability of substrates decreases linearly.
+            `random_uniform`: the probability of substrates is chosen from a
+                uniform distribution with given mean and maximal variance.
         """
         if scheme == 'const':
             # all substrates are equally likely
@@ -167,6 +170,15 @@ class ReceptorLibraryBase(object):
                                  % (self.Ns, mean_mixture_size, alpha))
                 
             ps = p0 * alpha**np.arange(self.Ns)
+            
+        elif scheme == 'linear':
+            # substrates have a linear decreasing probability
+            if mean_mixture_size <= 0.5*self.Ns:
+                a, b = 0, 2*mean_mixture_size/self.Ns
+            else:
+                a, b = 2*mean_mixture_size/self.Ns - 1, 1
+                
+            ps = np.linspace(a, b, self.Ns)
             
         elif scheme == 'random_uniform':
             # substrates have random probability chosen from a uniform dist.
@@ -230,7 +242,8 @@ def test_consistency():
                          ('single', {'p1': np.random.random()}),
                          ('single', {'p_ratio': 0.1 + np.random.random()}),
                          ('geometric', {'alpha': np.random.uniform(0.98, 1)}),
-                         ('random_uniform', {})]
+                         ('linear', {}),
+                         ('random_uniform', {}),]
     
     for scheme, params in commoness_schemes:
         mean_mixture_sizes = (np.random.randint(1, model.Ns//2 + 1),
