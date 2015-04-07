@@ -32,7 +32,8 @@ def optimize_receptors(parameters):
     # setup the numerical model that we use for optimization
     model = ReceptorLibraryNumeric(
         parameters['Ns'], parameters['Nr'], frac=frac,
-        parameters={'verbosity': 0 if parameters['quite'] else 1}
+        parameters={'verbosity': 0 if parameters['quite'] else 1,
+                    'random_seed': parameters['random_seed'],}
     )
     model.set_commonness('random_uniform', parameters['d'])
     
@@ -62,10 +63,12 @@ def main():
     parser.add_argument('-d', nargs='+', type=float, required=True,
                         default=argparse.SUPPRESS,
                         help='average number of substrates per mixture')
-    parser.add_argument('-steps', '-s', nargs='+', type=int, default=100000,
+    parser.add_argument('-steps', '-s', nargs='+', type=int, default=[100000],
                         help='steps in simulated annealing')
     parser.add_argument('-repeat', '-r', type=int, default=1,
                         help='number of repeats for each parameter set')
+    parser.add_argument('-seed', type=int, default=None,
+                        help='seed for the random number generator.')
     parser.add_argument('-parallel', '-p', action='store_true',
                         default=False, help='use multiple processes')
     parser.add_argument('-quite', '-q', action='store_true',
@@ -77,8 +80,8 @@ def main():
     # fetch the arguments and build the parameter list
     args = parser.parse_args()
     arg_list = (args.Ns, args.Nr, args.d, args.steps, range(args.repeat))
-    parameter_list = [{'Ns': Ns, 'Nr': Nr, 'd': d,
-                       'steps': steps, 'quite': args.quite}
+    parameter_list = [{'Ns': Ns, 'Nr': Nr, 'd': d, 'steps': steps,
+                       'random_seed': args.seed, 'quite': args.quite}
                       for Ns, Nr, d, steps, _ in itertools.product(*arg_list)]
         
     # do the optimization
