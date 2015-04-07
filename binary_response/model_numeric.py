@@ -36,14 +36,14 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     """ represents a single receptor library """
     
     parameters_default = {
-        'max_num_receptors': 28,    #< prevents memory overflows
-        'random_seed': None,        #< seed for the random number generator
-        'sensitivity_matrix': None, #< will be calculated if not given
-        'monte_carlo_steps': 10000, #< default number of monte carlo steps
+        'max_num_receptors': 28,     #< prevents memory overflows
+        'random_seed': None,         #< seed for the random number generator
+        'sensitivity_matrix': None,  #< will be calculated if not given
+        'monte_carlo_steps': 100000, #< default number of monte carlo steps
         'monte_carlo_strategy': 'frequency',
-        'anneal_Tmax': 1e0,         #< Max (starting) temperature for annealing
-        'anneal_Tmin': 1e-3,        #< Min (ending) temperature for annealing
-        'verbosity': 1,             #< verbosity level    
+        'anneal_Tmax': 1e0,          #< Max (starting) temperature for annealing
+        'anneal_Tmin': 1e-3,         #< Min (ending) temperature for annealing
+        'verbosity': 1,              #< verbosity level    
     }
     
 

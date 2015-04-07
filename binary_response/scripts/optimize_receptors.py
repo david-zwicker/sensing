@@ -35,7 +35,7 @@ def optimize_receptors(parameters):
         parameters={'verbosity': 0 if parameters['quite'] else 1,
                     'random_seed': parameters['random_seed'],}
     )
-    model.set_commonness('random_uniform', parameters['d'])
+    model.set_commonness(parameters['scheme'], parameters['d'])
     
     # optimize
     result = model.optimize_library('mutual_information_brute_force',
@@ -67,6 +67,9 @@ def main():
                         help='steps in simulated annealing')
     parser.add_argument('-repeat', '-r', type=int, default=1,
                         help='number of repeats for each parameter set')
+    parser.add_argument('-scheme', type=str, default='random_uniform',
+                        choices=['const', 'linear', 'random_uniform'],
+                        help='scheme for picking substrate probabilities')
     parser.add_argument('-seed', type=int, default=None,
                         help='seed for the random number generator.')
     parser.add_argument('-parallel', '-p', action='store_true',
@@ -81,7 +84,8 @@ def main():
     args = parser.parse_args()
     arg_list = (args.Ns, args.Nr, args.d, args.steps, range(args.repeat))
     parameter_list = [{'Ns': Ns, 'Nr': Nr, 'd': d, 'steps': steps,
-                       'random_seed': args.seed, 'quite': args.quite}
+                       'scheme': args.scheme, 'random_seed': args.seed,
+                       'quite': args.quite}
                       for Ns, Nr, d, steps, _ in itertools.product(*arg_list)]
         
     # do the optimization
