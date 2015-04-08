@@ -14,6 +14,8 @@ from .model_base import ReceptorLibraryBase
 
 
 def binom(N, p):
+    """ calculate the probability mass function for the binomial distribution
+    of `N` experiments with individual probability `p` """
     k = np.arange(0, N + 1)
     return scipy.misc.comb(N, k) * p**k * (1 - p)**(N - k)
 

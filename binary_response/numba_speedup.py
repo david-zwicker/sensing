@@ -7,6 +7,9 @@ Module that monkey patches classes in other modules with equivalent, but faster
 methods.
 '''
 
+#TODO: implement ReceptorLibraryNumeric_mutual_information_monte_carlo_numba
+# This should be done after numba 0.18 was released, which supports np.random.
+
 from __future__ import division
 
 import functools

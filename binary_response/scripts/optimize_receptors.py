@@ -27,11 +27,11 @@ def optimize_receptors(parameters):
     # get an estimate of the optimal response fraction
     theory = ReceptorLibraryTheory(parameters['Ns'], parameters['Nr'])
     theory.set_commonness('const', parameters['d'])
-    frac = theory.frac_optimal()
+    frac_opt = theory.frac_optimal()
     
     # setup the numerical model that we use for optimization
     model = ReceptorLibraryNumeric(
-        parameters['Ns'], parameters['Nr'], frac=frac,
+        parameters['Ns'], parameters['Nr'], frac=frac_opt,
         parameters={'verbosity': 0 if parameters['quite'] else 1,
                     'random_seed': parameters['random_seed'],}
     )
@@ -89,7 +89,7 @@ def main():
                       for Ns, Nr, d, steps, _ in itertools.product(*arg_list)]
         
     # do the optimization
-    if args.parallel:
+    if args.parallel and len(parameter_list) > 1:
         results = mp.Pool().map(optimize_receptors, parameter_list)
     else:
         results = map(optimize_receptors, parameter_list)
