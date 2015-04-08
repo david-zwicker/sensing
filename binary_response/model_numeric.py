@@ -105,6 +105,23 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         else:
             return sens
             
+
+    def activity_single_brute_force(self):
+        """ calculates the average activity of each receptor """
+        prob_s = self.substrate_probability
+
+        prob_a = np.zeros(self.Nr)
+        for m in itertools.product((0, 1), repeat=self.Ns):
+            # get the associated output ...
+            a = np.dot(self.sens, m).astype(np.bool)
+
+            # probability of finding this substrate
+            ma = np.array(m, np.bool)
+            pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
+            prob_a[a] += pm
+        
+        return prob_a
+
             
     def activity_single_monte_carlo(self, num=None):
         """ calculates the average activity of each receptor """ 

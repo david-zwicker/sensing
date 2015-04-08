@@ -24,10 +24,55 @@ import model_numeric  # @UnusedImport
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
 
 
+
+@numba.jit(nopython=NUMBA_NOPYTHON)
+def ReceptorLibraryNumeric_activity_single_brute_force_numba(Ns, Nr, sens,
+                                                             prob_s, ak, prob_a):
+    """ calculates the average activity of each receptor """
+    # iterate over all mixtures m
+    for m in xrange(2**Ns):
+        pm = 1     #< probability of finding this mixture
+        ak[:] = 0  #< activity pattern of this mixture
+        
+        # iterate through substrates in the mixture
+        for i in xrange(Ns):
+            r = m % 2
+            m //= 2
+            if r == 1:
+                # substrate i is present
+                pm *= prob_s[i]
+                for k in xrange(Nr):
+                    if sens[k, i] == 1:
+                        ak[k] = 1
+            else:
+                # substrate i is not present
+                pm *= 1 - prob_s[i]
+                
+        # add probability to the active receptors
+        for k in xrange(Nr):
+            if ak[k] == 1:
+                prob_a[k] += pm
+
+
+def ReceptorLibraryNumeric_activity_single_brute_force(self):
+    """ calculates the average activity of each receptor """
+    prob_a = np.zeros(self.Nr) 
+    
+    # call the jitted function
+    ReceptorLibraryNumeric_activity_single_brute_force_numba(
+        self.Ns, self.Nr, self.sens,
+        self.substrate_probability, #< prob_s
+        np.empty(self.Nr, np.uint), #< ak
+        prob_a
+    )
+    return prob_a
+    
+    
+
 @numba.jit(nopython=NUMBA_NOPYTHON)
 def ReceptorLibraryNumeric_mutual_information_brute_force_numba(Ns, Nr, sens,
-                                                                prob_s, 
-                                                                ak, prob_a):
+                                                                prob_s, ak,
+                                                                prob_a):
     """ calculate the mutual information by constructing all possible
     mixtures """
     # iterate over all mixtures m
@@ -66,15 +111,23 @@ def ReceptorLibraryNumeric_mutual_information_brute_force_numba(Ns, Nr, sens,
     return MI
     
 
-
-def ReceptorLibraryNumeric_mutual_information_brute_force(self):
-    """ updates the energy of the `idx_r`-th receptor """
-    return ReceptorLibraryNumeric_mutual_information_brute_force_numba(
+def ReceptorLibraryNumeric_mutual_information_brute_force(self, ret_prob_activity=False):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    prob_a = np.zeros(2**self.Nr) 
+    
+    # call the jitted function
+    MI = ReceptorLibraryNumeric_mutual_information_brute_force_numba(
         self.Ns, self.Nr, self.sens,
         self.substrate_probability, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
-        np.zeros(2**self.Nr) #< prob_a
+        prob_a
     )
+    
+    if ret_prob_activity:
+        return MI, prob_a
+    else:
+        return MI
 
 
 #===============================================================================
@@ -94,6 +147,11 @@ class NumbaPatcher(object):
     
     # register methods that have a numba equivalent
     numba_methods = {
+        'model_numeric.ReceptorLibraryNumeric.activity_single_brute_force': {
+            'numba': ReceptorLibraryNumeric_activity_single_brute_force,
+            'test_function': check_return_value,
+            'test_arguments': {},
+        },
         'model_numeric.ReceptorLibraryNumeric.mutual_information_brute_force': {
             'numba': ReceptorLibraryNumeric_mutual_information_brute_force,
             'test_function': check_return_value,
