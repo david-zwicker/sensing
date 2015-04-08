@@ -119,7 +119,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             ma = np.array(m, np.bool)
             pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
             prob_a[a] += pm
-        
+            
         return prob_a
 
             
@@ -145,14 +145,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             
     def activity_correlations(self):
         """ calculates the correlations between receptor activities """
-        prob_Caa = np.zeros((self.Nr, self.Nr))
-        # iterate through all possible substrates and check whether they activate
-        # common receptors
-        for s, p_s in enumerate(self.substrate_probability):
-            Caa = np.outer(self.sens[:, s], self.sens[:, s])
-            prob_Caa[Caa] += p_s
-        
-        return prob_Caa
+        return np.einsum('ai,bi,i->ab', self.sens, self.sens,
+                         self.substrate_probability)
 
             
     def mutual_information_brute_force(self, ret_prob_activity=False):
