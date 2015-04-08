@@ -201,11 +201,11 @@ class NumbaPatcher(object):
             'test_function': check_return_value,
             'test_arguments': {},
         },
-#         'model_numeric.ReceptorLibraryNumeric.activity_correlations_brute_force': {
-#             'numba': ReceptorLibraryNumeric_activity_correlations_brute_force,
-#             'test_function': check_return_value,
-#             'test_arguments': {},
-#         },
+        'model_numeric.ReceptorLibraryNumeric.activity_correlations_brute_force': {
+            'numba': ReceptorLibraryNumeric_activity_correlations_brute_force,
+            'test_function': check_return_value,
+            'test_arguments': {},
+        },
         'model_numeric.ReceptorLibraryNumeric.mutual_information_brute_force': {
             'numba': ReceptorLibraryNumeric_mutual_information_brute_force,
             'test_function': check_return_value,

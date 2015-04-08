@@ -43,7 +43,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         'monte_carlo_strategy': 'frequency',
         'anneal_Tmax': 1e0,          #< Max (starting) temperature for annealing
         'anneal_Tmin': 1e-3,         #< Min (ending) temperature for annealing
-        'verbosity': 1,              #< verbosity level    
+        'verbosity': 0,              #< verbosity level    
     }
     
 
@@ -111,8 +111,9 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         prob_s = self.substrate_probability
 
         prob_a = np.zeros(self.Nr)
+        # iterate over all mixtures
         for m in itertools.product((0, 1), repeat=self.Ns):
-            # get the associated output ...
+            # get the activity vector associated with m
             a = np.dot(self.sens, m).astype(np.bool)
 
             # probability of finding this substrate
@@ -142,8 +143,26 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             
         return count_a/num
 
+
+    def activity_correlations_brute_force(self):
+        """ calculates the correlations between receptor activities """
+        prob_s = self.substrate_probability
+
+        prob_Caa = np.zeros((self.Nr, self.Nr))
+        for m in itertools.product((0, 1), repeat=self.Ns):
+            # get the associated output ...
+            a = np.dot(self.sens, m).astype(np.bool)
+            Caa = np.outer(a, a)
+
+            # probability of finding this substrate
+            ma = np.array(m, np.bool)
+            pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
+            prob_Caa[Caa] += pm
+        
+        return prob_Caa
+    
             
-    def activity_correlations(self):
+    def crosstalk(self):
         """ calculates the correlations between receptor activities """
         return np.einsum('ai,bi,i->ab', self.sens, self.sens,
                          self.substrate_probability)
