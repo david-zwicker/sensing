@@ -67,6 +67,55 @@ def ReceptorLibraryNumeric_activity_single_brute_force(self):
     )
     return prob_a
     
+
+
+@numba.jit(nopython=NUMBA_NOPYTHON)
+def ReceptorLibraryNumeric_activity_correlations_brute_force_numba(Ns, Nr, sens,
+                                                                   prob_s, ak,
+                                                                   prob_a):
+    """ calculates the correlations between receptor activities """
+    # iterate over all mixtures m
+    for m in xrange(2**Ns):
+        pm = 1     #< probability of finding this mixture
+        ak[:] = 0  #< activity pattern of this mixture
+        
+        # iterate through substrates in the mixture
+        for i in xrange(Ns):
+            r = m % 2
+            m //= 2
+            if r == 1:
+                # substrate i is present
+                pm *= prob_s[i]
+                for k in xrange(Nr):
+                    if sens[k, i] == 1:
+                        ak[k] = 1
+            else:
+                # substrate i is not present
+                pm *= 1 - prob_s[i]
+                
+        # add probability to the active receptors
+        for k in xrange(Nr):
+            if ak[k] == 1:
+                prob_a[k, k] += pm
+                for j in xrange(k + 1, Nr):
+                    if ak[j] == 1:
+                        prob_a[k, j] += pm
+                        prob_a[j, k] += pm
+                    
+    
+def ReceptorLibraryNumeric_activity_correlations_brute_force(self):
+    """ calculates the correlations between receptor activities """
+    prob_a = np.zeros((self.Nr, self.Nr)) 
+    
+    # call the jitted function
+    ReceptorLibraryNumeric_activity_correlations_brute_force_numba(
+        self.Ns, self.Nr, self.sens,
+        self.substrate_probability, #< prob_s
+        np.empty(self.Nr, np.uint), #< ak
+        prob_a
+    )
+    return prob_a
+    
     
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
@@ -149,6 +198,11 @@ class NumbaPatcher(object):
     numba_methods = {
         'model_numeric.ReceptorLibraryNumeric.activity_single_brute_force': {
             'numba': ReceptorLibraryNumeric_activity_single_brute_force,
+            'test_function': check_return_value,
+            'test_arguments': {},
+        },
+        'model_numeric.ReceptorLibraryNumeric.activity_correlations_brute_force': {
+            'numba': ReceptorLibraryNumeric_activity_correlations_brute_force,
             'test_function': check_return_value,
             'test_arguments': {},
         },
