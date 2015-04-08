@@ -143,20 +143,14 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         return count_a/num
 
             
-    def activity_correlations_brute_force(self):
+    def activity_correlations(self):
         """ calculates the correlations between receptor activities """
-        prob_s = self.substrate_probability
-
         prob_Caa = np.zeros((self.Nr, self.Nr))
-        for m in itertools.product((0, 1), repeat=self.Ns):
-            # get the associated output ...
-            a = np.dot(self.sens, m).astype(np.bool)
-            Caa = np.outer(a, a)
-
-            # probability of finding this substrate
-            ma = np.array(m, np.bool)
-            pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
-            prob_Caa[Caa] += pm
+        # iterate through all possible substrates and check whether they activate
+        # common receptors
+        for s, p_s in enumerate(self.substrate_probability):
+            Caa = np.outer(self.sens[:, s], self.sens[:, s])
+            prob_Caa[Caa] += p_s
         
         return prob_Caa
 
