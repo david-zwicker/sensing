@@ -39,6 +39,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         'max_num_receptors': 28,     #< prevents memory overflows
         'random_seed': None,         #< seed for the random number generator
         'sensitivity_matrix': None,  #< will be calculated if not given
+        'inefficency_weight': 1,     #< weighting parameter for inefficency
         'monte_carlo_steps': 100000, #< default number of monte carlo steps
         'monte_carlo_strategy': 'frequency',
         'anneal_Tmax': 1e0,          #< Max (starting) temperature for annealing
@@ -291,12 +292,32 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return result.mean(axis=0), result.std(axis=0)
         
         
-    def optimize_library(self, target, method='descent', steps=100, 
-                         ret_info=False):
+    def inefficiency_estimate(self):
+        """ returns the estimated performance of the system, which acts as a
+        proxy for the mutual information between input and output """
+        I_ai = self.sens
+        prob_s = self.substrate_probability
+        
+        # collect the terms describing the activity entropy
+        term_entropy = np.sum((0.5 - np.prod(1 - I_ai*prob_s, axis=1)) ** 2)
+        
+        # collect the terms describing the crosstalk
+        mat_ab = np.einsum('ij,kj,j->ik', I_ai, I_ai, prob_s)
+        term_crosstalk = 2*np.sum(mat_ab[np.triu_indices(self.Nr, 1)]) 
+        
+        # add up the terms to produce the inefficiency parameter
+        crosstalk_weight = self.parameters['inefficency_weight']
+        return term_entropy + crosstalk_weight*term_crosstalk
+        
+        
+    def optimize_library(self, target, method='descent', direction='max',
+                         steps=100, ret_info=False):
         """ optimizes the current library to maximize the result of the target
         function. By default, the function returns the best value and the
         associated sensitivity matrix as result.        
         
+        `direction` is either 'min' or 'max' and determines whether a minimum
+            or a maximum is sought.
         `steps` determines how many optimization steps we try 
         `ret_info` determines whether extra information is returned from the
             optimization 
@@ -309,22 +330,23 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             `anneal`: simulated annealing
         """
         if method == 'descent':
-            return self.optimize_library_descent(target, steps,
+            return self.optimize_library_descent(target, direction, steps,
                                                  multiprocessing=False,
                                                  ret_info=ret_info)
         elif method == 'descent_parallel':
-            return self.optimize_library_descent(target, steps,
+            return self.optimize_library_descent(target, direction, steps,
                                                  multiprocessing=True,
                                                  ret_info=ret_info)
         elif method == 'anneal':
-            return self.optimize_library_anneal(target, steps, ret_info)
+            return self.optimize_library_anneal(target, direction, steps,
+                                                ret_info)
             
         else:
             raise ValueError('Unknown optimization method `%s`' % method)
             
         
-    def optimize_library_descent(self, target, steps=100, multiprocessing=False, 
-                                 ret_info=False):
+    def optimize_library_descent(self, target, direction='max', steps=100,
+                                 multiprocessing=False, ret_info=False):
         """ optimizes the current library to maximize the result of the target
         function using gradient descent. By default, the function returns the
         best value and the associated sensitivity matrix as result.        
@@ -363,13 +385,26 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                 # run all the jobs
                 results = pool.map(_ReceptorLibrary_mp_calc, joblist)
                 
-                # find the best result                
-                res_best = np.argmax(results)
-                if results[res_best] > value_best:
-                    value_best = results[res_best]
-                    state_best = joblist[res_best][0]['parameters']['sensitivity_matrix']
-                    # use the best state as a basis for the next iteration
-                    self.sens = state_best
+                # find the best result  
+                if direction == 'max':              
+                    res_best = np.argmax(results)
+                    if results[res_best] > value_best:
+                        value_best = results[res_best]
+                        state_best = joblist[res_best][0]['parameters']['sensitivity_matrix']
+                        # use the best state as a basis for the next iteration
+                        self.sens = state_best
+                        
+                elif direction == 'min':
+                    res_best = np.argmin(results)
+                    if results[res_best] < value_best:
+                        value_best = results[res_best]
+                        state_best = joblist[res_best][0]['parameters']['sensitivity_matrix']
+                        # use the best state as a basis for the next iteration
+                        self.sens = state_best
+                        
+                else:
+                    raise ValueError('Unsupported direction `%s`' % direction)
+                        
                 if ret_info:
                     info['values'].append(results[res_best])
                 
@@ -382,12 +417,16 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     
                 # initialize the optimizer
                 value = target_function()
-                if value > value_best:
+                
+                improved = ((direction == 'max' and value > value_best) or
+                            (direction == 'min' and value < value_best))
+                if improved:
                     # save the state as the new best value
                     value_best, state_best = value, self.sens.copy()
                 else:
                     # undo last change
                     self.sens.flat[i] = 1 - self.sens.flat[i]
+                    
                 if ret_info:
                     info['values'].append(value)
 
@@ -401,7 +440,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return value_best, state_best
         
     
-    def optimize_library_anneal(self, target, steps, ret_info):
+    def optimize_library_anneal(self, target, direction='max', steps=100,
+                                ret_info=False):
         """ optimizes the current library to maximize the result of the target
         function using simulated annealing. By default, the function returns the
         best value and the associated sensitivity matrix as result.        
@@ -411,7 +451,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             optimization 
         """        
         # prepare the class that manages the simulated annealing
-        annealer = ReceptorOptimizerAnnealer(self, target)
+        annealer = ReceptorOptimizerAnnealer(self, target, direction)
         annealer.steps = steps
         annealer.Tmax = self.parameters['anneal_Tmax']
         annealer.Tmin = self.parameters['anneal_Tmin']
@@ -445,12 +485,13 @@ class ReceptorOptimizerAnnealer(Annealer):
     copy_strategy = 'method'
 
 
-    def __init__(self, model, target):
+    def __init__(self, model, target, direction='max'):
         """ initialize the optimizer with a `model` to run and a `target`
         function to call. """
         self.info = {}
         self.model = model
         self.target_func = getattr(model, target)
+        self.direction = direction
         super(ReceptorOptimizerAnnealer, self).__init__(model.sens)
    
    
@@ -463,19 +504,25 @@ class ReceptorOptimizerAnnealer(Annealer):
     def energy(self):
         """ returns the energy of the current state """
         self.model.sens = self.state
-        MI = self.target_func()
-        return -MI
+        value = self.target_func()
+        if self.direction == 'max':
+            return -value
+        else:
+            return value
     
 
     def optimize(self):
         """ optimizes the receptors and returns the best receptor set together
         with the achieved mutual information """
-        state_best, energy_best = self.anneal()
+        state_best, value_best = self.anneal()
         self.info['total_time'] = time.time() - self.start    
         self.info['states_considered'] = self.steps
         self.info['performance'] = self.steps / self.info['total_time']
         
-        return -energy_best, state_best
+        if self.direction == 'max':
+            return -value_best, state_best
+        else:
+            return value_best, state_best
    
    
    

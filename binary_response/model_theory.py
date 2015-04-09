@@ -55,16 +55,7 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
     def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        assert len(np.unique(self._hs)) == 1
-        h = self._hs[0]
-        
-        if self.frac == 0:
-            return 0
-
-        term = (1 + (1 - self.frac)*np.exp(h))/(1 + np.exp(h))
-        val = 1 - term ** self.Ns
-        
-        return val
+        return 1 - np.prod(1 - self.frac*self.substrate_probability)
 
 
     def mutual_information(self):
