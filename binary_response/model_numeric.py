@@ -73,12 +73,18 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
-        return {'num_substrates': self.Ns,
-                'num_receptors': self.Nr,
-                'hs': self._hs,
-                'frac': self.frac,
-                'parameters': self.parameters}
+        args = super(ReceptorLibraryNumeric, self).init_arguments
+        args['frac'] = self.frac
+        args['parameters'] = self.parameters
+        return args
 
+
+    @classmethod
+    def get_random_arguments(cls):
+        """ create random arguments for creating test instances """
+        args = super(ReceptorLibraryNumeric, cls).get_random_arguments()
+        frac = np.random.random()
+        return args + [frac]
 
 
     def choose_sensitivites(self):

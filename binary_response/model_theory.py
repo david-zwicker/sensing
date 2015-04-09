@@ -23,8 +23,35 @@ def binom(N, p):
 
 class ReceptorLibraryTheory(ReceptorLibraryBase):
     """ represents a single receptor library """
-    
-    
+
+
+    def __init__(self, num_substrates, num_receptors, hs=None, frac=1):
+        """ initialize the receptor library by setting the number of receptors,
+        the number of substrates it can respond to, the weights `hs` of the 
+        substrates, and the fraction `frac` of substrates a single receptor
+        responds to """
+        super(ReceptorLibraryTheory, self).__init__(num_substrates,
+                                                    num_receptors, hs)
+        self.frac = frac
+
+
+    @property
+    def init_arguments(self):
+        """ return the parameters of the model that can be used to reconstruct
+        it by calling the __init__ method with these arguments """
+        args = super(ReceptorLibraryTheory, self).init_arguments
+        args['frac'] = self.frac
+        return args
+
+
+    @classmethod
+    def get_random_arguments(cls):
+        """ create random arguments for creating test instances """
+        args = super(ReceptorLibraryTheory, cls).get_random_arguments()
+        frac = np.random.random()
+        return args + [frac]
+
+
     def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
@@ -34,18 +61,6 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
         if self.frac == 0:
             return 0
 
-#         # consider all possible number of components in mixtures
-#         d_s = np.arange(0, self.Ns + 1)
-#         
-#         # probability that a receptor is activated by d_s substrates
-#         p_a1 = 1 - (1 - self.frac)**d_s
-#         
-#         # probability P(|m| = d_s) of having d_s components in a mixture
-#         p_m = scipy.misc.comb(self.Ns, d_s) * np.exp(h*d_s)/(1 + np.exp(h))**self.Ns
-# 
-#         # probability that a receptor is activated by a typical mixture
-#         val_ex = np.sum(p_m * p_a1)
-        
         term = (1 + (1 - self.frac)*np.exp(h))/(1 + np.exp(h))
         val = 1 - term ** self.Ns
         
@@ -63,26 +78,7 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
         if p1 == 0:
             return 0
         else:
-            
-#             # output patterns consist of Nr receptors that are all activated
-#             # with probability p1
-#             
-#             # probability of finding a particular pattern of exactly d_r
-#             # activated receptors
-#             d_r = np.arange(0, self.Nr + 1)
-#             p_a = p1**d_r * (1 - p1)**(self.Nr - d_r)
-#             
-#             # number of possibilities of activity patterns with exactly d_r
-#             # activated receptors
-#             binom = scipy.misc.comb(self.Nr, d_r)
-#             
-#             # mutual information from the probabilities and the frequency of 
-#             # finding these patterns
-#             val1 = -sum(binom * p_a * np.log2(p_a))
-            
-            val2 = -self.Nr*(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
-            
-            return val2
+            return -self.Nr*(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
         
         
     def frac_optimal(self, assume_homogeneous=False):

@@ -18,9 +18,8 @@ class ReceptorLibraryBase(object):
 
     def __init__(self, num_substrates, num_receptors, hs=None, frac=1):
         """ initialize the receptor library by setting the number of receptors,
-        the number of substrates it can respond to, the weights `hs` of the 
-        substrates, and the fraction `frac` of substrates a single receptor
-        responds to """
+        the number of substrates it can respond to, and the weights `hs` of the 
+        substrates """
         self.Ns = num_substrates
         self.Nr = num_receptors
         if hs is None:
@@ -42,13 +41,18 @@ class ReceptorLibraryBase(object):
 
 
     @classmethod
-    def create_test_instance(cls):
-        """ creates a test instance used for consistency tests """
+    def get_random_arguments(cls):
+        """ create random arguments for creating test instances """
         Ns = np.random.randint(3, 6)
         Nr = np.random.randint(2, 4)
         hs = np.random.random(Ns)
-        frac = np.random.random()
-        return cls(Ns, Nr, hs, frac)
+        return [Ns, Nr, hs]
+
+
+    @classmethod
+    def create_test_instance(cls):
+        """ creates a test instance used for consistency tests """
+        return cls(*cls.get_random_arguments())
 
     
     @property
@@ -252,6 +256,8 @@ def test_consistency():
             model.set_commonness(scheme, mean_mixture_size, **params)
             assert np.allclose(model.mixture_size_statistics()[0],
                                mean_mixture_size)
+    
+    print('Success.')
     
     
 
