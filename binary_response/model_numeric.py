@@ -295,6 +295,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     def inefficiency_estimate(self):
         """ returns the estimated performance of the system, which acts as a
         proxy for the mutual information between input and output """
+        #TODO: implement numba version of this code
         I_ai = self.sens
         prob_s = self.substrate_probability
         
@@ -351,6 +352,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         function using gradient descent. By default, the function returns the
         best value and the associated sensitivity matrix as result.        
         
+        `direction` is either 'min' or 'max' and determines whether a minimum
+            or a maximum is sought.
         `steps` determines how many optimization steps we try
         `multiprocessing` is a flag deciding whether multiple processes are used
             to calculate the result. Note that this has an overhead and might
@@ -446,6 +449,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         function using simulated annealing. By default, the function returns the
         best value and the associated sensitivity matrix as result.        
         
+        `direction` is either 'min' or 'max' and determines whether a minimum
+            or a maximum is sought.
         `steps` determines how many optimization steps we try
         `ret_info` determines whether extra information is returned from the
             optimization 

@@ -179,6 +179,43 @@ def ReceptorLibraryNumeric_mutual_information_brute_force(self, ret_prob_activit
         return MI
 
 
+
+@numba.jit(nopython=NUMBA_NOPYTHON)
+def ReceptorLibraryNumeric_inefficiency_estimate_numba(sens, prob_s,
+                                                       crosstalk_weight):
+    """ returns the estimated performance of the system, which acts as a
+    proxy for the mutual information between input and output """
+    Nr, Ns = sens.shape
+    
+    res = 0
+    for a in xrange(Nr):
+        activity_a = 1
+        term_crosstalk = 0
+        for i in xrange(Ns):
+            if sens[a, i] == 1:
+                # consider the terms describing the activity entropy
+                activity_a *= 1 - prob_s[i]
+                
+                # consider the terms describing the crosstalk
+                sum_crosstalk = 0
+                for b in xrange(a + 1, Nr):
+                    sum_crosstalk += sens[b, i]
+                term_crosstalk += sum_crosstalk * prob_s[i] 
+
+        res += (0.5 - activity_a)**2 + 2*crosstalk_weight * term_crosstalk
+            
+    return res
+
+
+def ReceptorLibraryNumeric_inefficiency_estimate(self):
+    """ returns the estimated performance of the system, which acts as a
+    proxy for the mutual information between input and output """
+    prob_s = self.substrate_probability
+    crosstalk_weight = self.parameters['inefficency_weight']
+    return ReceptorLibraryNumeric_inefficiency_estimate_numba(self.sens, prob_s,
+                                                              crosstalk_weight)
+
+
 #===============================================================================
 # FUNCTIONS/CLASSES INJECTING THE NUMBA ACCELERATIONS
 #===============================================================================
@@ -208,6 +245,11 @@ class NumbaPatcher(object):
         },
         'model_numeric.ReceptorLibraryNumeric.mutual_information_brute_force': {
             'numba': ReceptorLibraryNumeric_mutual_information_brute_force,
+            'test_function': check_return_value,
+            'test_arguments': {},
+        },
+        'model_numeric.ReceptorLibraryNumeric.inefficiency_estimate': {
+            'numba': ReceptorLibraryNumeric_inefficiency_estimate,
             'test_function': check_return_value,
             'test_arguments': {},
         },
