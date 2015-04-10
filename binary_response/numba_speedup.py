@@ -26,8 +26,8 @@ NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_activity_single_brute_force_numba(Ns, Nr, sens,
-                                                             prob_s, ak, prob_a):
+def ReceptorLibraryNumeric_activity_single_brute_force_numba(
+         Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculates the average activity of each receptor """
     # iterate over all mixtures m
     for m in xrange(2**Ns):
@@ -42,7 +42,7 @@ def ReceptorLibraryNumeric_activity_single_brute_force_numba(Ns, Nr, sens,
                 # substrate i is present
                 pm *= prob_s[i]
                 for k in xrange(Nr):
-                    if sens[k, i] == 1:
+                    if int_mat[k, i] == 1:
                         ak[k] = 1
             else:
                 # substrate i is not present
@@ -60,7 +60,7 @@ def ReceptorLibraryNumeric_activity_single_brute_force(self):
     
     # call the jitted function
     ReceptorLibraryNumeric_activity_single_brute_force_numba(
-        self.Ns, self.Nr, self.sens,
+        self.Ns, self.Nr, self.int_mat,
         self.substrate_probability, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
         prob_a
@@ -70,9 +70,8 @@ def ReceptorLibraryNumeric_activity_single_brute_force(self):
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_activity_correlations_brute_force_numba(Ns, Nr, sens,
-                                                                   prob_s, ak,
-                                                                   prob_a):
+def ReceptorLibraryNumeric_activity_correlations_brute_force_numba(
+        Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculates the correlations between receptor activities """
     # iterate over all mixtures m
     for m in xrange(2**Ns):
@@ -87,7 +86,7 @@ def ReceptorLibraryNumeric_activity_correlations_brute_force_numba(Ns, Nr, sens,
                 # substrate i is present
                 pm *= prob_s[i]
                 for k in xrange(Nr):
-                    if sens[k, i] == 1:
+                    if int_mat[k, i] == 1:
                         ak[k] = 1
             else:
                 # substrate i is not present
@@ -109,7 +108,7 @@ def ReceptorLibraryNumeric_activity_correlations_brute_force(self):
     
     # call the jitted function
     ReceptorLibraryNumeric_activity_correlations_brute_force_numba(
-        self.Ns, self.Nr, self.sens,
+        self.Ns, self.Nr, self.int_mat,
         self.substrate_probability, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
         prob_a
@@ -119,9 +118,8 @@ def ReceptorLibraryNumeric_activity_correlations_brute_force(self):
     
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_mutual_information_brute_force_numba(Ns, Nr, sens,
-                                                                prob_s, ak,
-                                                                prob_a):
+def ReceptorLibraryNumeric_mutual_information_brute_force_numba(
+        Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculate the mutual information by constructing all possible
     mixtures """
     # iterate over all mixtures m
@@ -136,7 +134,7 @@ def ReceptorLibraryNumeric_mutual_information_brute_force_numba(Ns, Nr, sens,
                 # substrate i is present
                 pm *= prob_s[i]
                 for k in xrange(Nr):
-                    if sens[k, i] == 1:
+                    if int_mat[k, i] == 1:
                         ak[k] = 1
             else:
                 # substrate i is not present
@@ -167,7 +165,7 @@ def ReceptorLibraryNumeric_mutual_information_brute_force(self, ret_prob_activit
     
     # call the jitted function
     MI = ReceptorLibraryNumeric_mutual_information_brute_force_numba(
-        self.Ns, self.Nr, self.sens,
+        self.Ns, self.Nr, self.int_mat,
         self.substrate_probability, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
         prob_a
@@ -181,25 +179,25 @@ def ReceptorLibraryNumeric_mutual_information_brute_force(self, ret_prob_activit
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_inefficiency_estimate_numba(sens, prob_s,
+def ReceptorLibraryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
                                                        crosstalk_weight):
     """ returns the estimated performance of the system, which acts as a
     proxy for the mutual information between input and output """
-    Nr, Ns = sens.shape
+    Nr, Ns = int_mat.shape
     
     res = 0
     for a in xrange(Nr):
         activity_a = 1
         term_crosstalk = 0
         for i in xrange(Ns):
-            if sens[a, i] == 1:
+            if int_mat[a, i] == 1:
                 # consider the terms describing the activity entropy
                 activity_a *= 1 - prob_s[i]
                 
                 # consider the terms describing the crosstalk
                 sum_crosstalk = 0
                 for b in xrange(a + 1, Nr):
-                    sum_crosstalk += sens[b, i]
+                    sum_crosstalk += int_mat[b, i]
                 term_crosstalk += sum_crosstalk * prob_s[i] 
 
         res += (0.5 - activity_a)**2 + 2*crosstalk_weight * term_crosstalk
@@ -212,7 +210,7 @@ def ReceptorLibraryNumeric_inefficiency_estimate(self):
     proxy for the mutual information between input and output """
     prob_s = self.substrate_probability
     crosstalk_weight = self.parameters['inefficency_weight']
-    return ReceptorLibraryNumeric_inefficiency_estimate_numba(self.sens, prob_s,
+    return ReceptorLibraryNumeric_inefficiency_estimate_numba(self.int_mat, prob_s,
                                                               crosstalk_weight)
 
 

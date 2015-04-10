@@ -38,7 +38,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     parameters_default = {
         'max_num_receptors': 28,     #< prevents memory overflows
         'random_seed': None,         #< seed for the random number generator
-        'sensitivity_matrix': None,  #< will be calculated if not given
+        'interaction_matrix': None,  #< will be calculated if not given
         'inefficency_weight': 1,     #< weighting parameter for inefficency
         'monte_carlo_steps': 100000, #< default number of monte carlo steps
         'monte_carlo_strategy': 'frequency',
@@ -67,7 +67,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         assert num_receptors <= self.parameters['max_num_receptors']
         
         np.random.seed(self.parameters['random_seed'])
-        self.choose_sensitivites()
+        self.choose_interaction_matrix()
 
 
     @property
@@ -88,29 +88,32 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         return args + [frac]
 
 
-    def choose_sensitivites(self):
-        """ creates a sensitivity matrix """
+    def choose_interaction_matrix(self):
+        """ creates a interaction matrix """
         shape = (self.Nr, self.Ns)
         # choose receptor substrate interaction randomly
-        if self.parameters['sensitivity_matrix'] is None:
-            self.sens = (np.random.random(shape) < self.frac).astype(np.int)
+        if self.parameters['interaction_matrix'] is None:
+            self.int_mat = (np.random.random(shape) < self.frac).astype(np.int)
         else:
-            self.sens = self.parameters['sensitivity_matrix']
-            assert self.sens.shape == shape
+            self.int_mat = self.parameters['interaction_matrix']
+            assert self.int_mat.shape == shape
             
             
-    def sort_sensitivities(self, sensitivities=None):
-        """ return the sorted `sensitivities` or sorts the internal
-        sensitivities in place """
-        sens = self.sens if sensitivities is None else sensitivities
-
-        data = [(sum(item), list(item)) for item in sens]
-        sens = np.array([item[1] for item in sorted(data)])
-
-        if sensitivities is None:
-            self.sens = sens
+    def sort_interaction_matrix(self, interaction_matrix=None):
+        """ return the sorted `interaction_matrix` or sorts the internal
+        interaction_matrix in place """
+        if interaction_matrix is None:
+            int_mat = self.int_mat
         else:
-            return sens
+            int_mat = interaction_matrix
+
+        data = [(sum(item), list(item)) for item in int_mat]
+        int_mat = np.array([item[1] for item in sorted(data)])
+
+        if interaction_matrix is None:
+            self.int_mat = int_mat
+        else:
+            return int_mat
             
 
     def activity_single_brute_force(self):
@@ -121,7 +124,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         # iterate over all mixtures
         for m in itertools.product((0, 1), repeat=self.Ns):
             # get the activity vector associated with m
-            a = np.dot(self.sens, m).astype(np.bool)
+            a = np.dot(self.int_mat, m).astype(np.bool)
 
             # probability of finding this substrate
             ma = np.array(m, np.bool)
@@ -144,7 +147,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             m = (np.random.random(self.Ns) < prob_s)
             
             # get the associated output ...
-            a = np.dot(self.sens, m).astype(np.bool)
+            a = np.dot(self.int_mat, m).astype(np.bool)
             
             count_a[a] += 1
             
@@ -158,7 +161,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         prob_Caa = np.zeros((self.Nr, self.Nr))
         for m in itertools.product((0, 1), repeat=self.Ns):
             # get the associated output ...
-            a = np.dot(self.sens, m).astype(np.bool)
+            a = np.dot(self.int_mat, m).astype(np.bool)
             Caa = np.outer(a, a)
 
             # probability of finding this substrate
@@ -171,7 +174,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             
     def crosstalk(self):
         """ calculates the correlations between receptor activities """
-        return np.einsum('ai,bi,i->ab', self.sens, self.sens,
+        return np.einsum('ai,bi,i->ab', self.int_mat, self.int_mat,
                          self.substrate_probability)
 
 
@@ -208,7 +211,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         prob_a = np.zeros(2**self.Nr)
         for m in itertools.product((0, 1), repeat=self.Ns):
             # get the associated output ...
-            a = np.dot(self.sens, m).astype(np.bool)
+            a = np.dot(self.int_mat, m).astype(np.bool)
             # ... and represent it as a single integer
             a = np.dot(base, a)
 
@@ -244,7 +247,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                 m = (np.random.random(self.Ns) < prob_s)
                 
                 # get the associated output ...
-                a = np.dot(self.sens, m).astype(np.bool)
+                a = np.dot(self.int_mat, m).astype(np.bool)
                 # ... and represent it as a single integer
                 a = np.dot(base, a)
                 # increment counter for this output
@@ -264,7 +267,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                 m = np.random.randint(2, size=self.Ns)
                 
                 # get the associated output ...
-                a = np.dot(self.sens, m).astype(np.bool)
+                a = np.dot(self.int_mat, m).astype(np.bool)
                 # ... and represent it as a single integer
                 a = np.dot(base, a)
 
@@ -317,7 +320,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         """ returns the estimated performance of the system, which acts as a
         proxy for the mutual information between input and output """
         #TODO: implement numba version of this code
-        I_ai = self.sens
+        I_ai = self.int_mat
         prob_s = self.substrate_probability
         
         # collect the terms describing the activity entropy
@@ -336,7 +339,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                          steps=100, ret_info=False):
         """ optimizes the current library to maximize the result of the target
         function. By default, the function returns the best value and the
-        associated sensitivity matrix as result.        
+        associated interaction matrix as result.        
         
         `direction` is either 'min' or 'max' and determines whether a minimum
             or a maximum is sought.
@@ -371,7 +374,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                                  multiprocessing=False, ret_info=False):
         """ optimizes the current library to maximize the result of the target
         function using gradient descent. By default, the function returns the
-        best value and the associated sensitivity matrix as result.        
+        best value and the associated interaction matrix as result.        
         
         `direction` is either 'min' or 'max' and determines whether a minimum
             or a maximum is sought.
@@ -387,7 +390,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
 
         # initialize the optimizer
         value = target_function()
-        value_best, state_best = value, self.sens.copy()
+        value_best, state_best = value, self.int_mat.copy()
         if ret_info:
             info = {'values': []}
         
@@ -400,11 +403,11 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                 init_arguments = self.init_arguments
                 for _ in xrange(pool_size):
                     # modify the current state and add it to the job list
-                    i = random.randrange(self.sens.size)
-                    self.sens.flat[i] = 1 - self.sens.flat[i]
-                    init_arguments['parameters']['sensitivity_matrix'] = self.sens
+                    i = random.randrange(self.int_mat.size)
+                    self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
+                    init_arguments['parameters']['interaction_matrix'] = self.int_mat
                     joblist.append((copy.deepcopy(init_arguments), target))
-                    self.sens.flat[i] = 1 - self.sens.flat[i]
+                    self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
                     
                 # run all the jobs
                 results = pool.map(_ReceptorLibrary_mp_calc, joblist)
@@ -414,17 +417,17 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                     res_best = np.argmax(results)
                     if results[res_best] > value_best:
                         value_best = results[res_best]
-                        state_best = joblist[res_best][0]['parameters']['sensitivity_matrix']
+                        state_best = joblist[res_best][0]['parameters']['interaction_matrix']
                         # use the best state as a basis for the next iteration
-                        self.sens = state_best
+                        self.int_mat = state_best
                         
                 elif direction == 'min':
                     res_best = np.argmin(results)
                     if results[res_best] < value_best:
                         value_best = results[res_best]
-                        state_best = joblist[res_best][0]['parameters']['sensitivity_matrix']
+                        state_best = joblist[res_best][0]['parameters']['interaction_matrix']
                         # use the best state as a basis for the next iteration
-                        self.sens = state_best
+                        self.int_mat = state_best
                         
                 else:
                     raise ValueError('Unsupported direction `%s`' % direction)
@@ -436,8 +439,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             # run the calculations in this process
             for _ in xrange(steps):
                 # modify the current state
-                i = random.randrange(self.sens.size)
-                self.sens.flat[i] = 1 - self.sens.flat[i]
+                i = random.randrange(self.int_mat.size)
+                self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
     
                 # initialize the optimizer
                 value = target_function()
@@ -446,17 +449,17 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                             (direction == 'min' and value < value_best))
                 if improved:
                     # save the state as the new best value
-                    value_best, state_best = value, self.sens.copy()
+                    value_best, state_best = value, self.int_mat.copy()
                 else:
                     # undo last change
-                    self.sens.flat[i] = 1 - self.sens.flat[i]
+                    self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
                     
                 if ret_info:
                     info['values'].append(value)
 
         # sort the best state and store it in the current object
-        state_best = self.sort_sensitivities(state_best)
-        self.sens = state_best.copy()
+        state_best = self.sort_interaction_matrix(state_best)
+        self.int_mat = state_best.copy()
 
         if ret_info:
             return value_best, state_best, info
@@ -468,7 +471,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                                 ret_info=False):
         """ optimizes the current library to maximize the result of the target
         function using simulated annealing. By default, the function returns the
-        best value and the associated sensitivity matrix as result.        
+        best value and the associated interaction matrix as result.        
         
         `direction` is either 'min' or 'max' and determines whether a minimum
             or a maximum is sought.
@@ -488,8 +491,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         MI, state = annealer.optimize()
 
         # sort the best state and store it in the current object
-        state = self.sort_sensitivities(state)
-        self.sens = state.copy()
+        state = self.sort_interaction_matrix(state)
+        self.int_mat = state.copy()
         
         if ret_info:
             return MI, state, annealer.info
@@ -518,18 +521,18 @@ class ReceptorOptimizerAnnealer(Annealer):
         self.model = model
         self.target_func = getattr(model, target)
         self.direction = direction
-        super(ReceptorOptimizerAnnealer, self).__init__(model.sens)
+        super(ReceptorOptimizerAnnealer, self).__init__(model.int_mat)
    
    
     def move(self):
-        """ change a single entry in the sensitivity matrix """   
+        """ change a single entry in the interaction matrix """   
         i = random.randrange(self.state.size)
         self.state.flat[i] = 1 - self.state.flat[i]
 
       
     def energy(self):
         """ returns the energy of the current state """
-        self.model.sens = self.state
+        self.model.int_mat = self.state
         value = self.target_func()
         if self.direction == 'max':
             return -value
