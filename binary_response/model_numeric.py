@@ -40,6 +40,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         'random_seed': None,         #< seed for the random number generator
         'interaction_matrix': None,  #< will be calculated if not given
         'inefficency_weight': 1,     #< weighting parameter for inefficency
+        'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 100000, #< default number of monte carlo steps
         'monte_carlo_strategy': 'frequency',
         'anneal_Tmax': 1e0,          #< Max (starting) temperature for annealing
@@ -173,7 +174,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     
             
     def crosstalk(self):
-        """ calculates the correlations between receptor activities """
+        """ calculates the expected crosstalk between interaction matrices """
         return np.einsum('ai,bi,i->ab', self.int_mat, self.int_mat,
                          self.substrate_probability)
 
@@ -187,7 +188,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             different outputs is returned or not
         """
         if method == 'auto':
-            if self.Ns <= 10:
+            if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 method = 'brute_force'
             else:
                 method = 'monte_carlo'
@@ -570,13 +571,13 @@ def performance_test(Ns=15, Nr=3, frac=0.5):
     model.parameters['monte_carlo_strategy'] = 'frequency'
     model.mutual_information_monte_carlo(num)
     time_monte_carlo = time.time() - start
-    print('Monte carlo, strat `frequency`: %g sec' % time_monte_carlo)
+    print('Monte carlo, strategy `frequency`: %g sec' % time_monte_carlo)
     
     start = time.time()
     model.parameters['monte_carlo_strategy'] = 'uniform'
     model.mutual_information_monte_carlo(num)
     time_monte_carlo = time.time() - start
-    print('Monte carlo, strat `uniform`: %g sec' % time_monte_carlo)
+    print('Monte carlo, strategy `uniform`: %g sec' % time_monte_carlo)
     
     
             
