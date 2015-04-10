@@ -8,6 +8,7 @@ from __future__ import division
 
 import contextlib
 import functools
+import itertools
 import sys
 import timeit
 import types
@@ -15,6 +16,15 @@ from collections import Counter
 
 import numpy as np
 from scipy.stats import itemfreq
+
+
+def score_interaction_matrices(I1, I2):
+    """ returns a score of the similarity of the interaction matrices, taking
+    into account all permutations of the receptors """
+    assert I1.shape == I2.shape
+    
+    return min(np.abs(I1[perm, :] - I2).mean()
+               for perm in itertools.permutations(range(len(I1))))
 
 
 

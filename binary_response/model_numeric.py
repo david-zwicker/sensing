@@ -174,6 +174,28 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         return np.einsum('ai,bi,i->ab', self.sens, self.sens,
                          self.substrate_probability)
 
+
+    def mutual_information(self, method='auto', ret_prob_activity=False):
+        """ calculate the mutual information.
+        
+        `method` can be one of ['brute_force', 'monte_carlo', 'all']. If 'all'
+            than the method is chosen automatically based on the problem size.
+        `ret_prob_activity` determines whether the probabilities of the
+            different outputs is returned or not
+        """
+        if method == 'auto':
+            if self.Ns <= 10:
+                method = 'brute_force'
+            else:
+                method = 'monte_carlo'
+                
+        if method == 'brute_force':
+            return self.mutual_information_brute_force(ret_prob_activity)
+        elif method == 'monte_carlo':
+            return self.mutual_information_monte_carlo(ret_prob_activity)
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+            
             
     def mutual_information_brute_force(self, ret_prob_activity=False):
         """ calculate the mutual information by constructing all possible
@@ -204,21 +226,20 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return MI
             
             
-    def mutual_information_monte_carlo(self, num=None, ret_prob_activity=False):
-        """ calculate the mutual information by strategy `num` mixtures. If 
-        `num` is not given, the parameter `monte_carlo_steps` is used. """
-        if num is None:
-            num = int(self.parameters['monte_carlo_steps'])
+    def mutual_information_monte_carlo(self, ret_prob_activity=False):
+        """ calculate the mutual information using a monte carlo strategy. The
+        number of steps is given by the model parameter 'monte_carlo_steps' """
                 
         base = 2 ** np.arange(self.Nr-1, -1, -1)
         prob_s = self.substrate_probability
 
         strategy = self.parameters['monte_carlo_strategy']
+        steps = int(self.parameters['monte_carlo_steps'])
         if strategy == 'frequency':
             # sample mixtures according to the probabilities of finding
             # substrates
             count_a = np.zeros(2**self.Nr)
-            for _ in xrange(num):
+            for _ in xrange(steps):
                 # choose a mixture vector according to substrate probabilities
                 m = (np.random.random(self.Ns) < prob_s)
                 
@@ -232,13 +253,13 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             # count_a contains the number of times output pattern a was observed.
             # We can thus construct P_a(a) from count_a. 
     
-            prob_a = count_a / num
+            prob_a = count_a / steps
             
         elif strategy == 'uniform':
             # sample mixtures with each substrate being equally likely and
             # correct the probabilities 
             prob_a = np.zeros(2**self.Nr)
-            for _ in xrange(num):
+            for _ in xrange(steps):
                 # choose a mixture vector according to substrate probabilities
                 m = np.random.randint(2, size=self.Ns)
                 
