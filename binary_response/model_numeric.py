@@ -19,6 +19,7 @@ https://docs.python.org/2/library/multiprocessing.html#using-a-pool-of-workers
 from __future__ import division
 
 import copy
+import functools
 import itertools
 import time
 import multiprocessing as mp
@@ -39,7 +40,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         'max_num_receptors': 28,     #< prevents memory overflows
         'random_seed': None,         #< seed for the random number generator
         'interaction_matrix': None,  #< will be calculated if not given
-        'inefficency_weight': 1,     #< weighting parameter for inefficency
+        'inefficiency_weight': 1,    #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 100000, #< default number of monte carlo steps
         'monte_carlo_strategy': 'frequency',
@@ -317,6 +318,39 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return result.mean(axis=0), result.std(axis=0)
         
         
+    def mutual_information_estimate(self, approximate=False):
+        """ returns a simple estimate of the mutual information """
+        I_ai = self.int_mat
+        prob_s = self.substrate_probability
+        
+        # calculate the probabilities of exciting receptors and pairs
+        if approximate:
+            # approximate calculation for small prob_s
+            p_Ga = np.dot(I_ai, prob_s)
+            p_Gab = np.einsum('ij,kj,j->ik', I_ai, I_ai, prob_s)
+            assert np.all(p_Ga < 1) and np.all(p_Gab.flat < 1)
+            
+        else:
+            # proper calculation of the cluster probabilities
+            p_Ga = np.zeros(self.Nr)
+            p_Gab = np.zeros((self.Nr, self.Nr))
+            I_ai_mask = I_ai.astype(np.bool)
+            for a in xrange(self.Nr):
+                ps = prob_s[I_ai_mask[a, :]]
+                p_Ga[a] = 1 - np.product(1 - ps)
+                for b in xrange(a + 1, self.Nr):
+                    ps = prob_s[I_ai_mask[a, :] * I_ai_mask[b, :]]
+                    p_Gab[a, b] = 1 - np.product(1 - ps)
+                    
+        # calculate the approximate mutual information
+        MI = self.Nr - 0.5*np.sum((1 - 2*p_Ga)**2)
+        for a in xrange(self.Nr):
+            for b in xrange(a + 1, self.Nr):
+                MI -= 2*(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab[a, b]) * p_Gab[a, b]
+                
+        return MI              
+        
+        
     def inefficiency_estimate(self):
         """ returns the estimated performance of the system, which acts as a
         proxy for the mutual information between input and output """
@@ -332,12 +366,12 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         term_crosstalk = 2*np.sum(mat_ab[np.triu_indices(self.Nr, 1)]) 
         
         # add up the terms to produce the inefficiency parameter
-        crosstalk_weight = self.parameters['inefficency_weight']
+        crosstalk_weight = self.parameters['inefficiency_weight']
         return term_entropy + crosstalk_weight*term_crosstalk
         
         
     def optimize_library(self, target, method='descent', direction='max',
-                         steps=100, ret_info=False):
+                         steps=100, ret_info=False, args=None):
         """ optimizes the current library to maximize the result of the target
         function. By default, the function returns the best value and the
         associated interaction matrix as result.        
@@ -347,6 +381,8 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         `steps` determines how many optimization steps we try 
         `ret_info` determines whether extra information is returned from the
             optimization 
+        `args` is a dictionary of additional arguments that is passed to the
+            target function
 
         `method` determines the method used for optimization. Supported are
             `descent`: simple gradient descent for `steps` number of steps
@@ -358,21 +394,22 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         if method == 'descent':
             return self.optimize_library_descent(target, direction, steps,
                                                  multiprocessing=False,
-                                                 ret_info=ret_info)
+                                                 ret_info=ret_info, args=args)
         elif method == 'descent_parallel':
             return self.optimize_library_descent(target, direction, steps,
                                                  multiprocessing=True,
-                                                 ret_info=ret_info)
+                                                 ret_info=ret_info, args=args)
         elif method == 'anneal':
             return self.optimize_library_anneal(target, direction, steps,
-                                                ret_info)
+                                                ret_info=ret_info, args=args)
             
         else:
             raise ValueError('Unknown optimization method `%s`' % method)
             
         
     def optimize_library_descent(self, target, direction='max', steps=100,
-                                 multiprocessing=False, ret_info=False):
+                                 multiprocessing=False, ret_info=False,
+                                 args=None):
         """ optimizes the current library to maximize the result of the target
         function using gradient descent. By default, the function returns the
         best value and the associated interaction matrix as result.        
@@ -385,9 +422,13 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             actually decrease overall performance for small problems
         `ret_info` determines whether extra information is returned from the
             optimization 
+        `args` is a dictionary of additional arguments that is passed to the
+            target function
         """
         # get the target function to call
         target_function = getattr(self, target)
+        if args is not None:
+            target_function = functools.partial(target_function, **args)
 
         # initialize the optimizer
         value = target_function()
@@ -469,7 +510,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         
     
     def optimize_library_anneal(self, target, direction='max', steps=100,
-                                ret_info=False):
+                                ret_info=False, args=None):
         """ optimizes the current library to maximize the result of the target
         function using simulated annealing. By default, the function returns the
         best value and the associated interaction matrix as result.        
@@ -479,9 +520,11 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         `steps` determines how many optimization steps we try
         `ret_info` determines whether extra information is returned from the
             optimization 
+        `args` is a dictionary of additional arguments that is passed to the
+            target function
         """        
         # prepare the class that manages the simulated annealing
-        annealer = ReceptorOptimizerAnnealer(self, target, direction)
+        annealer = ReceptorOptimizerAnnealer(self, target, direction, args)
         annealer.steps = steps
         annealer.Tmax = self.parameters['anneal_Tmax']
         annealer.Tmin = self.parameters['anneal_Tmin']
@@ -515,12 +558,18 @@ class ReceptorOptimizerAnnealer(Annealer):
     copy_strategy = 'method'
 
 
-    def __init__(self, model, target, direction='max'):
+    def __init__(self, model, target, direction='max', args=None):
         """ initialize the optimizer with a `model` to run and a `target`
         function to call. """
         self.info = {}
         self.model = model
-        self.target_func = getattr(model, target)
+
+        target_function = getattr(model, target)
+        if args is not None:
+            self.target_func = functools.partial(target_function, **args)
+        else:
+            self.target_func = target_function
+
         self.direction = direction
         super(ReceptorOptimizerAnnealer, self).__init__(model.int_mat)
    

@@ -209,7 +209,7 @@ def ReceptorLibraryNumeric_inefficiency_estimate(self):
     """ returns the estimated performance of the system, which acts as a
     proxy for the mutual information between input and output """
     prob_s = self.substrate_probability
-    crosstalk_weight = self.parameters['inefficency_weight']
+    crosstalk_weight = self.parameters['inefficiency_weight']
     return ReceptorLibraryNumeric_inefficiency_estimate_numba(self.int_mat, prob_s,
                                                               crosstalk_weight)
 
