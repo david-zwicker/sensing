@@ -178,6 +178,57 @@ def ReceptorLibraryNumeric_mutual_information_brute_force(self, ret_prob_activit
 
 
 
+@numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON)
+def ReceptorLibraryNumeric_mutual_information_estimate_numba(
+        Ns, Nr, int_mat, prob_s, p_Ga, ids):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    
+    MI = Nr
+    # iterate over all receptors
+    for a in xrange(Nr):
+        # evaluate the direct
+        i_count = 0 #< number of reaction substrates
+        prod = 1    #< product important for calculating the probabilities
+        for i in xrange(Ns):
+            if int_mat[a, i] == 1:
+                prod *= 1 - prob_s[i]
+                ids[i_count] = i
+                i_count += 1
+        p_Ga[a] = 1 - prod
+        MI -= 0.5*(1 - 2*p_Ga[a])**2
+
+        # iterate over all other receptors to estimate crosstalk
+        for b in xrange(a):
+            prod = 1
+            for k in xrange(i_count):
+                if int_mat[b, ids[k]] == 1:
+                    prod *= 1 - prob_s[ids[k]]
+            p_Gab = 1 - prod        
+
+            MI -= 2*(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab) * p_Gab
+                
+    return MI
+    
+
+def ReceptorLibraryNumeric_mutual_information_estimate(self, approximate=False):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    if approximate:
+        raise NotImplementedError
+    
+    # call the jitted function
+    MI = ReceptorLibraryNumeric_mutual_information_estimate_numba(
+        self.Ns, self.Nr, self.int_mat,
+        self.substrate_probability,  #< prob_s
+        np.empty(self.Nr),           #< p_Ga
+        np.empty(self.Ns, np.int32), #< ids
+    )
+    
+    return MI
+
+
+
 @numba.jit(nopython=NUMBA_NOPYTHON)
 def ReceptorLibraryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
                                                        crosstalk_weight):
@@ -243,6 +294,11 @@ class NumbaPatcher(object):
         },
         'model_numeric.ReceptorLibraryNumeric.mutual_information_brute_force': {
             'numba': ReceptorLibraryNumeric_mutual_information_brute_force,
+            'test_function': check_return_value,
+            'test_arguments': {},
+        },
+        'model_numeric.ReceptorLibraryNumeric.mutual_information_estimate': {
+            'numba': ReceptorLibraryNumeric_mutual_information_estimate,
             'test_function': check_return_value,
             'test_arguments': {},
         },

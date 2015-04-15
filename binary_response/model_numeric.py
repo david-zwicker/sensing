@@ -183,7 +183,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     def mutual_information(self, method='auto', ret_prob_activity=False):
         """ calculate the mutual information.
         
-        `method` can be one of ['brute_force', 'monte_carlo', 'all']. If 'all'
+        `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
             than the method is chosen automatically based on the problem size.
         `ret_prob_activity` determines whether the probabilities of the
             different outputs is returned or not
@@ -198,6 +198,10 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return self.mutual_information_brute_force(ret_prob_activity)
         elif method == 'monte_carlo':
             return self.mutual_information_monte_carlo(ret_prob_activity)
+        elif method == 'estimate':
+            if ret_prob_activity:
+                raise NotImplementedError
+            return self.mutual_information_estimate()
         else:
             raise ValueError('Unknown method `%s`.' % method)
             
@@ -292,31 +296,6 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         else:
             return MI
     
-    
-    def ensemble_average(self, method, avg_num=32, multiprocessing=False, 
-                         ret_all=False):
-        """ calculate an ensemble average of the result of the `method` of
-        multiple different receptor libraries """
-        
-        if multiprocessing:
-            # run the calculations in multiple processes  
-            arguments = (self.init_arguments, method)
-            pool = mp.Pool()
-            result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
-            
-        else:
-            # run the calculations in this process
-            result = [getattr(ReceptorLibraryNumeric(**self.init_arguments),
-                              method)()
-                      for _ in xrange(avg_num)]
-    
-        # collect the results and calculate the statistics
-        result = np.array(result)
-        if ret_all:
-            return result
-        else:
-            return result.mean(axis=0), result.std(axis=0)
-        
         
     def mutual_information_estimate(self, approximate=False):
         """ returns a simple estimate of the mutual information """
@@ -354,7 +333,6 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     def inefficiency_estimate(self):
         """ returns the estimated performance of the system, which acts as a
         proxy for the mutual information between input and output """
-        #TODO: implement numba version of this code
         I_ai = self.int_mat
         prob_s = self.substrate_probability
         
@@ -368,6 +346,31 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         # add up the terms to produce the inefficiency parameter
         crosstalk_weight = self.parameters['inefficiency_weight']
         return term_entropy + crosstalk_weight*term_crosstalk
+        
+            
+    def ensemble_average(self, method, avg_num=32, multiprocessing=False, 
+                         ret_all=False):
+        """ calculate an ensemble average of the result of the `method` of
+        multiple different receptor libraries """
+        
+        if multiprocessing:
+            # run the calculations in multiple processes  
+            arguments = (self.init_arguments, method)
+            pool = mp.Pool()
+            result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
+            
+        else:
+            # run the calculations in this process
+            result = [getattr(ReceptorLibraryNumeric(**self.init_arguments),
+                              method)()
+                      for _ in xrange(avg_num)]
+    
+        # collect the results and calculate the statistics
+        result = np.array(result)
+        if ret_all:
+            return result
+        else:
+            return result.mean(axis=0), result.std(axis=0)
         
         
     def optimize_library(self, target, method='descent', direction='max',
