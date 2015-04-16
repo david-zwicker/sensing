@@ -43,7 +43,6 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         'inefficiency_weight': 1,    #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 100000, #< default number of monte carlo steps
-        'monte_carlo_strategy': 'frequency',
         'anneal_Tmax': 1e0,          #< Max (starting) temperature for annealing
         'anneal_Tmin': 1e-3,         #< Min (ending) temperature for annealing
         'verbosity': 0,              #< verbosity level    
@@ -209,7 +208,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     def mutual_information_brute_force(self, ret_prob_activity=False):
         """ calculate the mutual information by constructing all possible
         mixtures """
-        base = 2 ** np.arange(self.Nr-1, -1, -1)
+        base = 2 ** np.arange(0, self.Nr)
 
         prob_s = self.substrate_probability
 
@@ -239,60 +238,35 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
-        base = 2 ** np.arange(self.Nr-1, -1, -1)
+        base = 2 ** np.arange(0, self.Nr)
         prob_s = self.substrate_probability
 
-        strategy = self.parameters['monte_carlo_strategy']
         steps = int(self.parameters['monte_carlo_steps'])
-        if strategy == 'frequency':
-            # sample mixtures according to the probabilities of finding
-            # substrates
-            count_a = np.zeros(2**self.Nr)
-            for _ in xrange(steps):
-                # choose a mixture vector according to substrate probabilities
-                m = (np.random.random(self.Ns) < prob_s)
-                
-                # get the associated output ...
-                a = np.dot(self.int_mat, m).astype(np.bool)
-                # ... and represent it as a single integer
-                a = np.dot(base, a)
-                # increment counter for this output
-                count_a[a] += 1
-                
-            # count_a contains the number of times output pattern a was observed.
-            # We can thus construct P_a(a) from count_a. 
-    
-            prob_a = count_a / steps
-            
-        elif strategy == 'uniform':
-            # sample mixtures with each substrate being equally likely and
-            # correct the probabilities 
-            prob_a = np.zeros(2**self.Nr)
-            for _ in xrange(steps):
-                # choose a mixture vector according to substrate probabilities
-                m = np.random.randint(2, size=self.Ns)
-                
-                # get the associated output ...
-                a = np.dot(self.int_mat, m).astype(np.bool)
-                # ... and represent it as a single integer
-                a = np.dot(base, a)
 
-                # probability of finding this substrate
-                ma = np.array(m, np.bool)
-                pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
-                prob_a[a] += pm
-                
-            # normalize the probabilities    
-            prob_a /= prob_a.sum()
+        # sample mixtures according to the probabilities of finding
+        # substrates
+        count_a = np.zeros(2**self.Nr)
+        for _ in xrange(steps):
+            # choose a mixture vector according to substrate probabilities
+            m = (np.random.random(self.Ns) < prob_s)
             
-        else:
-            raise ValueError('Unknown strategy strategy `%s`' % strategy)
+            # get the associated output ...
+            a = np.dot(self.int_mat, m).astype(np.bool)
+            # ... and represent it as a single integer
+            a = np.dot(base, a)
+            # increment counter for this output
+            count_a[a] += 1
             
+        # count_a contains the number of times output pattern a was observed.
+        # We can thus construct P_a(a) from count_a. 
+
+        prob_a = count_a / steps
+        
         # calculate the mutual information from the result pattern
         MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
 
         if ret_prob_activity:
-            return MI, prob_a.mean()
+            return MI, prob_a
         else:
             return MI
     
@@ -620,18 +594,11 @@ def performance_test(Ns=15, Nr=3, frac=0.5):
     print('Brute force: %g sec' % time_brute_force)
     
     start = time.time()
-    model.parameters['monte_carlo_strategy'] = 'frequency'
     model.mutual_information_monte_carlo(num)
     time_monte_carlo = time.time() - start
-    print('Monte carlo, strategy `frequency`: %g sec' % time_monte_carlo)
+    print('Monte carlo: %g sec' % time_monte_carlo)
     
-    start = time.time()
-    model.parameters['monte_carlo_strategy'] = 'uniform'
-    model.mutual_information_monte_carlo(num)
-    time_monte_carlo = time.time() - start
-    print('Monte carlo, strategy `uniform`: %g sec' % time_monte_carlo)
-    
-    
+        
             
 if __name__ == '__main__':
     performance_test()

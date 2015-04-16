@@ -8,11 +8,12 @@ methods.
 '''
 
 #TODO: implement ReceptorLibraryNumeric_mutual_information_monte_carlo_numba
-# This should be done after numba 0.18 was released, which supports np.random.
+# This should be done after numba 0.18 was released, which supports random num.
 
 from __future__ import division
 
 import functools
+
 import numba
 import numpy as np
 
@@ -41,17 +42,17 @@ def ReceptorLibraryNumeric_activity_single_brute_force_numba(
             if r == 1:
                 # substrate i is present
                 pm *= prob_s[i]
-                for k in xrange(Nr):
-                    if int_mat[k, i] == 1:
-                        ak[k] = 1
+                for a in xrange(Nr):
+                    if int_mat[a, i] == 1:
+                        ak[a] = 1
             else:
                 # substrate i is not present
                 pm *= 1 - prob_s[i]
                 
         # add probability to the active receptors
-        for k in xrange(Nr):
-            if ak[k] == 1:
-                prob_a[k] += pm
+        for a in xrange(Nr):
+            if ak[a] == 1:
+                prob_a[a] += pm
 
 
 def ReceptorLibraryNumeric_activity_single_brute_force(self):
@@ -85,21 +86,21 @@ def ReceptorLibraryNumeric_activity_correlations_brute_force_numba(
             if r == 1:
                 # substrate i is present
                 pm *= prob_s[i]
-                for k in xrange(Nr):
-                    if int_mat[k, i] == 1:
-                        ak[k] = 1
+                for a in xrange(Nr):
+                    if int_mat[a, i] == 1:
+                        ak[a] = 1
             else:
                 # substrate i is not present
                 pm *= 1 - prob_s[i]
                 
         # add probability to the active receptors
-        for k in xrange(Nr):
-            if ak[k] == 1:
-                prob_a[k, k] += pm
-                for j in xrange(k + 1, Nr):
-                    if ak[j] == 1:
-                        prob_a[k, j] += pm
-                        prob_a[j, k] += pm
+        for a in xrange(Nr):
+            if ak[a] == 1:
+                prob_a[a, a] += pm
+                for b in xrange(a + 1, Nr):
+                    if ak[b] == 1:
+                        prob_a[a, b] += pm
+                        prob_a[b, a] += pm
                     
     
 def ReceptorLibraryNumeric_activity_correlations_brute_force(self):
@@ -133,19 +134,19 @@ def ReceptorLibraryNumeric_mutual_information_brute_force_numba(
             if r == 1:
                 # substrate i is present
                 pm *= prob_s[i]
-                for k in xrange(Nr):
-                    if int_mat[k, i] == 1:
-                        ak[k] = 1
+                for a in xrange(Nr):
+                    if int_mat[a, i] == 1:
+                        ak[a] = 1
             else:
                 # substrate i is not present
                 pm *= 1 - prob_s[i]
                 
         # calculate the activity pattern id
-        a_id, b = 0, 1
-        for k in xrange(Nr):
-            if ak[k] == 1:
-                a_id += b
-            b *= 2
+        a_id, base = 0, 1
+        for a in xrange(Nr):
+            if ak[a] == 1:
+                a_id += base
+            base *= 2
         
         prob_a[a_id] += pm
     
@@ -178,6 +179,69 @@ def ReceptorLibraryNumeric_mutual_information_brute_force(self, ret_prob_activit
 
 
 
+@numba.jit(nopython=NUMBA_NOPYTHON) 
+def ReceptorLibraryNumeric_mutual_information_monte_carlo_numba(
+        Ns, Nr, steps, int_mat, prob_s, ak, prob_a):
+    """ calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' """
+        
+    # sample mixtures according to the probabilities of finding
+    # substrates
+    for _ in xrange(steps):
+        # choose a mixture vector according to substrate probabilities
+        ak[:] = 0  #< activity pattern of this mixture
+        for i in xrange(Ns):
+            if np.random.random() < prob_s[i]:
+                # the substrate i is present in the mixture
+                for a in xrange(Nr):
+                    if int_mat[a, i] == 1:
+                        # receptor a is activated by substrate i
+                        ak[a] = 1
+        
+        # calculate the activity pattern id
+        a_id, base = 0, 1
+        for a in xrange(Nr):
+            if ak[a] == 1:
+                a_id += base
+            base *= 2
+        
+        # increment counter for this output
+        prob_a[a_id] += 1
+        
+    # normalize the probabilities by the number of steps we did
+    for k in xrange(len(prob_a)):
+        prob_a[k] /= steps
+    
+    # calculate the mutual information from the observed probabilities
+    MI = 0
+    for pa in prob_a:
+        if pa > 0:
+            MI -= pa*np.log2(pa)
+    
+    return MI
+    
+
+def ReceptorLibraryNumeric_mutual_information_monte_carlo(self, ret_prob_activity=False):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    prob_a = np.zeros(2**self.Nr) 
+ 
+    # call the jitted function
+    MI = ReceptorLibraryNumeric_mutual_information_monte_carlo_numba(
+        self.Ns, self.Nr, int(self.parameters['monte_carlo_steps']), 
+        self.int_mat,
+        self.substrate_probability, #< prob_s
+        np.empty(self.Nr, np.uint), #< ak
+        prob_a
+    )
+    
+    if ret_prob_activity:
+        return MI, prob_a
+    else:
+        return MI
+
+
+
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON)
 def ReceptorLibraryNumeric_mutual_information_estimate_numba(
         Ns, Nr, int_mat, prob_s, p_Ga, ids):
@@ -188,7 +252,7 @@ def ReceptorLibraryNumeric_mutual_information_estimate_numba(
     # iterate over all receptors
     for a in xrange(Nr):
         # evaluate the direct
-        i_count = 0 #< number of reaction substrates
+        i_count = 0 #< number of substrates that excite receptor a
         prod = 1    #< product important for calculating the probabilities
         for i in xrange(Ns):
             if int_mat[a, i] == 1:
@@ -275,6 +339,11 @@ def check_return_value(obj, (func1, func2)):
     return np.allclose(func1(obj), func2(obj))
 
 
+def check_return_value_approx(obj, (func1, func2)):
+    """ checks the numba method versus the original one """
+    return np.allclose(func1(obj), func2(obj), rtol=1e-1, atol=1e-1)
+
+
 
 class NumbaPatcher(object):
     """ class for managing numba monkey patching in this package. This class
@@ -295,6 +364,11 @@ class NumbaPatcher(object):
         'model_numeric.ReceptorLibraryNumeric.mutual_information_brute_force': {
             'numba': ReceptorLibraryNumeric_mutual_information_brute_force,
             'test_function': check_return_value,
+            'test_arguments': {},
+        },
+        'model_numeric.ReceptorLibraryNumeric.mutual_information_monte_carlo': {
+            'numba': ReceptorLibraryNumeric_mutual_information_monte_carlo,
+            'test_function': check_return_value_approx,
             'test_arguments': {},
         },
         'model_numeric.ReceptorLibraryNumeric.mutual_information_estimate': {
