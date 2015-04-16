@@ -41,18 +41,18 @@ class ReceptorLibraryBase(object):
 
 
     @classmethod
-    def get_random_arguments(cls):
+    def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        Ns = np.random.randint(3, 6)
-        Nr = np.random.randint(2, 4)
-        hs = np.random.random(Ns)
+        Ns = kwargs.get('Ns', np.random.randint(3, 6))
+        Nr = kwargs.get('Nr', np.random.randint(2, 4))
+        hs = kwargs.get('hs', np.random.random(Ns))
         return [Ns, Nr, hs]
 
 
     @classmethod
-    def create_test_instance(cls):
+    def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        return cls(*cls.get_random_arguments())
+        return cls(*cls.get_random_arguments(**kwargs))
 
     
     @property

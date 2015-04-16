@@ -82,10 +82,10 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
 
 
     @classmethod
-    def get_random_arguments(cls):
+    def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        args = super(ReceptorLibraryNumeric, cls).get_random_arguments()
-        frac = np.random.random()
+        args = super(ReceptorLibraryNumeric, cls).get_random_arguments(**kwargs)
+        frac = kwargs.get('frac', np.random.random())
         return args + [frac]
 
 
