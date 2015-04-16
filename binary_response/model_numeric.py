@@ -37,15 +37,15 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     """ represents a single receptor library """
     
     parameters_default = {
-        'max_num_receptors': 28,     #< prevents memory overflows
-        'random_seed': None,         #< seed for the random number generator
-        'interaction_matrix': None,  #< will be calculated if not given
-        'inefficiency_weight': 1,    #< weighting parameter for inefficiency
+        'max_num_receptors': 28,    #< prevents memory overflows
+        'random_seed': None,        #< seed for the random number generator
+        'interaction_matrix': None, #< will be calculated if not given
+        'inefficiency_weight': 1,   #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
-        'monte_carlo_steps': 100000, #< default number of monte carlo steps
-        'anneal_Tmax': 1e0,          #< Max (starting) temperature for annealing
-        'anneal_Tmin': 1e-3,         #< Min (ending) temperature for annealing
-        'verbosity': 0,              #< verbosity level    
+        'monte_carlo_steps': 1e5,   #< default number of monte carlo steps
+        'anneal_Tmax': 1e0,         #< Max (starting) temperature for annealing
+        'anneal_Tmin': 1e-3,        #< Min (ending) temperature for annealing
+        'verbosity': 0,             #< verbosity level    
     }
     
 

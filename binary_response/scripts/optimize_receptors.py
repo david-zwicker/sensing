@@ -38,7 +38,7 @@ def optimize_receptors(parameters):
     model.set_commonness(parameters['scheme'], parameters['d'])
     
     # optimize
-    result = model.optimize_library('mutual_information_brute_force',
+    result = model.optimize_library('mutual_information',
                                     method='anneal', steps=parameters['steps'])
     
     return {'parameters': parameters, 'init_arguments': model.init_arguments,
