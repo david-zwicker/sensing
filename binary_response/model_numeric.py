@@ -1,7 +1,7 @@
 '''
 Created on Mar 27, 2015
 
-@author: zwicker
+@author: David Zwicker <dzwicker@seas.harvard.edu>
 
 General note on multiprocessing
 -------------------------------
@@ -271,13 +271,16 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return MI
     
         
-    def mutual_information_estimate(self, approximate=False):
-        """ returns a simple estimate of the mutual information """
+    def mutual_information_estimate(self, approx_prob=False):
+        """ returns a simple estimate of the mutual information.
+        `approx_prob` determines whether the probabilities of encountering
+            substrates in mixtures are calculated exactly or only approximative,
+            which should work for small probabilities. """
         I_ai = self.int_mat
         prob_s = self.substrate_probability
         
         # calculate the probabilities of exciting receptors and pairs
-        if approximate:
+        if approx_prob:
             # approximate calculation for small prob_s
             p_Ga = np.dot(I_ai, prob_s)
             p_Gab = np.einsum('ij,kj,j->ik', I_ai, I_ai, prob_s)
