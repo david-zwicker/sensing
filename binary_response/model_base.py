@@ -67,12 +67,13 @@ class ReceptorLibraryBase(object):
             raise ValueError('Length of the commonness vector must match the '
                              'number of substrates.')
         self._hs = np.asarray(hs)
+        self._ps = 1/(1 + np.exp(-self._hs))
     
     
     @property
     def substrate_probability(self):
         """ return the probability of finding each substrate """
-        return 1/(1 + np.exp(-self._hs))
+        return self._ps
     
     @substrate_probability.setter
     def substrate_probability(self, ps):
@@ -85,8 +86,8 @@ class ReceptorLibraryBase(object):
             raise ValueError('All probabilities must be within [0, 1]')
         
         with np.errstate(all='ignore'):
-            # self._hs = np.log(ps/(1 + ps))
             self._hs = np.log(ps) - np.log1p(-ps)
+        self._ps = ps
             
             
     def mixture_size_distribution(self):
