@@ -22,7 +22,8 @@ def binom(N, p):
 
 
 class ReceptorLibraryUniform(ReceptorLibraryBase):
-    """ represents a single receptor library """
+    """ represents a single receptor library with random entries. The only
+    parameters that characterizes this library is the density of entries. """
 
 
     def __init__(self, num_substrates, num_receptors, hs=None, density=1):
@@ -31,7 +32,7 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
         substrates, and the fraction `density` of substrates a single receptor
         responds to """
         super(ReceptorLibraryUniform, self).__init__(num_substrates,
-                                                    num_receptors, hs)
+                                                     num_receptors, hs)
         self.density = density
 
 
@@ -55,7 +56,7 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
     def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        return 1 - np.prod(1 - self.density*self.substrate_probability)
+        return 1 - np.prod(1 - self.density * self.substrate_probability)
 
 
     def mutual_information(self, with_correlations=True, approx_prob=False):
