@@ -122,6 +122,28 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             return int_mat
             
 
+    def activity_single(self, method='auto'):
+        """ calculates the average activity of each receptor
+        
+        `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
+            than the method is chosen automatically based on the problem size.
+        """
+        if method == 'auto':
+            if self.Ns <= self.parameters['brute_force_threshold_Ns']:
+                method = 'brute_force'
+            else:
+                method = 'monte_carlo'
+                
+        if method == 'brute_force':
+            return self.activity_single_brute_force()
+        elif method == 'monte_carlo':
+            return self.activity_single_monte_carlo()
+        elif method == 'estimate':
+            return self.activity_single_estimate()
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+        
+        
     def activity_single_brute_force(self):
         """ calculates the average activity of each receptor """
         prob_s = self.substrate_probability
@@ -158,6 +180,29 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             count_a[a] += 1
             
         return count_a/num
+
+    
+    def activity_single_estimate(self, approx_prob=False):
+        """ estimates the average activity of each receptor. 
+        `approx_prob` determines whether the probabilities of encountering
+            substrates in mixtures are calculated exactly or only approximative,
+            which should work for small probabilities. """
+        I_ai = self.int_mat
+        prob_s = self.substrate_probability
+
+        # calculate the probabilities of exciting receptors and pairs
+        if approx_prob:
+            # approximate calculation for small prob_s
+            p_Ga = np.dot(I_ai, prob_s)
+            assert np.all(p_Ga < 1)
+            
+        else:
+            # proper calculation of the cluster probabilities
+            p_Ga = np.zeros(self.Nr)
+            I_ai_mask = I_ai.astype(np.bool)
+            for a in xrange(self.Nr):
+                p_Ga[a] = 1 - np.product(1 - prob_s[I_ai_mask[a, :]])
+        return p_Ga
 
 
     def activity_correlations_brute_force(self):
