@@ -74,8 +74,8 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
             p2 = self.Ns * self.density**2 * p_s
         else:
             # use better formulas for calculating the probabilities 
-            p1 = 1 - (1 - self.frac * p_s)**self.Ns
-            p2 = 1 - (1 - self.frac**2 * p_s)**self.Ns
+            p1 = 1 - (1 - self.density * p_s)**self.Ns
+            p2 = 1 - (1 - self.density**2 * p_s)**self.Ns
         
         if p1 == 0:
             # receptors are never activated
