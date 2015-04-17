@@ -49,14 +49,13 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     }
     
 
-    def __init__(self, num_substrates, num_receptors, hs=None, frac=1,
-                 parameters=None):
+    def __init__(self, num_substrates, num_receptors, hs=None, parameters=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the weights `hs` of the 
         substrates, and the fraction `frac` of substrates a single receptor
         responds to """
         super(ReceptorLibraryNumeric, self).__init__(num_substrates,
-                                                     num_receptors, hs, frac)        
+                                                     num_receptors, hs)        
 
         # set the internal parameters
         self.parameters = self.parameters_default.copy()
@@ -66,9 +65,17 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         # prevent integer overflow in collecting activity patterns
         assert num_receptors < 63 
         assert num_receptors <= self.parameters['max_num_receptors']
+
+        int_mat_shape = (self.Nr, self.Ns)
+        if self.parameters['interaction_matrix'] is None:
+            # initialize the interaction matrix with zeros
+            self.int_mat = np.zeros(int_mat_shape, np.int)
+        else:
+            # copy the given matrix
+            self.int_mat[:] = self.parameters['interaction_matrix']
+            assert self.int_mat.shape == int_mat_shape
         
         np.random.seed(self.parameters['random_seed'])
-        self.choose_interaction_matrix()
 
 
     @property
@@ -76,28 +83,26 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
         args = super(ReceptorLibraryNumeric, self).init_arguments
-        args['frac'] = self.frac
         args['parameters'] = self.parameters
         return args
 
 
     @classmethod
-    def get_random_arguments(cls, **kwargs):
-        """ create random arguments for creating test instances """
-        args = super(ReceptorLibraryNumeric, cls).get_random_arguments(**kwargs)
-        frac = kwargs.get('frac', np.random.random())
-        return args + [frac]
+    def create_test_instance(cls, **kwargs):
+        """ creates a test instance used for consistency tests """
+        obj = super(ReceptorLibraryNumeric, cls).create_test_instance()
+        obj.choose_interaction_matrix(density=np.random.random())
+        return obj
+    
 
-
-    def choose_interaction_matrix(self):
+    def choose_interaction_matrix(self, density=0):
         """ creates a interaction matrix """
-        shape = (self.Nr, self.Ns)
-        # choose receptor substrate interaction randomly
-        if self.parameters['interaction_matrix'] is None:
-            self.int_mat = (np.random.random(shape) < self.frac).astype(np.int)
+        if density == 0:
+            self.int_mat.fill(0)
         else:
-            self.int_mat = self.parameters['interaction_matrix']
-            assert self.int_mat.shape == shape
+            # choose receptor substrate interaction randomly
+            shape = (self.Nr, self.Ns)
+            self.int_mat = (np.random.random(shape) < density).astype(np.int)
             
             
     def sort_interaction_matrix(self, interaction_matrix=None):
@@ -585,11 +590,11 @@ class ReceptorOptimizerAnnealer(Annealer):
    
    
    
-def performance_test(Ns=15, Nr=3, frac=0.5):
+def performance_test(Ns=15, Nr=3):
     """ test the performance of the brute force and the monte carlo method """
     num = 2**Ns
     hs = np.random.random(Ns)
-    model = ReceptorLibraryNumeric(Ns, Nr, hs, frac=frac)
+    model = ReceptorLibraryNumeric(Ns, Nr, hs)
     
     start = time.time()
     model.mutual_information_brute_force()

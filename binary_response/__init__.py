@@ -1,5 +1,5 @@
 from model_numeric import ReceptorLibraryNumeric
-from model_theory import ReceptorLibraryTheory
+from model_theory import ReceptorLibraryUniform
 
 # try importing numba for speeding up calculations
 try:

@@ -21,41 +21,41 @@ def binom(N, p):
 
 
 
-class ReceptorLibraryTheory(ReceptorLibraryBase):
+class ReceptorLibraryUniform(ReceptorLibraryBase):
     """ represents a single receptor library """
 
 
-    def __init__(self, num_substrates, num_receptors, hs=None, frac=1):
+    def __init__(self, num_substrates, num_receptors, hs=None, density=1):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the weights `hs` of the 
-        substrates, and the fraction `frac` of substrates a single receptor
+        substrates, and the fraction `density` of substrates a single receptor
         responds to """
-        super(ReceptorLibraryTheory, self).__init__(num_substrates,
+        super(ReceptorLibraryUniform, self).__init__(num_substrates,
                                                     num_receptors, hs)
-        self.frac = frac
+        self.density = density
 
 
     @property
     def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
-        args = super(ReceptorLibraryTheory, self).init_arguments
-        args['frac'] = self.frac
+        args = super(ReceptorLibraryUniform, self).init_arguments
+        args['density'] = self.density
         return args
 
 
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        args = super(ReceptorLibraryTheory, cls).get_random_arguments()
-        frac = kwargs.get('frac', np.random.random())
-        return args + [frac]
+        args = super(ReceptorLibraryUniform, cls).get_random_arguments()
+        density = kwargs.get('density', np.random.random())
+        return args + [density]
 
 
     def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        return 1 - np.prod(1 - self.frac*self.substrate_probability)
+        return 1 - np.prod(1 - self.density*self.substrate_probability)
 
 
     def mutual_information(self, with_correlations=True, approx_prob=False):
@@ -67,12 +67,12 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
         # probability that a single receptor and a pair is activated 
         if approx_prob:
             # use approximate formulas for calculating the probabilities
-            p1 = self.Ns * self.frac * p_s
-            p2 = self.Ns * self.frac**2 * p_s
+            p1 = self.Ns * self.density * p_s
+            p2 = self.Ns * self.density**2 * p_s
         else:
             # use better formulas for calculating the probabilities 
             p1 = self.activity_single()
-            p2 = 1 - (1 - self.frac**2 * p_s)**self.Ns
+            p2 = 1 - (1 - self.density**2 * p_s)**self.Ns
         
         if p1 == 0:
             # receptors are never activated
@@ -86,7 +86,7 @@ class ReceptorLibraryTheory(ReceptorLibraryBase):
             return -self.Nr*(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
         
         
-    def frac_optimal(self, assume_homogeneous=False):
+    def density_optimal(self, assume_homogeneous=False):
         """ return the estimated optimal activity fraction for the simple case
         where all h are the same. The estimate relies on an approximation that
         all receptors are independent and is thus independent of the number of 
