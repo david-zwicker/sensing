@@ -16,7 +16,7 @@ class ReceptorLibraryBase(object):
     general functionality and parameter management """
 
 
-    def __init__(self, num_substrates, num_receptors, hs=None, frac=1):
+    def __init__(self, num_substrates, num_receptors, hs=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, and the weights `hs` of the 
         substrates """
@@ -27,7 +27,6 @@ class ReceptorLibraryBase(object):
         else:
             assert len(hs) == self.Ns
             self.commonness = np.array(hs)
-        self.frac = frac
 
 
     @property
@@ -36,8 +35,7 @@ class ReceptorLibraryBase(object):
         it by calling the __init__ method with these arguments """
         return {'num_substrates': self.Ns,
                 'num_receptors': self.Nr,
-                'hs': self._hs,
-                'frac': self.frac}
+                'hs': self._hs}
 
 
     @classmethod
