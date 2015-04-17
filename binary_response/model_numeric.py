@@ -40,6 +40,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         'max_num_receptors': 28,    #< prevents memory overflows
         'random_seed': None,        #< seed for the random number generator
         'interaction_matrix': None, #< will be calculated if not given
+        'interaction_matrix_params': None, #< parameters determining I_ai
         'inefficiency_weight': 1,   #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 1e5,   #< default number of monte carlo steps
@@ -67,13 +68,17 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         assert num_receptors <= self.parameters['max_num_receptors']
 
         int_mat_shape = (self.Nr, self.Ns)
-        if self.parameters['interaction_matrix'] is None:
-            # initialize the interaction matrix with zeros
-            self.int_mat = np.zeros(int_mat_shape, np.int)
-        else:
+        if self.parameters['interaction_matrix'] is not None:
             # copy the given matrix
             self.int_mat[:] = self.parameters['interaction_matrix']
             assert self.int_mat.shape == int_mat_shape
+        elif self.parameters['interaction_matrix_params'] is not None:
+            # create a matrix with the given properties
+            params = self.parameters['interaction_matrix_params']
+            self.choose_interaction_matrix(**params)
+        else:
+            # initialize the interaction matrix with zeros
+            self.int_mat = np.zeros(int_mat_shape, np.uint8)
         
         np.random.seed(self.parameters['random_seed'])
 
@@ -97,12 +102,15 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
 
     def choose_interaction_matrix(self, density=0):
         """ creates a interaction matrix """
+        shape = (self.Nr, self.Ns)
         if density == 0:
-            self.int_mat.fill(0)
+            self.int_mat = np.zeros(shape, np.uint8)
         else:
             # choose receptor substrate interaction randomly
-            shape = (self.Nr, self.Ns)
-            self.int_mat = (np.random.random(shape) < density).astype(np.int)
+            self.int_mat = (np.random.random(shape) < density).astype(np.uint8)
+            
+        # save the parameters determining this matrix
+        self.parameters['interaction_matrix_params'] = {'density': density}
             
             
     def sort_interaction_matrix(self, interaction_matrix=None):
