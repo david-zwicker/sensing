@@ -106,7 +106,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         if density == 0:
             # simple case of empty matrix
             self.int_mat = np.zeros(shape, np.uint8)
-        elif density == 1:
+        elif density >= 1:
             # simple case of full matrix
             self.int_mat = np.ones(shape, np.uint8)
             

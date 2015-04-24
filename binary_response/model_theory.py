@@ -59,7 +59,7 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
         return 1 - np.prod(1 - self.density * self.substrate_probability)
 
 
-    def mutual_information(self, with_correlations=False, approx_prob=False):
+    def mutual_information(self, approx_prob=False):
         """ return a theoretical estimate of the mutual information between
         input and output """
         if len(np.unique(self.commonness)) > 1:
@@ -71,20 +71,13 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
         if approx_prob:
             # use approximate formulas for calculating the probabilities
             p1 = self.Ns * self.density * p_s
-            p2 = self.Ns * self.density**2 * p_s
         else:
             # use better formulas for calculating the probabilities 
             p1 = 1 - (1 - self.density * p_s)**self.Ns
-            p2 = 1 - (1 - self.density**2 * p_s)**self.Ns
         
         if p1 == 0:
             # receptors are never activated
             return 0
-        elif with_correlations:
-            # use the estimated formula that includes the effects of correlations
-            corr1 = self.Nr*(self.Nr - 1)*(1 - 2*p1 + 0.75*p2)*p2
-            corr2 = self.Nr*(self.Nr - 1)*(self.Nr - 2)*p2**2
-            return self.Nr - 0.5*self.Nr*(1 - 2*p1)**2 - corr1 - corr2
         else:
             # use the simple formula where receptors are considered independent
             q = -(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
