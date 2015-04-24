@@ -116,26 +116,9 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
             self.int_mat = np.zeros(shape, np.uint8)
             num_entries = int(round(density * self.Nr * self.Ns))
             
-#             if num_entries >= self.Ns:
-#                 # choose receptors for all substrates
-#                 i_ids = np.arange(self.Ns)
-#                 a_ids = np.random.randint(0, self.Nr, self.Ns)
-#                 num_entries -= self.Ns
-#                 
-#             else:
-#                 # choose substrates to react to
-#                 i_ids = np.random.choice(np.arange(self.Ns), num_entries,
-#                                          replace=False)
-#                 # choose receptors for this
-#                 a_ids = np.random.randint(0, self.Nr, num_entries)
-#                 num_entries = 0
-#                 
-#             # set the receptors for the substrates
-#             for i, a in itertools.izip(i_ids, a_ids):
-#                 self.int_mat[a, i] = 1
-            
+            empty_int_mat = True
             while num_entries > 0:
-                # specify the substrates that we want to choose
+                # specify the substrates that we want to detect
                 if num_entries >= self.Ns:
                     i_ids = np.arange(self.Ns)
                     num_entries -= self.Ns
@@ -144,12 +127,21 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
                                              replace=False)
                     num_entries = 0
                     
-                # choose receptors for each substrate
-                for i in i_ids:
-                    a_ids = np.flatnonzero(self.int_mat[:, i] == 0)
-                    self.int_mat[random.choice(a_ids), i] = 1
-        
-        else:
+                if empty_int_mat:
+                    # set the receptors for the substrates
+                    a_ids = np.random.randint(0, self.Nr, len(i_ids))
+                    for i, a in itertools.izip(i_ids, a_ids):
+                        self.int_mat[a, i] = 1
+                    empty_int_mat = False
+                    
+                else:
+                    # choose receptors for each substrate from the ones that
+                    # are not activated, yet
+                    for i in i_ids:
+                        a_ids = np.flatnonzero(self.int_mat[:, i] == 0)
+                        self.int_mat[random.choice(a_ids), i] = 1
+            
+        else: # not avoid_correlations:
             # choose receptor substrate interaction randomly and don't worry
             # about correlations
             self.int_mat = (np.random.random(shape) < density).astype(np.uint8)
