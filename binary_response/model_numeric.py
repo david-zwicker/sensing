@@ -100,17 +100,65 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         return obj
     
 
-    def choose_interaction_matrix(self, density=0):
-        """ creates a interaction matrix """
+    def choose_interaction_matrix(self, density=0, avoid_correlations=False):
+        """ creates a interaction matrix with the given properties """
         shape = (self.Nr, self.Ns)
         if density == 0:
+            # simple case of empty matrix
             self.int_mat = np.zeros(shape, np.uint8)
+        elif density == 1:
+            # simple case of full matrix
+            self.int_mat = np.ones(shape, np.uint8)
+            
+        elif avoid_correlations:
+            # choose receptor substrate interaction randomly but try to avoid
+            # correlations between the receptors
+            self.int_mat = np.zeros(shape, np.uint8)
+            num_entries = int(round(density * self.Nr * self.Ns))
+            
+#             if num_entries >= self.Ns:
+#                 # choose receptors for all substrates
+#                 i_ids = np.arange(self.Ns)
+#                 a_ids = np.random.randint(0, self.Nr, self.Ns)
+#                 num_entries -= self.Ns
+#                 
+#             else:
+#                 # choose substrates to react to
+#                 i_ids = np.random.choice(np.arange(self.Ns), num_entries,
+#                                          replace=False)
+#                 # choose receptors for this
+#                 a_ids = np.random.randint(0, self.Nr, num_entries)
+#                 num_entries = 0
+#                 
+#             # set the receptors for the substrates
+#             for i, a in itertools.izip(i_ids, a_ids):
+#                 self.int_mat[a, i] = 1
+            
+            while num_entries > 0:
+                # specify the substrates that we want to choose
+                if num_entries >= self.Ns:
+                    i_ids = np.arange(self.Ns)
+                    num_entries -= self.Ns
+                else:
+                    i_ids = np.random.choice(np.arange(self.Ns), num_entries,
+                                             replace=False)
+                    num_entries = 0
+                    
+                # choose receptors for each substrate
+                for i in i_ids:
+                    a_ids = np.flatnonzero(self.int_mat[:, i] == 0)
+                    self.int_mat[random.choice(a_ids), i] = 1
+        
         else:
-            # choose receptor substrate interaction randomly
+            # choose receptor substrate interaction randomly and don't worry
+            # about correlations
             self.int_mat = (np.random.random(shape) < density).astype(np.uint8)
             
         # save the parameters determining this matrix
-        self.parameters['interaction_matrix_params'] = {'density': density}
+        self.parameters['interaction_matrix_params'] = {
+            'density': density,
+            'avoid_correlations': avoid_correlations
+        }
             
             
     def sort_interaction_matrix(self, interaction_matrix=None):
