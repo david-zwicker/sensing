@@ -87,7 +87,9 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
             return self.Nr - 0.5*self.Nr*(1 - 2*p1)**2 - corr1 - corr2
         else:
             # use the simple formula where receptors are considered independent
-            return -self.Nr*(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
+            q = -(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
+            return self.Ns - self.Ns*(1 - q/self.Ns)**self.Nr
+            #return -self.Nr*(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
         
         
     def density_optimal(self, assume_homogeneous=False):
