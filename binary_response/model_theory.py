@@ -70,19 +70,25 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
         # probability that a single receptor and a pair is activated 
         if approx_prob:
             # use approximate formulas for calculating the probabilities
-            p1 = self.Ns * self.density * p_s
+            p_r = self.Ns * self.density * p_s
         else:
             # use better formulas for calculating the probabilities 
-            p1 = 1 - (1 - self.density * p_s)**self.Ns
+            p_r = 1 - (1 - self.density * p_s)**self.Ns
         
-        if p1 == 0:
+        if p_r == 0:
             # receptors are never activated
             return 0
         else:
             # use the simple formula where receptors are considered independent
-            q = -(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
-            return self.Ns - self.Ns*(1 - q/self.Ns)**self.Nr
-            #return -self.Nr*(p1*np.log2(p1) + (1 - p1)*np.log2(1 - p1))
+
+            # calculate the information a single receptor contributes            
+            q = -(p_r*np.log2(p_r) + (1 - p_r)*np.log2(1 - p_r))
+            # calculate the MI assuming that receptors are independent
+            MI = self.Ns - self.Ns*(1 - q/self.Ns)**self.Nr
+            # determine the entropy of a single substrate in the mixture
+            H_s = -(p_s*np.log2(p_s) + (1 - p_s)*np.log2(1 - p_s))
+            # limit the MI to the mixture entropy
+            return min(MI, self.Ns * H_s)
         
         
     def density_optimal(self, assume_homogeneous=False):
