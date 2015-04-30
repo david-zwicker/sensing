@@ -27,7 +27,7 @@ def optimize_receptors(parameters):
     # get an estimate of the optimal response fraction
     theory = ReceptorLibraryUniform(parameters['Ns'], parameters['Nr'])
     theory.set_commonness('const', parameters['d'])
-    frac_opt = theory.density_optimal()
+    density_optimal = theory.density_optimal()
     
     # setup the numerical model that we use for optimization
     model = ReceptorLibraryNumeric(
@@ -35,12 +35,12 @@ def optimize_receptors(parameters):
         parameters={'verbosity': 0 if parameters['quite'] else 1,
                     'random_seed': parameters['random_seed'],}
     )
-    model.choose_interaction_matrix(density=frac_opt)
+    model.choose_interaction_matrix(density=density_optimal)
     model.set_commonness(parameters['scheme'], parameters['d'])
     
     # optimize
-    result = model.optimize_library('mutual_information',
-                                    method='anneal', steps=parameters['steps'])
+    result = model.optimize_library('mutual_information', method='anneal',
+                                    steps=parameters['steps'])
     
     return {'parameters': parameters, 'init_arguments': model.init_arguments,
             'MI': result[0], 'I_ai': result[1]}

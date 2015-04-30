@@ -38,7 +38,6 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     
     parameters_default = {
         'max_num_receptors': 28,    #< prevents memory overflows
-        'random_seed': None,        #< seed for the random number generator
         'interaction_matrix': None, #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
         'inefficiency_weight': 1,   #< weighting parameter for inefficiency
@@ -50,19 +49,13 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     }
     
 
-    def __init__(self, num_substrates, num_receptors, hs=None, parameters=None):
-        """ initialize the receptor library by setting the number of receptors,
-        the number of substrates it can respond to, the weights `hs` of the 
-        substrates, and the fraction `frac` of substrates a single receptor
-        responds to """
+    def __init__(self, num_substrates, num_receptors, parameters=None):
+        """ initialize a receptor library by setting the number of receptors,
+        the number of substrates it can respond to, and optional additional
+        parameters in the parameter dictionary """
         super(ReceptorLibraryNumeric, self).__init__(num_substrates,
-                                                     num_receptors, hs)        
+                                                     num_receptors, parameters)        
 
-        # set the internal parameters
-        self.parameters = self.parameters_default.copy()
-        if parameters is not None:
-            self.parameters.update(parameters)
-        
         # prevent integer overflow in collecting activity patterns
         assert num_receptors < 63 
         assert num_receptors <= self.parameters['max_num_receptors']
@@ -79,17 +72,6 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         else:
             # initialize the interaction matrix with zeros
             self.int_mat = np.zeros(int_mat_shape, np.uint8)
-        
-        np.random.seed(self.parameters['random_seed'])
-
-
-    @property
-    def init_arguments(self):
-        """ return the parameters of the model that can be used to reconstruct
-        it by calling the __init__ method with these arguments """
-        args = super(ReceptorLibraryNumeric, self).init_arguments
-        args['parameters'] = self.parameters
-        return args
 
 
     @classmethod
@@ -421,31 +403,6 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         # add up the terms to produce the inefficiency parameter
         crosstalk_weight = self.parameters['inefficiency_weight']
         return term_entropy + crosstalk_weight*term_crosstalk
-        
-            
-    def ensemble_average(self, method, avg_num=32, multiprocessing=False, 
-                         ret_all=False):
-        """ calculate an ensemble average of the result of the `method` of
-        multiple different receptor libraries """
-        
-        if multiprocessing:
-            # run the calculations in multiple processes  
-            arguments = (self.init_arguments, method)
-            pool = mp.Pool()
-            result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
-            
-        else:
-            # run the calculations in this process
-            result = [getattr(ReceptorLibraryNumeric(**self.init_arguments),
-                              method)()
-                      for _ in xrange(avg_num)]
-    
-        # collect the results and calculate the statistics
-        result = np.array(result)
-        if ret_all:
-            return result
-        else:
-            return result.mean(axis=0), result.std(axis=0)
         
         
     def optimize_library(self, target, method='descent', direction='max',

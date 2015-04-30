@@ -26,13 +26,14 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
     parameters that characterizes this library is the density of entries. """
 
 
-    def __init__(self, num_substrates, num_receptors, hs=None, density=1):
+    def __init__(self, num_substrates, num_receptors, parameters=None,
+                 density=1):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the weights `hs` of the 
         substrates, and the fraction `density` of substrates a single receptor
         responds to """
         super(ReceptorLibraryUniform, self).__init__(num_substrates,
-                                                     num_receptors, hs)
+                                                     num_receptors, parameters)
         self.density = density
 
 
@@ -62,33 +63,34 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
     def mutual_information(self, approx_prob=False):
         """ return a theoretical estimate of the mutual information between
         input and output """
-        if len(np.unique(self.commonness)) > 1:
-            raise RuntimeError('The estimate only works for homogeneous '
-                               'mixtures so far.')
-        p_s = self.substrate_probability[0]
+        #if len(np.unique(self.commonness)) > 1:
+        #    raise RuntimeError('The estimate only works for homogeneous '
+        #                       'mixtures so far.')
+        p_i = self.substrate_probability
         
-        # probability that a single receptor and a pair is activated 
+        # get probability p_r that a single receptor is activated 
         if approx_prob:
             # use approximate formulas for calculating the probabilities
-            p_r = self.Ns * self.density * p_s
+            p_r = self.density * p_i.sum()
         else:
             # use better formulas for calculating the probabilities 
-            p_r = 1 - (1 - self.density * p_s)**self.Ns
+            p_r = 1 - np.prod(1 - self.density * p_i)
         
-        if p_r == 0:
-            # receptors are never activated
+        if p_r == 0 or p_r == 1:
+            # receptors are never or always activated
             return 0
+        
         else:
-            # use the simple formula where receptors are considered independent
+            # calculate MI by assuming that receptors are independent
 
             # calculate the information a single receptor contributes            
-            q = -(p_r*np.log2(p_r) + (1 - p_r)*np.log2(1 - p_r))
+            H_r = -(p_r*np.log2(p_r) + (1 - p_r)*np.log2(1 - p_r))
             # calculate the MI assuming that receptors are independent
-            MI = self.Ns - self.Ns*(1 - q/self.Ns)**self.Nr
-            # determine the entropy of a single substrate in the mixture
-            H_s = -(p_s*np.log2(p_s) + (1 - p_s)*np.log2(1 - p_s))
+            MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
+            # determine the entropy of the mixtures
+            H_m = -np.sum(p_i*np.log2(p_i) + (1 - p_i)*np.log2(1 - p_i))
             # limit the MI to the mixture entropy
-            return min(MI, self.Ns * H_s)
+            return min(MI, H_m)
         
         
     def density_optimal(self, assume_homogeneous=False):
