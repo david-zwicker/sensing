@@ -1,10 +1,8 @@
-from model_numeric import ReceptorLibraryNumeric
-from model_theory import ReceptorLibraryUniform
+from libraries.binary_numeric import LibraryBinaryNumeric
+from libraries.binary_theory import LibraryBinaryUniform
 
-# try importing numba for speeding up calculations
-try:
-    from .numba_speedup import NumbaPatcher
-    NumbaPatcher.enable() #< enable the speed-up by default
-except ImportError:
-    NumbaPatcher = None
-    print('NumbaPatcher could not be loaded. Slow functions will be used')
+
+# provide deprecated classes for compatibility
+from .utils import DeprecationHelper
+ReceptorLibraryUniform = DeprecationHelper(LibraryBinaryUniform)
+ReceptorLibraryNumeric = DeprecationHelper(LibraryBinaryNumeric)

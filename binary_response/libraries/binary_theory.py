@@ -9,7 +9,7 @@ from __future__ import division
 import numpy as np
 import scipy.misc
 
-from .model_base import ReceptorLibraryBase
+from .base import LibraryBase
 
 
 
@@ -21,7 +21,7 @@ def binom(N, p):
 
 
 
-class ReceptorLibraryUniform(ReceptorLibraryBase):
+class LibraryBinaryUniform(LibraryBase):
     """ represents a single receptor library with random entries. The only
     parameters that characterizes this library is the density of entries. """
 
@@ -32,7 +32,7 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
         the number of substrates it can respond to, the weights `hs` of the 
         substrates, and the fraction `density` of substrates a single receptor
         responds to """
-        super(ReceptorLibraryUniform, self).__init__(num_substrates,
+        super(LibraryBinaryUniform, self).__init__(num_substrates,
                                                      num_receptors, parameters)
         self.density = density
 
@@ -41,7 +41,7 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
     def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
-        args = super(ReceptorLibraryUniform, self).init_arguments
+        args = super(LibraryBinaryUniform, self).init_arguments
         args['density'] = self.density
         return args
 
@@ -49,7 +49,7 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        args = super(ReceptorLibraryUniform, cls).get_random_arguments()
+        args = super(LibraryBinaryUniform, cls).get_random_arguments()
         density = kwargs.get('density', np.random.random())
         return args + [density]
 
@@ -120,3 +120,4 @@ class ReceptorLibraryUniform(ReceptorLibraryBase):
         return (1 - 2**(-1/self.Ns))/p0
     
     
+        

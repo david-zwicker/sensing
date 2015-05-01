@@ -12,6 +12,7 @@ import itertools
 import sys
 import timeit
 import types
+import warnings
 from collections import Counter
 
 import numpy as np
@@ -123,3 +124,29 @@ def copy_func(f, name=None):
     """ 
     return types.FunctionType(f.func_code, f.func_globals, name or f.func_name,
                               f.func_defaults, f.func_closure)
+
+
+
+class DeprecationHelper(object):
+    """
+    Helper function for re-routing deprecated classes 
+    copied from http://stackoverflow.com/a/9008509/932593
+    """
+    
+    def __init__(self, new_target, warning_class=Warning):
+        self.new_target = new_target
+        self.warning_class = warning_class
+
+    def _warn(self):
+        msg = "The class was renamed to `%s`"  % self.new_target.__name__
+        warnings.warn(msg, self.warning_class, stacklevel=4)
+
+    def __call__(self, *args, **kwargs):
+        self._warn()
+        return self.new_target(*args, **kwargs)
+
+    def __getattr__(self, attr):
+        self._warn()
+        return getattr(self.new_target, attr)
+    
+    

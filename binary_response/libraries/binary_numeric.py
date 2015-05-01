@@ -29,13 +29,14 @@ import numpy as np
 
 from simanneal import Annealer
 
-from .model_base import ReceptorLibraryBase
+from .base import LibraryBase
 
 
 
-class ReceptorLibraryNumeric(ReceptorLibraryBase):
+class LibraryBinaryNumeric(LibraryBase):
     """ represents a single receptor library """
     
+    # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
         'max_num_receptors': 28,    #< prevents memory overflows
         'interaction_matrix': None, #< will be calculated if not given
@@ -53,7 +54,9 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
         """ initialize a receptor library by setting the number of receptors,
         the number of substrates it can respond to, and optional additional
         parameters in the parameter dictionary """
-        super(ReceptorLibraryNumeric, self).__init__(num_substrates,
+        # the call to the inherited method also sets the default parameters from
+        # this class
+        super(LibraryBinaryNumeric, self).__init__(num_substrates,
                                                      num_receptors, parameters)        
 
         # prevent integer overflow in collecting activity patterns
@@ -77,7 +80,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        obj = super(ReceptorLibraryNumeric, cls).create_test_instance()
+        obj = super(LibraryBinaryNumeric, cls).create_test_instance()
         obj.choose_interaction_matrix(density=np.random.random())
         return obj
     
@@ -582,7 +585,7 @@ class ReceptorLibraryNumeric(ReceptorLibraryBase):
 
 def _ReceptorLibrary_mp_calc(args):
     """ helper function for multiprocessing """
-    obj = ReceptorLibraryNumeric(**args[0])
+    obj = LibraryBinaryNumeric(**args[0])
     return getattr(obj, args[1])()
 
    
@@ -644,7 +647,7 @@ def performance_test(Ns=15, Nr=3):
     """ test the performance of the brute force and the monte carlo method """
     num = 2**Ns
     hs = np.random.random(Ns)
-    model = ReceptorLibraryNumeric(Ns, Nr, hs)
+    model = LibraryBinaryNumeric(Ns, Nr, hs)
     
     start = time.time()
     model.mutual_information_brute_force()

@@ -13,7 +13,7 @@ import scipy.misc
 
 
 
-class ReceptorLibraryBase(object):
+class LibraryBase(object):
     """ represents a single receptor library. This is a base class that provides
     general functionality and parameter management.
     
@@ -22,6 +22,7 @@ class ReceptorLibraryBase(object):
     according to the parameters of the last call to `set_commonness`.  
     """
 
+    # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
         'random_seed': None,           #< seed for the random number generator
         'ensemble_average_num': 32,    #< repetitions for ensemble average
@@ -295,7 +296,7 @@ def _ReceptorLibrary_mp_calc(args):
 def test_consistency():
     """ does some simple consistency tests """
     # construct random model
-    model = ReceptorLibraryBase.create_test_instance()
+    model = LibraryBase.create_test_instance()
     
     # probability of having d_s components in a mixture for h_i = h
     hval = np.random.random() - 0.5

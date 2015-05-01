@@ -7,7 +7,7 @@ Module that monkey patches classes in other modules with equivalent, but faster
 methods.
 '''
 
-#TODO: implement ReceptorLibraryNumeric_mutual_information_monte_carlo_numba
+#TODO: implement LibraryBinaryNumeric_mutual_information_monte_carlo_numba
 # This should be done after numba 0.18 was released, which supports random num.
 
 from __future__ import division
@@ -17,17 +17,17 @@ import functools
 import numba
 import numpy as np
 
-from .utils import estimate_computation_speed
+from ..utils import estimate_computation_speed
 
 # these methods are used in getattr calls
-import model_numeric  # @UnusedImport
+from . import binary_numeric  # @UnusedImport
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
 
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_activity_single_brute_force_numba(
+def LibraryBinaryNumeric_activity_single_brute_force_numba(
          Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculates the average activity of each receptor """
     # iterate over all mixtures m
@@ -55,12 +55,12 @@ def ReceptorLibraryNumeric_activity_single_brute_force_numba(
                 prob_a[a] += pm
 
 
-def ReceptorLibraryNumeric_activity_single_brute_force(self):
+def LibraryBinaryNumeric_activity_single_brute_force(self):
     """ calculates the average activity of each receptor """
     prob_a = np.zeros(self.Nr) 
     
     # call the jitted function
-    ReceptorLibraryNumeric_activity_single_brute_force_numba(
+    LibraryBinaryNumeric_activity_single_brute_force_numba(
         self.Ns, self.Nr, self.int_mat,
         self.substrate_probability, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
@@ -71,7 +71,7 @@ def ReceptorLibraryNumeric_activity_single_brute_force(self):
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_activity_correlations_brute_force_numba(
+def LibraryBinaryNumeric_activity_correlations_brute_force_numba(
         Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculates the correlations between receptor activities """
     # iterate over all mixtures m
@@ -103,12 +103,12 @@ def ReceptorLibraryNumeric_activity_correlations_brute_force_numba(
                         prob_a[b, a] += pm
                     
     
-def ReceptorLibraryNumeric_activity_correlations_brute_force(self):
+def LibraryBinaryNumeric_activity_correlations_brute_force(self):
     """ calculates the correlations between receptor activities """
     prob_a = np.zeros((self.Nr, self.Nr)) 
     
     # call the jitted function
-    ReceptorLibraryNumeric_activity_correlations_brute_force_numba(
+    LibraryBinaryNumeric_activity_correlations_brute_force_numba(
         self.Ns, self.Nr, self.int_mat,
         self.substrate_probability, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
@@ -119,7 +119,7 @@ def ReceptorLibraryNumeric_activity_correlations_brute_force(self):
     
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_mutual_information_brute_force_numba(
+def LibraryBinaryNumeric_mutual_information_brute_force_numba(
         Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculate the mutual information by constructing all possible
     mixtures """
@@ -159,13 +159,13 @@ def ReceptorLibraryNumeric_mutual_information_brute_force_numba(
     return MI
     
 
-def ReceptorLibraryNumeric_mutual_information_brute_force(self, ret_prob_activity=False):
+def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     prob_a = np.zeros(2**self.Nr) 
     
     # call the jitted function
-    MI = ReceptorLibraryNumeric_mutual_information_brute_force_numba(
+    MI = LibraryBinaryNumeric_mutual_information_brute_force_numba(
         self.Ns, self.Nr, self.int_mat,
         self.substrate_probability, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
@@ -180,7 +180,7 @@ def ReceptorLibraryNumeric_mutual_information_brute_force(self, ret_prob_activit
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON) 
-def ReceptorLibraryNumeric_mutual_information_monte_carlo_numba(
+def LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
         Ns, Nr, steps, int_mat, prob_s, ak, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
@@ -221,13 +221,13 @@ def ReceptorLibraryNumeric_mutual_information_monte_carlo_numba(
     return MI
     
 
-def ReceptorLibraryNumeric_mutual_information_monte_carlo(self, ret_prob_activity=False):
+def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     prob_a = np.zeros(2**self.Nr) 
  
     # call the jitted function
-    MI = ReceptorLibraryNumeric_mutual_information_monte_carlo_numba(
+    MI = LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
         self.Ns, self.Nr, int(self.parameters['monte_carlo_steps']), 
         self.int_mat,
         self.substrate_probability, #< prob_s
@@ -243,7 +243,7 @@ def ReceptorLibraryNumeric_mutual_information_monte_carlo(self, ret_prob_activit
 
 
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_mutual_information_estimate_approx_numba(
+def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
         Ns, Nr, int_mat, prob_s, p_Ga, ids):
     """ calculate the mutual information by constructing all possible
     mixtures """
@@ -276,7 +276,7 @@ def ReceptorLibraryNumeric_mutual_information_estimate_approx_numba(
     
     
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_mutual_information_estimate_numba(
+def LibraryBinaryNumeric_mutual_information_estimate_numba(
         Ns, Nr, int_mat, prob_s, p_Ga, ids):
     """ calculate the mutual information by constructing all possible
     mixtures """
@@ -308,12 +308,12 @@ def ReceptorLibraryNumeric_mutual_information_estimate_numba(
     return MI
     
 
-def ReceptorLibraryNumeric_mutual_information_estimate(self, approx_prob=False):
+def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     if approx_prob:
         # call the jitted function that uses approximate probabilities
-        MI = ReceptorLibraryNumeric_mutual_information_estimate_approx_numba(
+        MI = LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probability,  #< prob_s
             np.empty(self.Nr),           #< p_Ga
@@ -322,7 +322,7 @@ def ReceptorLibraryNumeric_mutual_information_estimate(self, approx_prob=False):
 
     else:    
         # call the jitted function that uses exact probabilities
-        MI = ReceptorLibraryNumeric_mutual_information_estimate_numba(
+        MI = LibraryBinaryNumeric_mutual_information_estimate_numba(
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probability,  #< prob_s
             np.empty(self.Nr),           #< p_Ga
@@ -334,7 +334,7 @@ def ReceptorLibraryNumeric_mutual_information_estimate(self, approx_prob=False):
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
-def ReceptorLibraryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
+def LibraryBinaryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
                                                        crosstalk_weight):
     """ returns the estimated performance of the system, which acts as a
     proxy for the mutual information between input and output """
@@ -360,12 +360,12 @@ def ReceptorLibraryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
     return res
 
 
-def ReceptorLibraryNumeric_inefficiency_estimate(self):
+def LibraryBinaryNumeric_inefficiency_estimate(self):
     """ returns the estimated performance of the system, which acts as a
     proxy for the mutual information between input and output """
     prob_s = self.substrate_probability
     crosstalk_weight = self.parameters['inefficiency_weight']
-    return ReceptorLibraryNumeric_inefficiency_estimate_numba(self.int_mat, prob_s,
+    return LibraryBinaryNumeric_inefficiency_estimate_numba(self.int_mat, prob_s,
                                                               crosstalk_weight)
 
 
@@ -391,33 +391,33 @@ class NumbaPatcher(object):
     
     # register methods that have a numba equivalent
     numba_methods = {
-        'model_numeric.ReceptorLibraryNumeric.activity_single_brute_force': {
-            'numba': ReceptorLibraryNumeric_activity_single_brute_force,
+        'binary_numeric.LibraryBinaryNumeric.activity_single_brute_force': {
+            'numba': LibraryBinaryNumeric_activity_single_brute_force,
             'test_function': check_return_value,
             'test_arguments': {},
         },
-        'model_numeric.ReceptorLibraryNumeric.activity_correlations_brute_force': {
-            'numba': ReceptorLibraryNumeric_activity_correlations_brute_force,
+        'binary_numeric.LibraryBinaryNumeric.activity_correlations_brute_force': {
+            'numba': LibraryBinaryNumeric_activity_correlations_brute_force,
             'test_function': check_return_value,
             'test_arguments': {},
         },
-        'model_numeric.ReceptorLibraryNumeric.mutual_information_brute_force': {
-            'numba': ReceptorLibraryNumeric_mutual_information_brute_force,
+        'binary_numeric.LibraryBinaryNumeric.mutual_information_brute_force': {
+            'numba': LibraryBinaryNumeric_mutual_information_brute_force,
             'test_function': check_return_value,
             'test_arguments': {},
         },
-        'model_numeric.ReceptorLibraryNumeric.mutual_information_monte_carlo': {
-            'numba': ReceptorLibraryNumeric_mutual_information_monte_carlo,
+        'binary_numeric.LibraryBinaryNumeric.mutual_information_monte_carlo': {
+            'numba': LibraryBinaryNumeric_mutual_information_monte_carlo,
             'test_function': check_return_value_approx,
             'test_arguments': {},
         },
-        'model_numeric.ReceptorLibraryNumeric.mutual_information_estimate': {
-            'numba': ReceptorLibraryNumeric_mutual_information_estimate,
+        'binary_numeric.LibraryBinaryNumeric.mutual_information_estimate': {
+            'numba': LibraryBinaryNumeric_mutual_information_estimate,
             'test_function': check_return_value,
             'test_arguments': {},
         },
-        'model_numeric.ReceptorLibraryNumeric.inefficiency_estimate': {
-            'numba': ReceptorLibraryNumeric_inefficiency_estimate,
+        'binary_numeric.LibraryBinaryNumeric.inefficiency_estimate': {
+            'numba': LibraryBinaryNumeric_inefficiency_estimate,
             'test_function': check_return_value,
             'test_arguments': {},
         },
