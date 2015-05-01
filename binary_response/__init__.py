@@ -1,7 +1,2 @@
-from binary_response.binary_mixtures.library_numeric import LibraryBinaryNumeric
-from binary_response.binary_mixtures.library_theory import LibraryBinaryUniform
-
-# provide deprecated classes for compatibility
-from utils.misc import DeprecationHelper
-ReceptorLibraryUniform = DeprecationHelper(LibraryBinaryUniform)
-ReceptorLibraryNumeric = DeprecationHelper(LibraryBinaryNumeric)
+from .binary_mixtures import *
+from .continuous_mixtures import *

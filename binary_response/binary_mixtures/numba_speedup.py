@@ -9,17 +9,18 @@ methods.
 
 from __future__ import division
 
-import functools
-
 import numba
 import numpy as np
 
-from utils.misc import estimate_computation_speed
-
 # these methods are used in getattr calls
 from . import library_numeric  # @UnusedImport
+from utils.numba_patcher import NumbaPatcher, check_return_value_approx
+
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
+
+# initialize the numba patcher and add methods one by one
+numba_patcher = NumbaPatcher(module=library_numeric)
 
 
 
@@ -64,6 +65,12 @@ def LibraryBinaryNumeric_activity_single_brute_force(self):
         prob_a
     )
     return prob_a
+
+
+numba_patcher.register_method(
+    'LibraryBinaryNumeric.activity_single_brute_force',
+    LibraryBinaryNumeric_activity_single_brute_force,
+)
     
 
 
@@ -112,6 +119,12 @@ def LibraryBinaryNumeric_activity_correlations_brute_force(self):
         prob_a
     )
     return prob_a
+
+
+numba_patcher.register_method(
+    'LibraryBinaryNumeric.activity_correlations_brute_force',
+    LibraryBinaryNumeric_activity_correlations_brute_force
+)
     
     
 
@@ -175,6 +188,12 @@ def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=
         return MI
 
 
+numba_patcher.register_method(
+    'LibraryBinaryNumeric.mutual_information_brute_force',
+    LibraryBinaryNumeric_mutual_information_brute_force
+)
+
+
 
 @numba.jit(nopython=NUMBA_NOPYTHON) 
 def LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
@@ -236,6 +255,13 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_prob_activity=
         return MI, prob_a
     else:
         return MI
+
+
+numba_patcher.register_method(
+    'LibraryBinaryNumeric.mutual_information_monte_carlo',
+    LibraryBinaryNumeric_mutual_information_monte_carlo,
+    check_return_value_approx
+)
 
 
 
@@ -329,6 +355,12 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
     return MI
 
 
+numba_patcher.register_method(
+    'LibraryBinaryNumeric.mutual_information_estimate',
+    LibraryBinaryNumeric_mutual_information_estimate
+)
+
+
 
 @numba.jit(nopython=NUMBA_NOPYTHON)
 def LibraryBinaryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
@@ -366,178 +398,8 @@ def LibraryBinaryNumeric_inefficiency_estimate(self):
                                                               crosstalk_weight)
 
 
-#===============================================================================
-# FUNCTIONS/CLASSES INJECTING THE NUMBA ACCELERATIONS
-#===============================================================================
+numba_patcher.register_method(
+    'LibraryBinaryNumeric.inefficiency_estimate',
+    LibraryBinaryNumeric_inefficiency_estimate
+)
 
-
-def check_return_value(obj, (func1, func2)):
-    """ checks the numba method versus the original one """
-    return np.allclose(func1(obj), func2(obj))
-
-
-def check_return_value_approx(obj, (func1, func2)):
-    """ checks the numba method versus the original one """
-    return np.allclose(func1(obj), func2(obj), rtol=1e-1, atol=1e-1)
-
-
-
-class NumbaPatcher(object):
-    """ class for managing numba monkey patching in this package. This class
-    only provides class methods since it is used as a singleton. """   
-    
-    # register methods that have a numba equivalent
-    numba_methods = {
-        'library_numeric.LibraryBinaryNumeric.activity_single_brute_force': {
-            'numba': LibraryBinaryNumeric_activity_single_brute_force,
-            'test_function': check_return_value,
-            'test_arguments': {},
-        },
-        'library_numeric.LibraryBinaryNumeric.activity_correlations_brute_force': {
-            'numba': LibraryBinaryNumeric_activity_correlations_brute_force,
-            'test_function': check_return_value,
-            'test_arguments': {},
-        },
-        'library_numeric.LibraryBinaryNumeric.mutual_information_brute_force': {
-            'numba': LibraryBinaryNumeric_mutual_information_brute_force,
-            'test_function': check_return_value,
-            'test_arguments': {},
-        },
-        'library_numeric.LibraryBinaryNumeric.mutual_information_monte_carlo': {
-            'numba': LibraryBinaryNumeric_mutual_information_monte_carlo,
-            'test_function': check_return_value_approx,
-            'test_arguments': {},
-        },
-        'library_numeric.LibraryBinaryNumeric.mutual_information_estimate': {
-            'numba': LibraryBinaryNumeric_mutual_information_estimate,
-            'test_function': check_return_value,
-            'test_arguments': {},
-        },
-        'library_numeric.LibraryBinaryNumeric.inefficiency_estimate': {
-            'numba': LibraryBinaryNumeric_inefficiency_estimate,
-            'test_function': check_return_value,
-            'test_arguments': {},
-        },
-    }
-    
-    saved_original_functions = False
-    enabled = False #< whether numba speed-up is enabled or not
-
-    
-    @classmethod
-    def _save_original_function(cls):
-        """ save the original function such that they can be restored later """
-        for name, data in cls.numba_methods.iteritems():
-            module, class_name, method_name = name.split('.')
-            class_obj = getattr(globals()[module], class_name)
-            data['original'] = getattr(class_obj, method_name)
-        cls.saved_original_functions = True
-
-
-    @classmethod
-    def enable(cls):
-        """ enables the numba methods """
-        if not cls.saved_original_functions:
-            cls._save_original_function()
-        
-        for name, data in cls.numba_methods.iteritems():
-            module, class_name, method_name = name.split('.')
-            class_obj = getattr(globals()[module], class_name)
-            setattr(class_obj, method_name, data['numba'])
-        cls.enabled = True
-            
-            
-    @classmethod
-    def disable(cls):
-        """ disable the numba methods """
-        for name, data in cls.numba_methods.iteritems():
-            module, class_name, method_name = name.split('.')
-            class_obj = getattr(globals()[module], class_name)
-            setattr(class_obj, method_name, data['original'])
-        cls.enabled = False
-        
-        
-    @classmethod
-    def toggle(cls, verbose=True):
-        """ enables or disables the numba speed up, depending on the current
-        state """
-        if cls.enabled:
-            cls.disable()
-            if verbose:
-                print('Numba speed-ups have been disabled.')
-        else:
-            cls.enable()
-            if verbose:
-                print('Numba speed-ups have been enabled.')
-            
-    
-    @classmethod
-    def _prepare_functions(cls, data):
-        """ prepares the arguments for the two functions that we want to test """
-        # prepare the arguments
-        test_args = data['test_arguments'].copy()
-        for key, value in test_args.iteritems():
-            if callable(value):
-                test_args[key] = value()
-                
-        # inject the arguments
-        func1 = functools.partial(data['original'], **test_args)
-        func2 = functools.partial(data['numba'], **test_args)
-        return func1, func2
-
-            
-    @classmethod
-    def test_consistency(cls, repeat=10, verbose=False):
-        """ tests the consistency of the numba methods with their original
-        counter parts """        
-        problems = 0
-        for name, data in cls.numba_methods.iteritems():
-            # extract the class and the functions
-            module, class_name, _ = name.split('.')
-            class_obj = getattr(globals()[module], class_name)
-
-            # extract the test function
-            test_func = data['test_function']
-            
-            # check the functions multiple times
-            for _ in xrange(repeat):
-                test_obj = class_obj.create_test_instance()
-                func1, func2 = cls._prepare_functions(data)
-                if not test_func(test_obj, (func1, func2)):
-                    print('The numba implementation of `%s` is invalid.' % name)
-                    print('Native implementation yields %s' % func1(test_obj))
-                    print('Numba implementation yields %s' % func2(test_obj))
-                    print('Input: %r' % test_obj)
-                    problems += 1
-                    break
-                
-            else:
-                # there were no problems
-                if verbose:
-                    print('`%s` has a valid numba implementation.' % name) 
-
-        if not problems:
-            print('All numba implementations are consistent.')
-            
-            
-    @classmethod
-    def test_speedup(cls, test_duration=1):
-        """ tests the speed up of the supplied methods """
-        for name, data in cls.numba_methods.iteritems():
-            # extract the class and the functions
-            module, class_name, func_name = name.split('.')
-            class_obj = getattr(globals()[module], class_name)
-            test_obj = class_obj.create_test_instance()
-            func1, func2 = cls._prepare_functions(data)
-                            
-            # check the runtime of the original implementation
-            speed1 = estimate_computation_speed(func1, test_obj,
-                                                test_duration=test_duration)
-            # check the runtime of the improved implementation
-            speed2 = estimate_computation_speed(func2, test_obj,
-                                                test_duration=test_duration)
-            
-            print('%s.%s: %g times faster' 
-                  % (class_name, func_name, speed2/speed1))
-            
-            
