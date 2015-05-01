@@ -7,7 +7,6 @@ Created on Apr 1, 2015
 from __future__ import division
 
 import numpy as np
-import scipy.misc
 
 from ..library_base import LibraryBase
 
@@ -230,57 +229,3 @@ class LibraryBinaryBase(LibraryBase):
         c_params.update(kwargs)
         self.parameters['commonness_parameters'] = c_params  
 
-        
-        
-def test_consistency():
-    """ does some simple consistency tests """
-    # construct random model
-    model = LibraryBinaryBase.create_test_instance()
-    
-    # probability of having d_s components in a mixture for h_i = h
-    hval = np.random.random() - 0.5
-    model.commonness = [hval] * model.Ns
-    d_s = np.arange(0, model.Ns + 1)
-    p_m = (scipy.misc.comb(model.Ns, d_s)
-           * np.exp(hval*d_s)/(1 + np.exp(hval))**model.Ns)
-    
-    assert np.allclose(p_m, model.mixture_size_distribution())
-
-    # test random commonness and the associated distribution
-    hs = np.random.random(size=model.Ns)
-    model.commonness = hs
-    assert np.allclose(hs, model.commonness)
-    model.substrate_probability = model.substrate_probability
-    assert np.allclose(hs, model.commonness)
-    dist = model.mixture_size_distribution()
-    assert np.allclose(dist.sum(), 1)
-    ks = np.arange(0, model.Ns + 1)
-    dist_mean = (ks*dist).sum()
-    dist_var = (ks*ks*dist).sum() - dist_mean**2 
-    assert np.allclose((dist_mean, np.sqrt(dist_var)),
-                       model.mixture_size_statistics())
-    
-    # test setting the commonness
-    commoness_schemes = [('const', {}),
-                         ('single', {'p1': np.random.random()}),
-                         ('single', {'p_ratio': 0.1 + np.random.random()}),
-                         ('geometric', {'alpha': np.random.uniform(0.98, 1)}),
-                         ('linear', {}),
-                         ('random_uniform', {}),]
-    
-    for scheme, params in commoness_schemes:
-        mean_mixture_sizes = (np.random.randint(1, model.Ns//2 + 1),
-                              np.random.randint(1, model.Ns//3 + 1) + model.Ns//2)
-        for mean_mixture_size in mean_mixture_sizes:
-            model.set_commonness(scheme, mean_mixture_size, **params)
-            assert np.allclose(model.mixture_size_statistics()[0],
-                               mean_mixture_size)
-    
-    print('Consistency check successful.')
-    
-    
-
-if __name__ == '__main__':
-    test_consistency()
-
-    

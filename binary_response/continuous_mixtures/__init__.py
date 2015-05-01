@@ -1,1 +1,2 @@
 from .library_numeric import LibraryContinuousNumeric
+from .library_theory import LibraryContinuousLogNormal

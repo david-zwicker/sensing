@@ -139,7 +139,7 @@ class DeprecationHelper(object):
 
     def _warn(self):
         msg = "The class was renamed to `%s`"  % self.new_target.__name__
-        warnings.warn(msg, self.warning_class, stacklevel=4)
+        warnings.warn(msg, self.warning_class, stacklevel=3)
 
     def __call__(self, *args, **kwargs):
         self._warn()

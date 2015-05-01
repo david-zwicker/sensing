@@ -50,30 +50,31 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             self.int_mat = np.zeros(int_mat_shape, np.uint8)
             
 
-    def choose_interaction_matrix(self, distribution='log_normal', mean_conc=1,
-                                  **kwargs):
+    def choose_interaction_matrix(self, distribution='log_normal',
+                                  mean_sensitivity=1, **kwargs):
         """ creates a interaction matrix with the given properties """
         shape = (self.Nr, self.Ns)
 
-        assert mean_conc > 0 
+        assert mean_sensitivity > 0 
 
         if distribution == 'log_normal':
             # log normal distribution
-            kwargs.setdefault('spread', 1)
-            self.int_mat = np.random.lognormal(mean=np.log(1/mean_conc),
-                                               sigma=kwargs['spread'],
+            kwargs.setdefault('sigma', 1)
+            self.int_mat = np.random.lognormal(mean=mean_sensitivity,
+                                               sigma=kwargs['sigma'],
                                                size=shape)
             
         else:
             raise ValueError('Unknown distribution `%s`' % distribution)
             
         # save the parameters determining this matrix
-        int_mat_params = {'distribution': distribution, 'mean_conc': mean_conc}
+        int_mat_params = {'distribution': distribution,
+                          'mean_sensitivity': mean_sensitivity}
         int_mat_params.update(kwargs)
         self.parameters['interaction_matrix_params'] = int_mat_params 
 
     
-    def mutual_information_monte_carlo(self, ret_prob_activity=False):
+    def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
@@ -81,14 +82,14 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
 
         steps = int(self.parameters['monte_carlo_steps'])
         
-        c_factor = -1/self.commonness
+        c_mean = self.get_concentration_means()
 
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
         for _ in xrange(steps):
             # choose a mixture vector according to substrate probabilities
-            c = np.random.exponential(size=self.Ns) * c_factor
+            c = np.random.exponential(size=self.Ns) * c_mean
             
             # get the associated output ...
             a = (np.dot(self.int_mat, c) > 1)

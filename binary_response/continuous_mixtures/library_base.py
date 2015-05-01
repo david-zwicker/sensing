@@ -7,6 +7,7 @@ Created on Apr 1, 2015
 from __future__ import division
 
 import numpy as np
+from scipy import stats
 
 from ..library_base import LibraryBase
 
@@ -48,7 +49,7 @@ class LibraryContinuousBase(LibraryBase):
         """ create random arguments for creating test instances """
         Ns = kwargs.get('Ns', np.random.randint(3, 6))
         Nr = kwargs.get('Nr', np.random.randint(2, 4))
-        parameters = {'commonness_vector': np.random.random(Ns)}
+        parameters = {'commonness_vector': np.random.random(Ns) - 1.5}
         return [Ns, Nr, parameters]
 
 
@@ -77,6 +78,17 @@ class LibraryContinuousBase(LibraryBase):
             self.parameters['commonness_vector'] = self._hs
     
     
+    def get_concentration_distribution(self, i):
+        """ returns the concentration distribution for component i """
+        return stats.expon(scale=-1/self.commonness[i])
+    
+    
+    def get_concentration_means(self):
+        """ returns the mean concentration with which each substrate is
+        expected """
+        return -1/self.commonness
+    
+    
     @property
     def is_homogeneous(self):
         """ returns True if the mixture is homogeneous """
@@ -91,7 +103,10 @@ class LibraryContinuousBase(LibraryBase):
         """
         if scheme == 'const':
             # all substrates are equally likely
-            hs = np.full(self.Ns, -1/mean_concentration)
+            if mean_concentration == 0:
+                hs = np.full(self.Ns, -np.inf)
+            else:
+                hs = np.full(self.Ns, -1/mean_concentration)
             
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
@@ -102,5 +117,4 @@ class LibraryContinuousBase(LibraryBase):
         c_params = {'scheme': scheme, 'mean_concentration': mean_concentration}
         c_params.update(kwargs)
         self.parameters['commonness_parameters'] = c_params  
-
 

@@ -19,8 +19,8 @@ numba        | For creating compiled code for faster processing
 
 
 The classes are organized as follows:
-* We distinguish between the case of binary mixtures (where a substrate is either
+- We distinguish between the case of binary mixtures (where a substrate is either
     present or not) and the case of continuous mixtures (where substrates are
     present at different concentrations)
-* We distinguish between general classes and classes  with a concrete receptor
+- We distinguish between general classes and classes  with a concrete receptor
     library (for numerical calculations)

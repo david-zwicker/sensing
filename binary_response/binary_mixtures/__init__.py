@@ -15,4 +15,4 @@ try:
     numba_patcher.enable() #< enable the speed-up by default
 except ImportError:
     numba_patcher = None
-    print('NumbaPatcher could not be loaded. Slow functions will be used')
+    print('Numba patches could not be applied. Slow functions will be used')
