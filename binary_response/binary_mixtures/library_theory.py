@@ -9,7 +9,7 @@ from __future__ import division
 import numpy as np
 import scipy.misc
 
-from .base import LibraryBase
+from .library_base import LibraryBinaryBase
 
 
 
@@ -21,7 +21,7 @@ def binom(N, p):
 
 
 
-class LibraryBinaryUniform(LibraryBase):
+class LibraryBinaryUniform(LibraryBinaryBase):
     """ represents a single receptor library with random entries. The only
     parameters that characterizes this library is the density of entries. """
 
@@ -33,7 +33,7 @@ class LibraryBinaryUniform(LibraryBase):
         substrates, and the fraction `density` of substrates a single receptor
         responds to """
         super(LibraryBinaryUniform, self).__init__(num_substrates,
-                                                     num_receptors, parameters)
+                                                   num_receptors, parameters)
         self.density = density
 
 

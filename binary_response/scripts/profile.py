@@ -17,10 +17,10 @@ import cProfile
 import pstats
 import tempfile
 
-from binary_response import ReceptorLibraryNumeric
+from binary_response import LibraryBinaryNumeric
 
 # create an object and trigger the numba just-in-time compilation
-model = ReceptorLibraryNumeric.create_test_instance(Ns=6, Nr=3)
+model = LibraryBinaryNumeric.create_test_instance(Ns=6, Nr=3)
 model.mutual_information_brute_force()
 
 # run the profiler and save result to temporary file

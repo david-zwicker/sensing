@@ -7,9 +7,6 @@ Module that monkey patches classes in other modules with equivalent, but faster
 methods.
 '''
 
-#TODO: implement LibraryBinaryNumeric_mutual_information_monte_carlo_numba
-# This should be done after numba 0.18 was released, which supports random num.
-
 from __future__ import division
 
 import functools
@@ -17,10 +14,10 @@ import functools
 import numba
 import numpy as np
 
-from ..utils import estimate_computation_speed
+from utils.misc import estimate_computation_speed
 
 # these methods are used in getattr calls
-from . import binary_numeric  # @UnusedImport
+from . import library_numeric  # @UnusedImport
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
 
@@ -391,32 +388,32 @@ class NumbaPatcher(object):
     
     # register methods that have a numba equivalent
     numba_methods = {
-        'binary_numeric.LibraryBinaryNumeric.activity_single_brute_force': {
+        'library_numeric.LibraryBinaryNumeric.activity_single_brute_force': {
             'numba': LibraryBinaryNumeric_activity_single_brute_force,
             'test_function': check_return_value,
             'test_arguments': {},
         },
-        'binary_numeric.LibraryBinaryNumeric.activity_correlations_brute_force': {
+        'library_numeric.LibraryBinaryNumeric.activity_correlations_brute_force': {
             'numba': LibraryBinaryNumeric_activity_correlations_brute_force,
             'test_function': check_return_value,
             'test_arguments': {},
         },
-        'binary_numeric.LibraryBinaryNumeric.mutual_information_brute_force': {
+        'library_numeric.LibraryBinaryNumeric.mutual_information_brute_force': {
             'numba': LibraryBinaryNumeric_mutual_information_brute_force,
             'test_function': check_return_value,
             'test_arguments': {},
         },
-        'binary_numeric.LibraryBinaryNumeric.mutual_information_monte_carlo': {
+        'library_numeric.LibraryBinaryNumeric.mutual_information_monte_carlo': {
             'numba': LibraryBinaryNumeric_mutual_information_monte_carlo,
             'test_function': check_return_value_approx,
             'test_arguments': {},
         },
-        'binary_numeric.LibraryBinaryNumeric.mutual_information_estimate': {
+        'library_numeric.LibraryBinaryNumeric.mutual_information_estimate': {
             'numba': LibraryBinaryNumeric_mutual_information_estimate,
             'test_function': check_return_value,
             'test_arguments': {},
         },
-        'binary_numeric.LibraryBinaryNumeric.inefficiency_estimate': {
+        'library_numeric.LibraryBinaryNumeric.inefficiency_estimate': {
             'numba': LibraryBinaryNumeric_inefficiency_estimate,
             'test_function': check_return_value,
             'test_arguments': {},

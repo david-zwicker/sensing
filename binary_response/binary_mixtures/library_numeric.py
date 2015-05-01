@@ -29,12 +29,12 @@ import numpy as np
 
 from simanneal import Annealer
 
-from .base import LibraryBase
+from .library_base import LibraryBinaryBase
 
 
 
-class LibraryBinaryNumeric(LibraryBase):
-    """ represents a single receptor library """
+class LibraryBinaryNumeric(LibraryBinaryBase):
+    """ represents a single receptor library that handles binary mixtures """
     
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
@@ -57,11 +57,10 @@ class LibraryBinaryNumeric(LibraryBase):
         # the call to the inherited method also sets the default parameters from
         # this class
         super(LibraryBinaryNumeric, self).__init__(num_substrates,
-                                                     num_receptors, parameters)        
+                                                   num_receptors, parameters)        
 
         # prevent integer overflow in collecting activity patterns
-        assert num_receptors < 63 
-        assert num_receptors <= self.parameters['max_num_receptors']
+        assert num_receptors <= self.parameters['max_num_receptors'] <= 63
 
         int_mat_shape = (self.Nr, self.Ns)
         if self.parameters['interaction_matrix'] is not None:
