@@ -26,8 +26,8 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     parameters that characterizes this library is the density of entries. """
 
 
-    def __init__(self, num_substrates, num_receptors, parameters=None,
-                 density=1):
+    def __init__(self, num_substrates, num_receptors, density=1,
+                 parameters=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the weights `hs` of the 
         substrates, and the fraction `density` of substrates a single receptor
@@ -49,9 +49,9 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        args = super(LibraryBinaryUniform, cls).get_random_arguments()
-        density = kwargs.get('density', np.random.random())
-        return args + [density]
+        args = super(LibraryBinaryUniform, cls).get_random_arguments(**kwargs)
+        args['density'] = kwargs.get('density', np.random.random())
+        return args
 
 
     def activity_single(self):

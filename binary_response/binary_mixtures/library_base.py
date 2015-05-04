@@ -45,10 +45,10 @@ class LibraryBinaryBase(LibraryBase):
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        Ns = kwargs.get('Ns', np.random.randint(3, 6))
-        Nr = kwargs.get('Nr', np.random.randint(2, 4))
-        parameters = {'commonness_vector': np.random.random(Ns)}
-        return [Ns, Nr, parameters]
+        args = super(LibraryBinaryBase, cls).get_random_arguments(**kwargs)
+        hs = np.random.random(args['num_substrates']) - 1.5
+        args['parameters'] = {'commonness_vector': hs}
+        return args
 
 
     @property

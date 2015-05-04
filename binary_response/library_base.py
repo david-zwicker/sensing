@@ -58,15 +58,14 @@ class LibraryBase(object):
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        Ns = kwargs.get('Ns', np.random.randint(3, 6))
-        Nr = kwargs.get('Nr', np.random.randint(2, 4))
-        return [Ns, Nr]
+        return {'num_substrates': kwargs.get('Ns', np.random.randint(3, 6)),
+                'num_receptors': kwargs.get('Nr', np.random.randint(2, 4))}
 
 
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        return cls(*cls.get_random_arguments(**kwargs))
+        return cls(**cls.get_random_arguments(**kwargs))
   
             
     def ensemble_average(self, method, avg_num=None, multiprocessing=False, 

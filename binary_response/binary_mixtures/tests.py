@@ -17,7 +17,6 @@ from .library_base import LibraryBinaryBase
       
 class TestLibraryBinary(unittest.TestCase):
     """ unit tests for the continuous library """
-
     
     def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
         """ compares all the entries of the arrays a and b """

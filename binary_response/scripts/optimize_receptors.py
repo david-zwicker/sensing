@@ -18,19 +18,19 @@ import cPickle as pickle
 import itertools
 import multiprocessing as mp
 
-from binary_response import ReceptorLibraryUniform, ReceptorLibraryNumeric
+from binary_response import LibraryBinaryNumeric, LibraryBinaryUniform
 
 
 
 def optimize_receptors(parameters):
     """ optimize receptors of the system described by `parameters` """
     # get an estimate of the optimal response fraction
-    theory = ReceptorLibraryUniform(parameters['Ns'], parameters['Nr'])
+    theory = LibraryBinaryUniform(parameters['Ns'], parameters['Nr'])
     theory.set_commonness('const', parameters['d'])
     density_optimal = theory.density_optimal()
     
     # setup the numerical model that we use for optimization
-    model = ReceptorLibraryNumeric(
+    model = LibraryBinaryNumeric(
         parameters['Ns'], parameters['Nr'],
         parameters={'verbosity': 0 if parameters['quite'] else 1,
                     'random_seed': parameters['random_seed'],}

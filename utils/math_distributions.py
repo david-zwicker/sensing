@@ -19,6 +19,25 @@ def random_log_uniform(v_min, v_max, size):
 
 
 
+class DeterministicDistribution_gen(stats.rv_continuous):
+    """ deterministic distribution that always returns a given value
+    Code copied from
+    https://docs.scipy.org/doc/scipy/reference/tutorial/stats.html#making-a-continuous-distribution-i-e-subclassing-rv-continuous
+    """
+    def _cdf(self, x):
+        return np.where(x < 0, 0., 1.)
+    
+    def _stats(self):
+        return 0., 0., 0., 0.
+
+
+DeterministicDistribution = DeterministicDistribution_gen(
+    name='DeterministicDistribution'
+)
+
+
+
+
 class LogUniformDistribution_gen(stats.rv_continuous):
     """
     Log-uniform distribution.
