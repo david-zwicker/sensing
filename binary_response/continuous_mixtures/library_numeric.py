@@ -60,7 +60,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
 
         if distribution == 'log_normal':
             # log normal distribution
-            kwargs.setdefault('sigma', 1)
+            kwargs.setdefault('sigma', 0.1)
             if kwargs['sigma'] == 0:
                 self.int_mat = np.full(shape, mean_sensitivity)
             else:

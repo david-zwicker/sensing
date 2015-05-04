@@ -40,7 +40,7 @@ class TestLibraryContinuous(unittest.TestCase):
             
             # compare the results for small spread values (sigma=0 is special case)
             obj1.sigma = 0
-            obj2.sigma = 1e-10
+            obj2.sigma = 1e-13
     
             # test the activity calculation
             self.assertAlmostEqual(obj1.activity_single(),

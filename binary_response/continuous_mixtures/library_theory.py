@@ -20,7 +20,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
 
 
     def __init__(self, num_substrates, num_receptors, mean_sensitivity=1,
-                 sigma=1, parameters=None):
+                 sigma=0.1, parameters=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the weights `hs` of the 
         substrates, and the fraction `density` of substrates a single receptor
