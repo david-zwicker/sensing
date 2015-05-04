@@ -103,9 +103,12 @@ class NumbaPatcher(object):
         return func1, func2
 
             
-    def test_consistency(self, repeat=10, verbose=False):
+    def test_consistency(self, repeat=10, verbosity=1):
         """ tests the consistency of the numba methods with their original
-        counter parts """        
+        counter parts.
+        `verbosity` controls how verbose the output is going to be. Valid values
+            are 0, 1, 2 with increasing verbosity, respectively.
+        """        
         problems = 0
         for name, data in self.numba_methods.iteritems():
             # extract the class and the functions
@@ -129,10 +132,10 @@ class NumbaPatcher(object):
                 
             else:
                 # there were no problems
-                if verbose:
+                if verbosity >= 2:
                     print('`%s` has a valid numba implementation.' % name) 
 
-        if not problems:
+        if not problems and verbosity >= 1:
             print('All numba implementations are consistent.')
             
             

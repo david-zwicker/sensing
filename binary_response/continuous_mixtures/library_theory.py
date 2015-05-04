@@ -7,7 +7,7 @@ Created on Mar 31, 2015
 from __future__ import division
 
 import numpy as np
-from scipy import stats, integrate
+from scipy import stats, integrate, optimize
 
 from utils.math_distributions import DeterministicDistribution
 from .library_base import LibraryContinuousBase
@@ -57,7 +57,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         args = super(LibraryContinuousLogNormal, cls).get_random_arguments(**kwargs)
         I0 = np.random.random() + 0.5
         args['mean_sensitivity'] = kwargs.get('mean_sensitivity', I0)
-        args['sigma'] = kwargs.get('sigma', np.random.random())
+        args['sigma'] = kwargs.get('sigma', 0.1*np.random.random())
         return args
 
 
@@ -67,7 +67,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         hs = self.commonness
         
         if self.sigma == 0:
-            # special case in which the interaction matrix elements are the same
+            # simple case in which the interaction matrix elements are the same
             prob_a = np.prod(1 - np.exp(hs/self.mean_sensitivity))
             
         else:
@@ -89,6 +89,28 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 
         return 1 - prob_a
 
+
+    def get_optimal_mean_sensitivity(self, estimate=None):
+        """ estimates the optimal average value of the interaction matrix
+        elements """  
+        if estimate is None:
+            # simple estimate for homogeneous mixtures with sigma=0
+            estimate = self.commonness.mean()/np.log(1 - 2**(-1/self.Ns))
+        
+        # create a copy of the current object for optimization
+        obj = self.copy()
+        def opt_goal(I0):
+            """ helper function to find optimium numerically """ 
+            obj.mean_sensitivity = I0
+            return 0.5 - obj.activity_single()
+        
+        try:
+            result = optimize.newton(opt_goal, estimate)
+        except RuntimeError:
+            result = np.nan
+            
+        return result 
+            
 
 
         

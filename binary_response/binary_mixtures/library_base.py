@@ -46,7 +46,10 @@ class LibraryBinaryBase(LibraryBase):
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
         args = super(LibraryBinaryBase, cls).get_random_arguments(**kwargs)
-        hs = np.random.random(args['num_substrates']) - 1.5
+        if kwargs.get('homogeneous_mixture', False):
+            hs = np.full(args['num_substrates'], np.random.random() - 1.5)
+        else:
+            hs = np.random.random(args['num_substrates']) - 1.5
         args['parameters'] = {'commonness_vector': hs}
         return args
 

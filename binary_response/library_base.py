@@ -55,6 +55,11 @@ class LibraryBase(object):
                 'parameters': self.parameters}
 
 
+    def copy(self):
+        """ returns a copy of the current object """
+        return self.__class__(**self.init_arguments)
+
+
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
@@ -81,6 +86,11 @@ class LibraryBase(object):
             arguments = (self.__class__, self.init_arguments, method)
             pool = mp.Pool()
             result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
+            
+            # Apparently, multiprocessing sometimes opens too many files if
+            # processes are launched to quickly and the garbage collector cannot
+            # keep up. We thus explicitly terminate the pool here.
+            pool.terminate()
             
         else:
             # run the calculations in this process

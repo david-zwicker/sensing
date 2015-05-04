@@ -7,6 +7,7 @@ Created on May 1, 2015
 from __future__ import division
 
 import numpy as np
+from scipy import stats
 
 from .library_base import LibraryContinuousBase
 
@@ -19,7 +20,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         'max_num_receptors': 28,    #< prevents memory overflows
         'interaction_matrix': None, #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
-        'monte_carlo_steps': 100,   #< default number of monte carlo steps
+        'monte_carlo_steps': 1e5,   #< default number of monte carlo steps
     }
     
 
@@ -60,9 +61,11 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         if distribution == 'log_normal':
             # log normal distribution
             kwargs.setdefault('sigma', 1)
-            self.int_mat = np.random.lognormal(mean=mean_sensitivity,
-                                               sigma=kwargs['sigma'],
-                                               size=shape)
+            if kwargs['sigma'] == 0:
+                self.int_mat = np.full(shape, mean_sensitivity)
+            else:
+                dist = stats.lognorm(scale=mean_sensitivity, s=kwargs['sigma'])
+                self.int_mat = dist.rvs(shape)
             
         else:
             raise ValueError('Unknown distribution `%s`' % distribution)
@@ -93,6 +96,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             
             # get the associated output ...
             a = (np.dot(self.int_mat, c) > 1)
+
             # ... and represent it as a single integer
             a = np.dot(base, a)
             # increment counter for this output
@@ -100,7 +104,6 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 
-
         prob_a = count_a / steps
         
         # calculate the mutual information from the result pattern

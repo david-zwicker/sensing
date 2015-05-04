@@ -12,6 +12,7 @@ import numpy as np
 import scipy.misc
 
 from .library_base import LibraryBinaryBase
+from .numba_speedup import numba_patcher
       
       
       
@@ -66,7 +67,11 @@ class TestLibraryBinary(unittest.TestCase):
                 model.set_commonness(scheme, mean_mixture_size, **params)
                 self.assertAllClose(model.mixture_size_statistics()[0],
                                     mean_mixture_size)
-
+                
+                
+    def test_numba_speedup(self):
+        """ test the consistency of the numba functions """
+        numba_patcher.test_consistency(1, verbosity=0)
     
 
 if __name__ == '__main__':

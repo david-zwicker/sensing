@@ -13,7 +13,7 @@ import numba
 import numpy as np
 
 # these methods are used in getattr calls
-from . import library_numeric  # @UnusedImport
+from . import library_numeric
 from utils.numba_patcher import NumbaPatcher, check_return_value_approx
 
 
