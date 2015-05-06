@@ -261,7 +261,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                          self.substrate_probability)
 
 
-    def mutual_information(self, method='auto', ret_prob_activity=False):
+    def mutual_information(self, method='auto', **kwargs):
         """ calculate the mutual information.
         
         `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
@@ -276,13 +276,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 method = 'monte_carlo'
                 
         if method == 'brute_force':
-            return self.mutual_information_brute_force(ret_prob_activity)
+            return self.mutual_information_brute_force(**kwargs)
         elif method == 'monte_carlo':
-            return self.mutual_information_monte_carlo(ret_prob_activity)
+            return self.mutual_information_monte_carlo(**kwargs)
         elif method == 'estimate':
-            if ret_prob_activity:
-                raise NotImplementedError
-            return self.mutual_information_estimate()
+            return self.mutual_information_estimate(**kwargs)
         else:
             raise ValueError('Unknown method `%s`.' % method)
             
@@ -316,7 +314,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return MI
             
             
-    def mutual_information_monte_carlo(self, ret_prob_activity=False):
+    def mutual_information_monte_carlo(self, ret_error=False,
+                                       ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
@@ -343,15 +342,85 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # We can thus construct P_a(a) from count_a. 
 
         prob_a = count_a / steps
+        # prob_a_err = np.sqrt(count_a) / steps = np.sqrt(prob_a/steps)
         
         # calculate the mutual information from the result pattern
         MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
+        if ret_error:
+            # estimate the error of the mutual information calculation
+            MI_err = -sum((1/np.log(2) + np.log2(pa)) * np.sqrt(pa/steps)
+                          if pa != 0 else 1/steps
+                          for pa in prob_a)
+
+            if ret_prob_activity:
+                return MI, MI_err, prob_a
+            else:
+                return MI, MI_err
+
+        else:
+            # error should not be calculated       
+            if ret_prob_activity:
+                return MI, prob_a
+            else:
+                return MI
+        
+    def mutual_information_monte_carlo_extrapolate(self, ret_prob_activity=False):
+        """ calculate the mutual information using a monte carlo strategy. The
+        number of steps is given by the model parameter 'monte_carlo_steps' """
+                
+        base = 2 ** np.arange(0, self.Nr)
+        prob_s = self.substrate_probability
+
+        max_steps = int(self.parameters['monte_carlo_steps'])
+        steps, MIs = [], []
+
+        # sample mixtures according to the probabilities of finding
+        # substrates
+        count_a = np.zeros(2**self.Nr)
+        step_check = 10000
+        for step in xrange(max_steps):
+            # choose a mixture vector according to substrate probabilities
+            m = (np.random.random(self.Ns) < prob_s)
+            
+            # get the associated output ...
+            a = np.dot(self.int_mat, m).astype(np.bool)
+            # ... and represent it as a single integer
+            a = np.dot(base, a)
+            # increment counter for this output
+            count_a[a] += 1
+
+            if step == step_check - 1:
+                # do an extrapolation step
+                # calculate the mutual information from the result pattern
+                prob_a = count_a / step
+                MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
+                
+                # save the data                
+                steps.append(step)
+                MIs.append(MI)
+                
+                # do the extrapolation
+                if len(steps) >= 3:
+                    a2, a1, a0 = MIs[-3:]
+                    MI_ext = (a0*a2 - a1*a1)/(a0 - 2*a1 + a2)
+#                     MI_ext = self._get_extrapolated_mutual_information(steps, MIs)
+                    print step, MIs[-1], MI_ext
+                    
+                step_check += 10000
+            
+        else:
+            # count_a contains the number of times output pattern a was observed.
+            # We can thus construct P_a(a) from count_a. 
+            
+            # calculate the mutual information from the result pattern
+            prob_a = count_a / step
+            MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
 
         if ret_prob_activity:
             return MI, prob_a
         else:
             return MI
-    
+                
         
     def mutual_information_estimate(self, approx_prob=False):
         """ returns a simple estimate of the mutual information.

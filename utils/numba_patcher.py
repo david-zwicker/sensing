@@ -21,7 +21,7 @@ def check_return_value(obj, (func1, func2)):
 
 def check_return_value_approx(obj, (func1, func2)):
     """ checks the numba method versus the original one """
-    return np.allclose(func1(obj), func2(obj), rtol=1e-1, atol=1e-1)
+    return np.allclose(func1(obj), func2(obj), rtol=1e-2, atol=1e-2)
 
 
 

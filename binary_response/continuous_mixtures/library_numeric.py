@@ -50,6 +50,18 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             # initialize the interaction matrix with zeros
             self.int_mat = np.zeros(int_mat_shape, np.uint8)
             
+            
+    @classmethod
+    def create_test_instance(cls, **kwargs):
+        """ creates a test instance used for consistency tests """
+        obj = super(LibraryContinuousNumeric, cls).create_test_instance()
+        # TODO: we have to choose a better test instance for which the 
+        # mutual information is typically non-zero
+        # Otherwise, the automatic tests will always fail
+        obj.choose_interaction_matrix(distribution='log_normal',
+                                      mean_sensitivity=0.1*np.random.random())
+        return obj
+
 
     def choose_interaction_matrix(self, distribution='log_normal',
                                   mean_sensitivity=1, **kwargs):
@@ -95,12 +107,12 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             c = np.random.exponential(size=self.Ns) * c_mean
             
             # get the associated output ...
-            a = (np.dot(self.int_mat, c) > 1)
-
+            alpha = (np.dot(self.int_mat, c) >= 1)
+            
             # ... and represent it as a single integer
-            a = np.dot(base, a)
+            alpha_id = np.dot(base, alpha)
             # increment counter for this output
-            count_a[a] += 1
+            count_a[alpha_id] += 1
             
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 

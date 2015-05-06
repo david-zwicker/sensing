@@ -104,7 +104,7 @@ class LibraryBase(object):
         else:
             return result.mean(axis=0), result.std(axis=0)
 
-        
+    
 
 def _ReceptorLibrary_mp_calc(args):
     """ helper function for multiprocessing """
