@@ -6,8 +6,10 @@ Created on Mar 31, 2015
 
 from __future__ import division
 
+import warnings
+
 import numpy as np
-from scipy import stats, integrate, optimize
+from scipy import stats, integrate, optimize, special, linalg
 
 from utils.math_distributions import DeterministicDistribution
 from .library_base import LibraryContinuousBase
@@ -61,33 +63,80 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         return args
 
 
-    def activity_single(self):
+    @classmethod
+    def from_numeric(cls, numeric_model, mean_sensitivity=None, sigma=None,
+                     parameters=None):
+        """ creates an instance of this class by using parameters from a related
+        numeric instance """
+        # set parameters
+        kwargs = {'parameters': parameters}
+        if mean_sensitivity is not None:
+            kwargs['mean_sensitivity'] = mean_sensitivity
+        elif numeric_model.int_mat is not None:
+            kwargs['mean_sensitivity'] = numeric_model.int_mat.mean()
+        if sigma is not None:
+            kwargs['sigma'] = sigma
+        
+        # create the object
+        obj = cls(numeric_model.Ns, numeric_model.Nr, **kwargs)
+        
+        # copy the commonness from the numeric model
+        obj.commonness = numeric_model.commonness
+        
+        return obj
+
+
+    def activity_single(self, use_approximations=False):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
         hs = self.commonness
         
         if self.sigma == 0:
-            # simple case in which the interaction matrix elements are the same
-            prob_a = np.prod(1 - np.exp(hs/self.mean_sensitivity))
+            # simple case in which the interaction matrix elements are the same:
+            #     I_ai = self.mean_sensitivity
+            # this is the limiting case
+
+            if use_approximations:
+                # replace the hypoexponential distribution by a normal one
+                mean = -np.sum(1/hs) 
+                denom = np.sqrt(2) * np.sqrt(np.sum(1/hs**2)) # sqrt(2) * std
+                c_max = 1/self.mean_sensitivity
+                prob_a0 = 0.5*(special.erf((c_max - mean)/denom)
+                               + special.erf(mean/denom))
+
+            elif self.is_homogeneous:
+                # evaluate the full integral for the case where all substrates
+                # are equally likely
+                dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
+                prob_a0 = dist.cdf(1/self.mean_sensitivity) - dist.cdf(0)
+                
+            else:
+                # the probability of the total concentration c_tot is given
+                # by a hypoexponential function with the following cdf:
+                warnings.warn('The numerical implementation of the cdf of the '
+                              'hypoexponential function is very unstable and '
+                              'the results cannot be trusted.')
+                Theta = np.diag(hs, 0) + np.diag(-hs[:-1], 1)
+                cdf = lambda x: 1 - linalg.expm(x*Theta)[0, :].sum()
+                prob_a0 = cdf(1/self.mean_sensitivity) - cdf(0)
             
         else:
             # finite-width distribution of interaction matrix elements
             cdf = self.int_mat_distribution.cdf
             if self.is_homogeneous:
-                # finite-width distribution, but homogeneous mixtures
-                h = hs[0]
-                integrand = lambda c: -h*np.exp(h*c) * cdf(1/c)
-                prob_a = integrate.quad(integrand, 0, np.inf)[0]
-                prob_a **= self.Ns
+                dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
+                integrand = lambda c: cdf(1/c) * dist.pdf(c)
+                prob_a0 = integrate.quad(integrand, 0, np.inf)[0]
                 
             else:
                 # finite-width distribution with heterogeneous mixtures
-                prob_a = 1
-                for h in hs:
-                    integrand = lambda c: -h*np.exp(h*c) * cdf(1/c)
-                    prob_a *= integrate.quad(integrand, 0, np.inf)[0]
+                raise NotImplementedError
+#                 prob_a0 = 1
+#                 for h in hs:
+#                     integrand = lambda c: np.exp(h*c) * cdf(1/c)
+#                     prob_a0 *= -h * integrate.quad(integrand, 0, np.inf)[0]
                 
-        return 1 - prob_a
+        return 1 - prob_a0
 
 
     def get_optimal_mean_sensitivity(self, estimate=None):
@@ -111,6 +160,5 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             
         return result 
             
-
 
         

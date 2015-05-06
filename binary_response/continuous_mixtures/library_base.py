@@ -99,17 +99,27 @@ class LibraryContinuousBase(LibraryBase):
         return np.allclose(h_i, h_i[0])
             
     
-    def set_commonness(self, scheme='const', mean_concentration=1, **kwargs):
+    def set_commonness(self, scheme='const', total_concentration=1, **kwargs):
         """ picks a commonness vector according to the supplied parameters:
-        `mean_concentration` sets the mean concentration to expect for each
-            individual substrate
+        `total_concentration` sets the total concentration to expect for the
+            mixture on average.
         """
+        mean_concentration = total_concentration / self.Ns
+        
         if scheme == 'const':
             # all substrates are equally likely
-            if mean_concentration == 0:
+            if total_concentration == 0:
                 hs = np.full(self.Ns, -np.inf)
             else:
                 hs = np.full(self.Ns, -1/mean_concentration)
+                
+        elif scheme == 'random_uniform':
+            # draw the mean probabilities from a uniform distribution
+            c_mean = np.random.uniform(0, 2*mean_concentration, self.Ns)
+            # make sure that the mean concentration is correct
+            c_mean *= total_concentration/c_mean.sum()
+            # convert this to commonness values
+            hs = -1/c_mean
             
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
@@ -117,7 +127,7 @@ class LibraryContinuousBase(LibraryBase):
         self.commonness = hs
         
         # we additionally store the parameters that were used for this function
-        c_params = {'scheme': scheme, 'mean_concentration': mean_concentration}
+        c_params = {'scheme': scheme, 'total_concentration': total_concentration}
         c_params.update(kwargs)
         self.parameters['commonness_parameters'] = c_params  
 

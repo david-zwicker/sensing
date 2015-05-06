@@ -88,6 +88,25 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         int_mat_params.update(kwargs)
         self.parameters['interaction_matrix_params'] = int_mat_params 
 
+
+    def activity_single(self):
+        """ calculates the average activity of each receptor """ 
+        steps = int(self.parameters['monte_carlo_steps'])        
+    
+        c_mean = self.get_concentration_means()
+    
+        count_a = np.zeros(self.Nr)
+        for _ in xrange(steps):
+            # choose a mixture vector according to substrate probabilities
+            c = np.random.exponential(size=self.Ns) * c_mean
+            
+            # get the associated output ...
+            alpha = (np.dot(self.int_mat, c) >= 1)
+            
+            count_a[alpha] += 1
+            
+        return count_a/steps
+
     
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
