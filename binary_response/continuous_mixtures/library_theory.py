@@ -146,51 +146,100 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 #     I_ai = self.mean_sensitivity
                 # this is the limiting case
     
-                # replace the hypoexponential distribution by a normal one
-                mean = -np.sum(1/hs) 
-                denom = np.sqrt(2) * np.sqrt(np.sum(1/hs**2)) # sqrt(2) * std
-                c_max = 1/self.mean_sensitivity
-                prob_a0 = 0.5*(special.erf((c_max - mean)/denom)
-                               + special.erf(mean/denom))
-                prob_a1 = 1 - prob_a0
+                # get the moments of the hypoexponential distribution
+                ctot_mean = -np.sum(1/hs)
+                ctot_var = np.sum(1/hs**2)
+                # these values directly parameterize the normal distribution
+
+                # evaluate the fraction of values that exceeds the threshold
+                # value given by c_min = 1/self.mean_sensitivity. We thus
+                # evaluate the integral from c_min to infinity, which equals
+                #     1/2 Erfc[(cmin - ctot_mean)/Sqrt[2 * ctot_var]]
+                # according to Mathematica
+                c_min = 1/self.mean_sensitivity
+                arg = (c_min - ctot_mean) / np.sqrt(2*ctot_var)
+                prob_a1 = 0.5 * special.erfc(arg)
                 
             else:
-                # finite-width distribution of interaction matrix elements
-                # => replace the complicated distributions by normal distributions
-                # and estimate the activity with this
+                # more complicated case where the distribution of interaction
+                # matrix elements has a finite width
                 I0 = self.mean_sensitivity
                 sigma2 = self.sigma**2
                 
-                # determine the parameters describing the distribution of the
-                # z-values as given by z = I_ai * c_i drawn from their
-                # respective distributions
-                mean_z = -I0/hs * np.exp(0.5*sigma2)
-                var_z = (I0/hs)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
+                # we first determine the mean and the variance of the
+                # distribution of z = I_ai * c_i, which is the distribution for
+                # a single matrix element I_ai multiplied the concentration of a
+                # single substrate
+                zi_mean = -I0/hs * np.exp(0.5*sigma2)
+                zi_var = (I0/hs)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
+                # these values directly parameterize the normal distribution
+
+                # add up all the N_s distributions to find the probability
+                # distribution for determining the activity of a receptor.
+                # Since, these are normal distributions, both the means and the
+                # variances just add up
+                z_mean = zi_mean.sum()
+                z_var = zi_var.sum()
                 
-                # use these values to calculate the probability that the sum
-                # of the z-values is larger than the threshold 1 assuming a
-                # normal distribution under the hood
-                arg = (1 - mean_z.sum())/np.sqrt(2 * var_z.sum())
-                prob_a1 = 0.5*special.erfc(arg)
+                # integrate the resulting normal distribution from 1 to infinity
+                # to determine the probability of exceeding 1
+                # Mathematica says that this integral equals
+                #     1/2 Erfc[(1 - z_mean)/Sqrt[2 * z_var]]
+                prob_a1 = 0.5 * special.erfc((1 - z_mean) / np.sqrt(2*z_var))
         
         elif method == 'gamma':
             # use a gamma distribution for approximations
              
             if self.sigma == 0:
-                raise NotImplementedError
+                # simple case in which the interaction matrix elements are the same:
+                #     I_ai = self.mean_sensitivity
+                # this is the limiting case
+    
+                # get the moments of the hypoexponential distribution
+                ctot_mean = -np.sum(1/hs)
+                ctot_var = np.sum(1/hs**2)
+                
+                # calculate the parameters of the associated gamma distribution
+                alpha = ctot_mean**2 / ctot_var
+                beta = ctot_var / ctot_mean
+                
+                # evaluate the fraction of values that exceeds the threshold
+                # value given by c_min = 1/self.mean_sensitivity. We thus
+                # evaluate the integral from c_min to infinity, which equals
+                #     Gamma[\[Alpha], cMin/\[Beta]]/Gamma[\[Alpha]]
+                # according to Mathematica
+                c_min = 1/self.mean_sensitivity
+                prob_a1 = special.gammaincc(alpha, c_min/beta)
             
             else:
+                # more complicated case where the distribution of interaction
+                # matrix elements has a finite width
                 I0 = self.mean_sensitivity
                 sigma2 = self.sigma**2
                 
-                # determine the parameters describing the distribution of the
-                # z-values as given by z = I_ai * c_i drawn from their
-                # respective distributions
-                denom = (2*np.exp(sigma2) - 1)
-                arg1 = self.Ns / denom
-                arg2 = -hs.mean()/I0 * np.exp(-0.5*sigma2)/denom
-
-                prob_a1 = 1 - special.gammaincc(arg1, arg2)
+                # we first determine the mean and the variance of the
+                # distribution of z = I_ai * c_i, which is the distribution for
+                # a single matrix element I_ai multiplied the concentration of a
+                # single substrate
+                h_mean = hs.mean()
+                z_mean = -I0/h_mean * np.exp(0.5*sigma2)
+                z_var = (I0/h_mean)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
+                
+                # calculate the parameters of the associated gamma distribution
+                alpha = z_mean**2 / z_var
+                beta = z_var / z_mean
+                
+                # add up all the N_s distributions to find the probability
+                # distribution for determining the activity of a receptor
+                alpha *= self.Ns
+                # this assumes that beta is the same for all individual
+                # substrates, which is only the case for homogeneous mixtures
+                
+                # integrate the gamma distribution from 1 to infinity to
+                # determine the probability of exceeding 1
+                # Mathematica says that this integral equals
+                #     Gamma[\[Alpha], 1/\[Beta]]/Gamma[\[Alpha]]
+                prob_a1 = special.gammaincc(alpha, 1/beta)
                 
         else:
             raise ValueError('Unknown estimation method `%s`' % method)
@@ -211,8 +260,6 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 estimate = 1/(term1 + term2)
             else:
                 estimate = np.exp(-0.5 * self.sigma**2)/(self.Ns * c_mean)
-        
-        return estimate
         
         # create a copy of the current object for optimization
         obj = self.copy()
@@ -252,8 +299,6 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             H_r = -(p_r*np.log2(p_r) + (1 - p_r)*np.log2(1 - p_r))
             # calculate the MI assuming that receptors are independent
             MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
-            # determine the entropy of the mixtures
-            # TODO: Limit to the maximal entropy of the input mixture
             return MI
         
         

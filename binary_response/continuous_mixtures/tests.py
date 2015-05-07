@@ -38,10 +38,8 @@ class TestLibraryContinuous(unittest.TestCase):
             self.assertAlmostEqual(c_mean, mean_calc)
 
 
-    def test_theory_lognormal(self):
+    def test_theory_lognormal_sigma_limit(self):
         """ test some results of the log normal class """
-        return #< this is not properly implemented yet
-        
         # check both homogeneous and inhomogeneous mixtures
         for homogeneous in (True, False):
             # create random object
@@ -52,10 +50,10 @@ class TestLibraryContinuous(unittest.TestCase):
             # compare the results for small spread values (sigma=0 is special case)
             obj1.sigma = 0
             obj2.sigma = 1e-13
-    
+            
             # test the activity calculation
             self.assertAlmostEqual(obj1.activity_single(),
-                                   obj2.activity_single(), places=5)
+                                   obj2.activity_single(), places=3)
     
             # test the optimal sensitivity calculation: this is not implemented
             obj1.mean_sensitivity = obj1.get_optimal_mean_sensitivity()
@@ -65,6 +63,7 @@ class TestLibraryContinuous(unittest.TestCase):
              
             self.assertAlmostEqual(obj1.activity_single(), 0.5)
             self.assertAlmostEqual(obj2.activity_single(), 0.5)
+                
                 
                 
     def test_numba_speedup(self):

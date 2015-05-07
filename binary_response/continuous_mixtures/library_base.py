@@ -99,7 +99,7 @@ class LibraryContinuousBase(LibraryBase):
         return np.allclose(h_i, h_i[0])
             
     
-    def set_commonness(self, scheme='const', total_concentration=1, **kwargs):
+    def set_commonness(self, scheme, total_concentration, **kwargs):
         """ picks a commonness vector according to the supplied parameters:
         `total_concentration` sets the total concentration to expect for the
             mixture on average.
