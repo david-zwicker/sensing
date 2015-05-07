@@ -115,11 +115,11 @@ class LibraryContinuousBase(LibraryBase):
                 
         elif scheme == 'random_uniform':
             # draw the mean probabilities from a uniform distribution
-            c_mean = np.random.uniform(0, 2*mean_concentration, self.Ns)
+            c_means = np.random.uniform(0, 2*mean_concentration, self.Ns)
             # make sure that the mean concentration is correct
-            c_mean *= total_concentration/c_mean.sum()
+            c_means *= total_concentration/c_means.sum()
             # convert this to commonness values
-            hs = -1/c_mean
+            hs = -1/c_means
             
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)

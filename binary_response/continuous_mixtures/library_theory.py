@@ -9,9 +9,10 @@ from __future__ import division
 import warnings
 
 import numpy as np
-from scipy import stats, integrate, optimize, special, linalg
+from scipy import stats, integrate, optimize, special
 
-from utils.math_distributions import DeterministicDistribution
+from utils.math_distributions import (DeterministicDistribution,
+                                      HypoExponentialDistribution) 
 from .library_base import LibraryContinuousBase
 
 
@@ -86,7 +87,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         return obj
 
 
-    def activity_single(self, use_approximations=False):
+    def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
         hs = self.commonness
@@ -95,16 +96,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             # simple case in which the interaction matrix elements are the same:
             #     I_ai = self.mean_sensitivity
             # this is the limiting case
-
-            if use_approximations:
-                # replace the hypoexponential distribution by a normal one
-                mean = -np.sum(1/hs) 
-                denom = np.sqrt(2) * np.sqrt(np.sum(1/hs**2)) # sqrt(2) * std
-                c_max = 1/self.mean_sensitivity
-                prob_a0 = 0.5*(special.erf((c_max - mean)/denom)
-                               + special.erf(mean/denom))
-
-            elif self.is_homogeneous:
+            if self.is_homogeneous:
                 # evaluate the full integral for the case where all substrates
                 # are equally likely
                 dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
@@ -116,15 +108,17 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 warnings.warn('The numerical implementation of the cdf of the '
                               'hypoexponential function is very unstable and '
                               'the results cannot be trusted.')
-                Theta = np.diag(hs, 0) + np.diag(-hs[:-1], 1)
-                cdf = lambda x: 1 - linalg.expm(x*Theta)[0, :].sum()
-                prob_a0 = cdf(1/self.mean_sensitivity) - cdf(0)
-            
+                c_means = self.get_concentration_means()
+                cdf_ctot = HypoExponentialDistribution(c_means).cdf
+                prob_a0 = cdf_ctot(1/self.mean_sensitivity)
+
         else:
             # finite-width distribution of interaction matrix elements
-            cdf = self.int_mat_distribution.cdf
             if self.is_homogeneous:
+                # FIXME: this is the result for the simple case where all
+                # I_ai are equal for a given a
                 dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
+                cdf = self.int_mat_distribution.cdf
                 integrand = lambda c: cdf(1/c) * dist.pdf(c)
                 prob_a0 = integrate.quad(integrand, 0, np.inf)[0]
                 
@@ -137,6 +131,46 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
 #                     prob_a0 *= -h * integrate.quad(integrand, 0, np.inf)[0]
                 
         return 1 - prob_a0
+    
+    
+    def activity_single_gaussian(self):
+        """ return the probability with which a single receptor is activated 
+        by typical mixtures using an gaussian approximation """
+        hs = self.commonness
+
+        if self.sigma == 0:
+            # simple case in which the interaction matrix elements are the same:
+            #     I_ai = self.mean_sensitivity
+            # this is the limiting case
+
+            # replace the hypoexponential distribution by a normal one
+            mean = -np.sum(1/hs) 
+            denom = np.sqrt(2) * np.sqrt(np.sum(1/hs**2)) # sqrt(2) * std
+            c_max = 1/self.mean_sensitivity
+            prob_a0 = 0.5*(special.erf((c_max - mean)/denom)
+                           + special.erf(mean/denom))
+            prob_a1 = 1 - prob_a0
+            
+        else:
+            # finite-width distribution of interaction matrix elements
+            # => replace the complicated distributions by normal distributions
+            # and estimate the activity with this
+            I0 = self.mean_sensitivity
+            sigma2 = self.sigma**2
+            
+            # determine the parameters describing the distribution of the
+            # z-values as given by z = I_ai * c_i drawn from their
+            # respective distributions
+            mean_z = -I0/hs * np.exp(0.5*sigma2)
+            var_z = (I0/hs)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
+            
+            # use these values to calculate the probability that the sum
+            # of the z-values is larger than the threshold 1 assuming a
+            # normal distribution under the hood
+            arg = (mean_z.sum() - 1)/np.sqrt(2 * var_z.sum())
+            prob_a1 = 0.5*(1 + special.erf(arg))
+            
+        return prob_a1
 
 
     def get_optimal_mean_sensitivity(self, estimate=None):
@@ -149,7 +183,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         # create a copy of the current object for optimization
         obj = self.copy()
         def opt_goal(I0):
-            """ helper function to find optimium numerically """ 
+            """ helper function to find optimum numerically """ 
             obj.mean_sensitivity = I0
             return 0.5 - obj.activity_single()
         

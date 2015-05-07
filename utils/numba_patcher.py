@@ -10,7 +10,7 @@ import functools
 
 import numpy as np
 
-from .misc import estimate_computation_speed
+from .misc import estimate_computation_speed 
 
 
 

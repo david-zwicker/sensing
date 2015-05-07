@@ -26,7 +26,7 @@ numba_patcher = NumbaPatcher(module=library_numeric)
 
 @numba.jit(nopython=NUMBA_NOPYTHON) 
 def LibraryContinuousNumeric_mutual_information_monte_carlo_numba(
-        Ns, Nr, steps, int_mat, c_mean, alpha, prob_a):
+        Ns, Nr, steps, int_mat, c_means, alpha, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -36,7 +36,7 @@ def LibraryContinuousNumeric_mutual_information_monte_carlo_numba(
         # choose a mixture vector according to substrate probabilities
         alpha[:] = 0  #< activity pattern of this mixture
         for i in xrange(Ns):
-            ci = np.random.exponential() * c_mean[i]
+            ci = np.random.exponential() * c_means[i]
             for a in xrange(Nr):
                 alpha[a] += int_mat[a, i] * ci
         
@@ -72,7 +72,7 @@ def LibraryContinuousNumeric_mutual_information(self, ret_prob_activity=False):
     MI = LibraryContinuousNumeric_mutual_information_monte_carlo_numba(
         self.Ns, self.Nr, int(self.parameters['monte_carlo_steps']), 
         self.int_mat,
-        self.get_concentration_means(), #< c_mean
+        self.get_concentration_means(), #< c_means
         np.empty(self.Nr, np.double), #< alpha
         prob_a
     )

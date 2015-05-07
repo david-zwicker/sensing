@@ -7,7 +7,7 @@ Created on Feb 24, 2015
 from __future__ import division
 
 import numpy as np
-from scipy import stats, special
+from scipy import stats, special, linalg
 
 
 
@@ -83,6 +83,101 @@ LogUniformDistribution = LogUniformDistribution_gen(
     a=0, name='LogUniformDistribution'
 )
 
+
+
+class HypoExponentialDistribution(object):
+    """
+    Hypoexponential distribution.
+    Unfortunately, the framework supplied by scipy.stats.rv_continuous does not
+    support a variable number of parameters and we thus only mimic its
+    interface here.
+    """
+    
+    def __init__(self, rates, method='sum'):
+        """ initializes the hypoexponential distribution.
+        `rates` are the rates of the underlying exponential processes
+        `method` determines what method is used for calculating the cdf and can
+            be either `sum` or `eigen`        
+        """
+        if method in {'sum', 'eigen'}:
+            self.method = method
+        
+        # prepare the rates of the system
+        self.rates = np.asarray(rates)
+        self.alpha = 1 / self.rates
+        if np.any(rates <= 0):
+            raise ValueError('All rates must be positive')
+        if len(np.unique(self.alpha)) != len(self.alpha):
+            raise ValueError('The current implementation only supports cases '
+                             'where all rates are different from each other.')
+        
+        # calculate terms that we need later
+        with np.errstate(divide='ignore'):
+            mat = self.alpha[:, None] / (self.alpha[:, None] - self.alpha[None, :])
+        mat[(self.alpha[:, None] - self.alpha[None, :]) == 0] = 1
+        self._terms = np.prod(mat, 1)
+        
+    
+    def rvs(self, size):
+        """ random variates """
+        # choose the receptor response characteristics
+        return sum(np.random.exponential(scale=alpha, size=size)
+                   for alpha in self.alpha)
+
+    
+    def mean(self):
+        """ mean of the distribution """
+        return self.alpha.sum()
+    
+    
+    def variance(self):
+        """ variance of the distribution """
+        return (2 * np.sum(self.alpha**2 * self._terms)
+                - (self.alpha.sum())**2)
+    
+
+    def pdf(self, x):
+        """ probability density function """
+        if not np.isscalar(x):
+            x = np.asarray(x)
+            res = np.zeros_like(x)
+            nz = (x > 0)
+            if np.any(nz):
+                if self.method == 'sum':
+                    factor = np.exp(-x[nz, None]*self.rates[..., :])/self.rates[..., :]
+                    res[nz] = np.sum(self._terms[..., :] * factor, axis=1)
+                else:
+                    Theta = np.diag(-self.rates, 0) + np.diag(self.rates[:-1], 1)
+                    for i in np.flatnonzero(nz):
+                        res.flat[i] = 1 - linalg.expm(x.flat[i]*Theta)[0, :].sum()
+ 
+        elif x == 0:
+            res = 0
+        else:
+            if self.method == 'sum':
+                factor = np.exp(-x*self.rates)/self.ratesx
+                res[nz] = np.sum(self._terms * factor)
+            else:
+                Theta = np.diag(-self.rates, 0) + np.diag(self.rates[:-1], 1)
+                res = 1 - linalg.expm(x*Theta)[0, :].sum()
+        return res
+
+    
+    def cdf(self, x):
+        """ cumulative density function """
+        if not np.isscalar(x):
+            x = np.asarray(x)
+            res = np.zeros_like(x)
+            nz = (x > 0)
+            if np.any(nz):
+                factor = np.exp(-x[nz, None]*self.rates[..., :])
+                res = 1 - np.sum(self._terms[..., :] * factor, axis=1)
+        elif x == 0:
+            res = 0
+        else:
+            factor = np.exp(-x*self.rates)
+            res = 1 - np.sum(self._terms * factor)
+        return res           
 
 
 

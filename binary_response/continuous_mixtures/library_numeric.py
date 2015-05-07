@@ -93,12 +93,12 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         """ calculates the average activity of each receptor """ 
         steps = int(self.parameters['monte_carlo_steps'])        
     
-        c_mean = self.get_concentration_means()
+        c_means = self.get_concentration_means()
     
         count_a = np.zeros(self.Nr)
         for _ in xrange(steps):
             # choose a mixture vector according to substrate probabilities
-            c = np.random.exponential(size=self.Ns) * c_mean
+            c = np.random.exponential(size=self.Ns) * c_means
             
             # get the associated output ...
             alpha = (np.dot(self.int_mat, c) >= 1)
@@ -116,14 +116,14 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
 
         steps = int(self.parameters['monte_carlo_steps'])
         
-        c_mean = self.get_concentration_means()
+        c_means = self.get_concentration_means()
 
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
         for _ in xrange(steps):
             # choose a mixture vector according to substrate probabilities
-            c = np.random.exponential(size=self.Ns) * c_mean
+            c = np.random.exponential(size=self.Ns) * c_means
             
             # get the associated output ...
             alpha = (np.dot(self.int_mat, c) >= 1)
