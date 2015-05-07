@@ -55,9 +55,9 @@ class TestLibraryContinuous(unittest.TestCase):
             # test the activity calculation
             self.assertAlmostEqual(obj1.activity_single_estimate(approx),
                                    obj2.activity_single_estimate(approx),
-                                   places=3)
+                                   places=5)
     
-            # test the optimal sensitivity calculation: this is not implemented
+            # test the optimal sensitivity calculation
             obj1.mean_sensitivity = \
                         obj1.get_optimal_mean_sensitivity(approximation=approx)
             obj2.mean_sensitivity = \

@@ -25,7 +25,54 @@ numba_patcher = NumbaPatcher(module=library_numeric)
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON) 
-def LibraryContinuousNumeric_mutual_information_monte_carlo_numba(
+def LibraryContinuousNumeric_activity_single_numba(
+        Ns, Nr, steps, int_mat, c_means, alpha, count_a):
+    """ calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' """
+        
+    # sample mixtures according to the probabilities of finding
+    # substrates
+    for _ in xrange(steps):
+        # choose a mixture vector according to substrate probabilities
+        alpha[:] = 0  #< activity pattern of this mixture
+        for i in xrange(Ns):
+            ci = np.random.exponential() * c_means[i]
+            for a in xrange(Nr):
+                alpha[a] += int_mat[a, i] * ci
+        
+        # calculate the activity pattern id
+        for a in xrange(Nr):
+            if alpha[a] >= 1:
+                count_a[a] += 1
+    
+
+def LibraryContinuousNumeric_activity_single(self):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    count_a = np.zeros(self.Nr, np.uint32) 
+    steps = int(self.parameters['monte_carlo_steps'])
+ 
+    # call the jitted function
+    LibraryContinuousNumeric_activity_single_numba(
+        self.Ns, self.Nr, steps, self.int_mat,
+        self.get_concentration_means(), #< c_means
+        np.empty(self.Nr, np.double), #< alpha
+        count_a
+    )
+    
+    return count_a / steps
+
+
+numba_patcher.register_method(
+    'LibraryContinuousNumeric.activity_single',
+    LibraryContinuousNumeric_activity_single,
+    check_return_value_approx
+)
+
+
+
+@numba.jit(nopython=NUMBA_NOPYTHON) 
+def LibraryContinuousNumeric_mutual_information_numba(
         Ns, Nr, steps, int_mat, c_means, alpha, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
@@ -69,7 +116,7 @@ def LibraryContinuousNumeric_mutual_information(self, ret_prob_activity=False):
     prob_a = np.zeros(2**self.Nr) 
  
     # call the jitted function
-    MI = LibraryContinuousNumeric_mutual_information_monte_carlo_numba(
+    MI = LibraryContinuousNumeric_mutual_information_numba(
         self.Ns, self.Nr, int(self.parameters['monte_carlo_steps']), 
         self.int_mat,
         self.get_concentration_means(), #< c_means
