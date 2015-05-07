@@ -173,19 +173,34 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         return prob_a1
 
 
-    def get_optimal_mean_sensitivity(self, estimate=None):
+    def get_optimal_mean_sensitivity(self, estimate=None, gaussian=False):
         """ estimates the optimal average value of the interaction matrix
         elements """  
         if estimate is None:
-            # simple estimate for homogeneous mixtures with sigma=0
-            estimate = self.commonness.mean()/np.log(1 - 2**(-1/self.Ns))
+            c_mean = self.get_concentration_means().mean()
+            if self.sigma < 1e-8:
+                # simple estimate for homogeneous mixtures with sigma=0
+                term1 = self.Ns * c_mean
+                term2 = (np.sqrt(2*self.Ns) * c_mean
+                         * special.erfinv(1 - special.erf(np.sqrt(0.5*self.Ns))))
+                estimate = 1/(term1 + term2)
+            else:
+                estimate = np.exp(-0.5*self.sigma**2)/(self.Ns * c_mean)
+        
+        return estimate
         
         # create a copy of the current object for optimization
         obj = self.copy()
-        def opt_goal(I0):
-            """ helper function to find optimum numerically """ 
-            obj.mean_sensitivity = I0
-            return 0.5 - obj.activity_single()
+        if gaussian:
+            def opt_goal(I0):
+                """ helper function to find optimum numerically """ 
+                obj.mean_sensitivity = I0
+                return 0.5 - obj.activity_single_gaussian()
+        else:
+            def opt_goal(I0):
+                """ helper function to find optimum numerically """ 
+                obj.mean_sensitivity = I0
+                return 0.5 - obj.activity_single()
         
         try:
             result = optimize.newton(opt_goal, estimate)
