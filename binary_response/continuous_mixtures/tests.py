@@ -41,7 +41,8 @@ class TestLibraryContinuous(unittest.TestCase):
     def test_theory_lognormal_sigma_limit(self):
         """ test some results of the log normal class """
         # check both homogeneous and inhomogeneous mixtures
-        for homogeneous in (True, False):
+        for homogeneous, approx in [(True, 'normal'), (False, 'normal'),
+                                    (True, 'gamma')]:
             # create random object
             obj1 = LibraryContinuousLogNormal.create_test_instance(
                                                homogeneous_mixture=homogeneous)
@@ -52,18 +53,20 @@ class TestLibraryContinuous(unittest.TestCase):
             obj2.sigma = 1e-13
             
             # test the activity calculation
-            self.assertAlmostEqual(obj1.activity_single(),
-                                   obj2.activity_single(), places=3)
+            self.assertAlmostEqual(obj1.activity_single_estimate(approx),
+                                   obj2.activity_single_estimate(approx),
+                                   places=3)
     
             # test the optimal sensitivity calculation: this is not implemented
-            obj1.mean_sensitivity = obj1.get_optimal_mean_sensitivity()
-            obj2.mean_sensitivity = obj2.get_optimal_mean_sensitivity()
+            obj1.mean_sensitivity = \
+                        obj1.get_optimal_mean_sensitivity(approximation=approx)
+            obj2.mean_sensitivity = \
+                        obj2.get_optimal_mean_sensitivity(approximation=approx)
             self.assertAlmostEqual(obj1.mean_sensitivity, obj2.mean_sensitivity,
                                    places=5)
              
-            self.assertAlmostEqual(obj1.activity_single(), 0.5)
-            self.assertAlmostEqual(obj2.activity_single(), 0.5)
-                
+            self.assertAlmostEqual(obj1.activity_single_estimate(approx), 0.5)
+            self.assertAlmostEqual(obj2.activity_single_estimate(approx), 0.5)
                 
                 
     def test_numba_speedup(self):

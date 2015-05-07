@@ -134,7 +134,7 @@ class LibraryBinaryBase(LibraryBase):
         return l_mean, np.sqrt(l_var)
     
     
-    def set_commonness(self, scheme='const', mean_mixture_size=1, **kwargs):
+    def set_commonness(self, scheme, mean_mixture_size, **kwargs):
         """ picks a commonness vector according to the supplied parameters:
         `mean_mixture_size` is determines the mean number of components in each
         mixture. The value of the commonness vector are furthermore influenced  

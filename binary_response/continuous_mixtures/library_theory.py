@@ -100,7 +100,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 # evaluate the full integral for the case where all substrates
                 # are equally likely
                 dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
-                prob_a0 = dist.cdf(1/self.mean_sensitivity) - dist.cdf(0)
+                prob_a0 = dist.cdf(1/self.mean_sensitivity)
                 
             else:
                 # the probability of the total concentration c_tot is given
@@ -142,7 +142,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             # use a normal distribution for approximations
 
             if self.sigma == 0:
-                # simple case in which the interaction matrix elements are the same:
+                # simple case in which all interaction matrix elements are the same:
                 #     I_ai = self.mean_sensitivity
                 # this is the limiting case
     
@@ -234,6 +234,10 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 alpha *= self.Ns
                 # this assumes that beta is the same for all individual
                 # substrates, which is only the case for homogeneous mixtures
+                if not self.is_homogeneous:
+                    warnings.warn('The estimate using gamma distributions '
+                                  'currently assumes that all substrates have '
+                                  'the same distribution.')
                 
                 # integrate the gamma distribution from 1 to infinity to
                 # determine the probability of exceeding 1
@@ -261,13 +265,17 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             else:
                 estimate = np.exp(-0.5 * self.sigma**2)/(self.Ns * c_mean)
         
-        # create a copy of the current object for optimization
-        obj = self.copy()
+        # find best mean_sensitivity by optimizing until the average receptor
+        # activity is 0.5
+        obj = self.copy() #< copy of the current object for optimization
+        
+        # check which approximation to use
         if approximation is None or approximation == 'none':
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
                 obj.mean_sensitivity = I0
                 return 0.5 - obj.activity_single()
+            
         else:
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
