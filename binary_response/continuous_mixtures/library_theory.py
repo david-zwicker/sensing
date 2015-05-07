@@ -133,47 +133,72 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         return 1 - prob_a0
     
     
-    def activity_single_gaussian(self):
+    def activity_single_estimate(self, method='normal'):
         """ return the probability with which a single receptor is activated 
         by typical mixtures using an gaussian approximation """
         hs = self.commonness
 
-        if self.sigma == 0:
-            # simple case in which the interaction matrix elements are the same:
-            #     I_ai = self.mean_sensitivity
-            # this is the limiting case
+        if method == 'normal':
+            # use a normal distribution for approximations
 
-            # replace the hypoexponential distribution by a normal one
-            mean = -np.sum(1/hs) 
-            denom = np.sqrt(2) * np.sqrt(np.sum(1/hs**2)) # sqrt(2) * std
-            c_max = 1/self.mean_sensitivity
-            prob_a0 = 0.5*(special.erf((c_max - mean)/denom)
-                           + special.erf(mean/denom))
-            prob_a1 = 1 - prob_a0
+            if self.sigma == 0:
+                # simple case in which the interaction matrix elements are the same:
+                #     I_ai = self.mean_sensitivity
+                # this is the limiting case
+    
+                # replace the hypoexponential distribution by a normal one
+                mean = -np.sum(1/hs) 
+                denom = np.sqrt(2) * np.sqrt(np.sum(1/hs**2)) # sqrt(2) * std
+                c_max = 1/self.mean_sensitivity
+                prob_a0 = 0.5*(special.erf((c_max - mean)/denom)
+                               + special.erf(mean/denom))
+                prob_a1 = 1 - prob_a0
+                
+            else:
+                # finite-width distribution of interaction matrix elements
+                # => replace the complicated distributions by normal distributions
+                # and estimate the activity with this
+                I0 = self.mean_sensitivity
+                sigma2 = self.sigma**2
+                
+                # determine the parameters describing the distribution of the
+                # z-values as given by z = I_ai * c_i drawn from their
+                # respective distributions
+                mean_z = -I0/hs * np.exp(0.5*sigma2)
+                var_z = (I0/hs)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
+                
+                # use these values to calculate the probability that the sum
+                # of the z-values is larger than the threshold 1 assuming a
+                # normal distribution under the hood
+                arg = (1 - mean_z.sum())/np.sqrt(2 * var_z.sum())
+                prob_a1 = 0.5*special.erfc(arg)
+        
+        elif method == 'gamma':
+            # use a gamma distribution for approximations
+             
+            if self.sigma == 0:
+                raise NotImplementedError
             
+            else:
+                I0 = self.mean_sensitivity
+                sigma2 = self.sigma**2
+                
+                # determine the parameters describing the distribution of the
+                # z-values as given by z = I_ai * c_i drawn from their
+                # respective distributions
+                denom = (2*np.exp(sigma2) - 1)
+                arg1 = self.Ns / denom
+                arg2 = -hs.mean()/I0 * np.exp(-0.5*sigma2)/denom
+
+                prob_a1 = 1 - special.gammaincc(arg1, arg2)
+                
         else:
-            # finite-width distribution of interaction matrix elements
-            # => replace the complicated distributions by normal distributions
-            # and estimate the activity with this
-            I0 = self.mean_sensitivity
-            sigma2 = self.sigma**2
-            
-            # determine the parameters describing the distribution of the
-            # z-values as given by z = I_ai * c_i drawn from their
-            # respective distributions
-            mean_z = -I0/hs * np.exp(0.5*sigma2)
-            var_z = (I0/hs)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
-            
-            # use these values to calculate the probability that the sum
-            # of the z-values is larger than the threshold 1 assuming a
-            # normal distribution under the hood
-            arg = (mean_z.sum() - 1)/np.sqrt(2 * var_z.sum())
-            prob_a1 = 0.5*(1 + special.erf(arg))
-            
+            raise ValueError('Unknown estimation method `%s`' % method)
+                
         return prob_a1
 
 
-    def get_optimal_mean_sensitivity(self, estimate=None, gaussian=False):
+    def get_optimal_mean_sensitivity(self, estimate=None, approximation=None):
         """ estimates the optimal average value of the interaction matrix
         elements """  
         if estimate is None:
@@ -182,25 +207,25 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 # simple estimate for homogeneous mixtures with sigma=0
                 term1 = self.Ns * c_mean
                 term2 = (np.sqrt(2*self.Ns) * c_mean
-                         * special.erfinv(1 - special.erf(np.sqrt(0.5*self.Ns))))
+                         * special.erfinv(1 - special.erf(np.sqrt(self.Ns/2))))
                 estimate = 1/(term1 + term2)
             else:
-                estimate = np.exp(-0.5*self.sigma**2)/(self.Ns * c_mean)
+                estimate = np.exp(-0.5 * self.sigma**2)/(self.Ns * c_mean)
         
         return estimate
         
         # create a copy of the current object for optimization
         obj = self.copy()
-        if gaussian:
-            def opt_goal(I0):
-                """ helper function to find optimum numerically """ 
-                obj.mean_sensitivity = I0
-                return 0.5 - obj.activity_single_gaussian()
-        else:
+        if approximation is None or approximation == 'none':
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
                 obj.mean_sensitivity = I0
                 return 0.5 - obj.activity_single()
+        else:
+            def opt_goal(I0):
+                """ helper function to find optimum numerically """ 
+                obj.mean_sensitivity = I0
+                return 0.5 - obj.activity_single_estimate(approximation)
         
         try:
             result = optimize.newton(opt_goal, estimate)
@@ -209,5 +234,26 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             
         return result 
             
+            
+    def mutual_information(self, approximation=None):
+        """ return a theoretical estimate of the mutual information between
+        input and output """
+        if approximation is None or approximation == 'none':
+            p_r = self.activity_single()
+        else:
+            p_r = self.activity_single_estimate(approximation)
+            
+        if p_r == 0 or p_r == 1:
+            # receptors are never or always activated
+            return 0
 
+        else:
+            # calculate the information a single receptor contributes            
+            H_r = -(p_r*np.log2(p_r) + (1 - p_r)*np.log2(1 - p_r))
+            # calculate the MI assuming that receptors are independent
+            MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
+            # determine the entropy of the mixtures
+            # TODO: Limit to the maximal entropy of the input mixture
+            return MI
+        
         

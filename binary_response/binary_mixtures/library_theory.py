@@ -63,9 +63,6 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     def mutual_information(self, approx_prob=False):
         """ return a theoretical estimate of the mutual information between
         input and output """
-        #if len(np.unique(self.commonness)) > 1:
-        #    raise RuntimeError('The estimate only works for homogeneous '
-        #                       'mixtures so far.')
         p_i = self.substrate_probability
         
         # get probability p_r that a single receptor is activated 

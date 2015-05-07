@@ -81,7 +81,7 @@ class LibraryBase(object):
         if avg_num is None:
             avg_num = self.parameters['ensemble_average_num']
         
-        if multiprocessing:
+        if multiprocessing and avg_num > 1:
             # run the calculations in multiple processes  
             arguments = (self.__class__, self.init_arguments, method)
             pool = mp.Pool()
