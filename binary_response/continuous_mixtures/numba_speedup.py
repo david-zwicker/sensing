@@ -25,8 +25,8 @@ numba_patcher = NumbaPatcher(module=library_numeric)
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON) 
-def LibraryContinuousNumeric_activity_single_numba(
-        Ns, Nr, steps, int_mat, c_means, alpha, count_a):
+def LibraryContinuousNumeric_activity_single_numba(Ns, Nr, steps, int_mat,
+                                                   c_means, alpha, count_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -72,8 +72,8 @@ numba_patcher.register_method(
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON) 
-def LibraryContinuousNumeric_mutual_information_numba(
-        Ns, Nr, steps, int_mat, c_means, alpha, prob_a):
+def LibraryContinuousNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
+                                                      c_means, alpha, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
