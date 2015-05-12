@@ -251,6 +251,15 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         return prob_a1
 
 
+    def get_optimal_parameters(self):
+        """ returns an estimate for the optimal parameters for the random
+        interaction matrices """
+        sigma = np.pi / np.sqrt(6)
+        c_mean = self.get_concentration_means().mean()
+        I0 = np.exp(-0.5 * sigma**2)/(self.Ns * c_mean)
+        return {'typical_sensitivity': I0, 'sigma': sigma}
+
+
     def get_optimal_sigma(self):
         """ estimate the optimal width of the log-normal distribution """
         return np.pi / np.sqrt(6)
@@ -261,14 +270,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         elements """  
         if estimate is None:
             c_mean = self.get_concentration_means().mean()
-            if self.sigma < 1e-8:
-                # simple estimate for homogeneous mixtures with sigma=0
-                term1 = self.Ns * c_mean
-                term2 = (np.sqrt(2*self.Ns) * c_mean
-                         * special.erfinv(1 - special.erf(np.sqrt(self.Ns/2))))
-                estimate = 1/(term1 + term2)
-            else:
-                estimate = np.exp(-0.5 * self.sigma**2)/(self.Ns * c_mean)
+            estimate = np.exp(-0.5 * self.sigma**2)/(self.Ns * c_mean)
         
         # find best mean_sensitivity by optimizing until the average receptor
         # activity is 0.5
@@ -276,21 +278,30 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         
         # check which approximation to use
         if approximation is None or approximation == 'none':
+            # optimize using true activity calculations
+            result = None
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
                 obj.mean_sensitivity = I0
                 return 0.5 - obj.activity_single()
             
+        elif approximation == 'estimate':
+            # do not do any numerical optimization
+            result = estimate
+            
         else:
+            # optimize using approximate activity estimates
+            result = None
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
                 obj.mean_sensitivity = I0
                 return 0.5 - obj.activity_single_estimate(approximation)
-        
-        try:
-            result = optimize.newton(opt_goal, estimate)
-        except RuntimeError:
-            result = np.nan
+
+        if result is None:        
+            try:
+                result = optimize.newton(opt_goal, estimate)
+            except RuntimeError:
+                result = np.nan
             
         return result 
             

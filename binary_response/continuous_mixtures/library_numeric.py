@@ -70,8 +70,8 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         return obj
 
 
-    def choose_interaction_matrix(self, distribution='const',
-                                  typical_sensitivity=1, **kwargs):
+    def choose_interaction_matrix(self, distribution, typical_sensitivity=1,
+                                  **kwargs):
         """ creates a interaction matrix with the given properties """
         shape = (self.Nr, self.Ns)
 
