@@ -92,7 +92,7 @@ class TestLibraryContinuous(unittest.TestCase):
         sigma = np.random.random()
         
         # draw from and define distribution        
-        ys = np.random.lognormal(mean=np.log(mean), sigma=sigma, size=1e6)
+        ys = np.random.lognormal(mean=np.log(mean), sigma=sigma, size=1e7)
         dist = scipy.stats.lognorm(scale=mean, s=sigma)
         self._check_histogram(ys, dist)
         

@@ -253,16 +253,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
 
     def get_optimal_sigma(self):
         """ estimate the optimal width of the log-normal distribution """
-        if self.Ns == 1:
-            sigma_opt = np.pi / np.sqrt(6)
-            
-        else:
-            warnings.warn('The estimate only works for Nr=1, yet.')
-            sigma_opt = np.pi / np.sqrt(6)
-#             h_mean = self.commonness.mean()
-#             sigma_opt = np.sqrt(2 * np.log(-h_mean / (I0*self.Ns)))
-            
-        return sigma_opt
+        return np.pi / np.sqrt(6)
 
 
     def get_optimal_mean_sensitivity(self, estimate=None, approximation=None):

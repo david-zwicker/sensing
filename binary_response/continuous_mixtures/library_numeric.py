@@ -42,10 +42,12 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             # copy the given matrix
             self.int_mat[:] = self.parameters['interaction_matrix']
             assert self.int_mat.shape == int_mat_shape
+            
         elif self.parameters['interaction_matrix_params'] is not None:
             # create a matrix with the given properties
             params = self.parameters['interaction_matrix_params']
             self.choose_interaction_matrix(**params)
+            
         else:
             # initialize the interaction matrix with zeros
             self.int_mat = np.zeros(int_mat_shape, np.uint8)
@@ -55,36 +57,64 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
         obj = super(LibraryContinuousNumeric, cls).create_test_instance()
-        # TODO: we have to choose a better test instance for which the 
-        # mutual information is typically non-zero
-        # Otherwise, the automatic tests will always fail
+
+        # determine optimal parameters for the interaction matrix
+        from .library_theory import LibraryContinuousLogNormal
+        theory = LibraryContinuousLogNormal(obj.Ns, obj.Nr)
+        sigma = theory.get_optimal_sigma()
+        I0 = theory.get_optimal_mean_sensitivity()
+        
+        # choose an interaction matrix
         obj.choose_interaction_matrix(distribution='log_normal',
-                                      mean_sensitivity=0.1*np.random.random())
+                                      typical_sensitivity=I0, sigma=sigma)
         return obj
 
 
-    def choose_interaction_matrix(self, distribution='log_normal',
-                                  mean_sensitivity=1, **kwargs):
+    def choose_interaction_matrix(self, distribution='const',
+                                  typical_sensitivity=1, **kwargs):
         """ creates a interaction matrix with the given properties """
         shape = (self.Nr, self.Ns)
 
-        assert mean_sensitivity > 0 
+        assert typical_sensitivity > 0 
 
-        if distribution == 'log_normal':
+        if distribution == 'const':
+            # simple constant matrix
+            self.int_mat = np.full(shape, typical_sensitivity)
+
+        elif distribution == 'binary':
+            # choose a binary matrix with a typical scale
+            kwargs.setdefault('density', 0)
+            if kwargs['density'] == 0:
+                # simple case of empty matrix
+                self.int_mat = np.zeros(shape)
+            elif kwargs['density'] >= 1:
+                # simple case of full matrix
+                self.int_mat = np.full(shape, typical_sensitivity)
+            else:
+                # choose receptor substrate interaction randomly and don't worry
+                # about correlations
+                self.int_mat = (typical_sensitivity * 
+                                (np.random.random(shape) < kwargs['density']))
+
+        elif distribution == 'log_normal':
             # log normal distribution
             kwargs.setdefault('sigma', 0.1)
             if kwargs['sigma'] == 0:
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.int_mat = np.full(shape, typical_sensitivity)
             else:
-                dist = stats.lognorm(scale=mean_sensitivity, s=kwargs['sigma'])
+                dist = stats.lognorm(scale=typical_sensitivity,
+                                     s=kwargs['sigma'])
                 self.int_mat = dist.rvs(shape)
+                
+        elif distribution == 'log_uniform':
+            raise NotImplementedError
             
         else:
             raise ValueError('Unknown distribution `%s`' % distribution)
             
         # save the parameters determining this matrix
         int_mat_params = {'distribution': distribution,
-                          'mean_sensitivity': mean_sensitivity}
+                          'typical_sensitivity': typical_sensitivity}
         int_mat_params.update(kwargs)
         self.parameters['interaction_matrix_params'] = int_mat_params 
 
