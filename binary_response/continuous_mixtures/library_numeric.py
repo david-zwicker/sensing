@@ -61,12 +61,8 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         # determine optimal parameters for the interaction matrix
         from .library_theory import LibraryContinuousLogNormal
         theory = LibraryContinuousLogNormal(obj.Ns, obj.Nr)
-        sigma = theory.get_optimal_sigma()
-        I0 = theory.get_optimal_mean_sensitivity()
-        
-        # choose an interaction matrix
         obj.choose_interaction_matrix(distribution='log_normal',
-                                      typical_sensitivity=I0, sigma=sigma)
+                                      **theory.get_optimal_parameters())
         return obj
 
 
@@ -107,6 +103,12 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
                 self.int_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
+            raise NotImplementedError
+            
+        elif distribution == 'log_gamma':
+            raise NotImplementedError
+            
+        elif distribution == 'gamma':
             raise NotImplementedError
             
         else:
