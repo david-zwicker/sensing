@@ -255,9 +255,8 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
     if ret_error:
         # estimate the error of the mutual information calculation
         steps = int(self.parameters['monte_carlo_steps'])
-        MI_err = -sum((1/np.log(2) + np.log2(pa)) * np.sqrt(pa/steps)
-                      if pa != 0 else 1/steps
-                      for pa in prob_a)
+        MI_err = sum(np.abs(1/np.log(2) + np.log2(pa)) * pa
+                     for pa in prob_a if pa != 0) / np.sqrt(steps)
 
         if ret_prob_activity:
             return MI, MI_err, prob_a
