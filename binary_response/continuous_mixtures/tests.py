@@ -58,18 +58,19 @@ class TestLibraryContinuous(unittest.TestCase):
                                    places=5)
     
             # test the optimal sensitivity calculation
-            obj1.mean_sensitivity = \
-                        obj1.get_optimal_mean_sensitivity(approximation=approx)
-            obj2.mean_sensitivity = \
-                        obj2.get_optimal_mean_sensitivity(approximation=approx)
-            self.assertAlmostEqual(obj1.mean_sensitivity, obj2.mean_sensitivity,
+            obj1.typical_sensitivity = \
+                    obj1.get_optimal_typical_sensitivity(approximation=approx)
+            obj2.typical_sensitivity = \
+                    obj2.get_optimal_typical_sensitivity(approximation=approx)
+            self.assertAlmostEqual(obj1.typical_sensitivity,
+                                   obj2.typical_sensitivity,
                                    places=5)
              
             self.assertAlmostEqual(obj1.activity_single_estimate(approx), 0.5)
             self.assertAlmostEqual(obj2.activity_single_estimate(approx), 0.5)
                 
                 
-    def test_numba_speedup(self):
+    def test_numba_consistency(self):
         """ test the consistency of the numba functions """
         numba_patcher.test_consistency(1, verbosity=0)
                 
@@ -89,7 +90,7 @@ class TestLibraryContinuous(unittest.TestCase):
         distribution """
         # choose random parameters
         mean = np.random.random() + .5
-        sigma = np.random.random()
+        sigma = np.random.random() / 2
         
         # draw from and define distribution        
         ys = np.random.lognormal(mean=np.log(mean), sigma=sigma, size=1e7)

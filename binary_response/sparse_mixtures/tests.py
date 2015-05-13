@@ -11,12 +11,12 @@ import unittest
 import numpy as np
 import scipy.misc
 
-from .library_base import LibraryBinaryBase
+from .library_base import LibrarySparseBase
 from .numba_speedup import numba_patcher
+
       
       
-      
-class TestLibraryBinary(unittest.TestCase):
+class TestLibrarySparse(unittest.TestCase):
     """ unit tests for the continuous library """
     
     def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
@@ -27,7 +27,7 @@ class TestLibraryBinary(unittest.TestCase):
     def test_base(self):
         """ consistency tests on the base class """
         # construct random model
-        model = LibraryBinaryBase.create_test_instance()
+        model = LibrarySparseBase.create_test_instance()
         
         # probability of having d_s components in a mixture for h_i = h
         hval = np.random.random() - 0.5
@@ -52,6 +52,13 @@ class TestLibraryBinary(unittest.TestCase):
         self.assertAllClose((dist_mean, np.sqrt(dist_var)),
                             model.mixture_size_statistics())
         
+        # probability of having d_s components in a mixture for h_i = h
+        c_means = model.get_concentration_means()
+        for i, c_mean in enumerate(c_means):
+            mean_calc = model.get_concentration_distribution(i).mean()
+            pi = model.substrate_probabilities[i]
+            self.assertAlmostEqual(c_mean, mean_calc * pi)
+        
         # test setting the commonness
         commoness_schemes = [('const', {}),
                              ('single', {'p1': np.random.random()}),
@@ -69,9 +76,10 @@ class TestLibraryBinary(unittest.TestCase):
                                     mean_mixture_size)
                 
                 
-    def test_numba_speedup(self):
+    def test_numba_consistency(self):
         """ test the consistency of the numba functions """
         numba_patcher.test_consistency(1, verbosity=0)
+                
     
 
 if __name__ == '__main__':

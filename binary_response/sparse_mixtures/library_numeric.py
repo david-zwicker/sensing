@@ -9,11 +9,11 @@ from __future__ import division
 import numpy as np
 from scipy import stats
 
-from .library_base import LibraryContinuousBase
+from .library_base import LibrarySparseBase
 
 
-class LibraryContinuousNumeric(LibraryContinuousBase):
-    """ represents a single receptor library that handles continuous mixtures """
+class LibrarySparseNumeric(LibrarySparseBase):
+    """ represents a single receptor library that handles sparse mixtures """
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
@@ -30,9 +30,9 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         parameters in the parameter dictionary """
         # the call to the inherited method also sets the default parameters from
         # this class
-        super(LibraryContinuousNumeric, self).__init__(num_substrates,
-                                                       num_receptors,
-                                                       parameters)        
+        super(LibrarySparseNumeric, self).__init__(num_substrates,
+                                                   num_receptors,
+                                                   parameters)        
 
         # prevent integer overflow in collecting activity patterns
         assert num_receptors <= self.parameters['max_num_receptors'] <= 63
@@ -56,13 +56,13 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        obj = super(LibraryContinuousNumeric, cls).create_test_instance()
+        obj = super(LibrarySparseNumeric, cls).create_test_instance()
 
         # determine optimal parameters for the interaction matrix
-        from .library_theory import LibraryContinuousLogNormal
-        theory = LibraryContinuousLogNormal(obj.Ns, obj.Nr)
-        obj.choose_interaction_matrix(distribution='log_normal',
-                                      **theory.get_optimal_parameters())
+#         from .library_theory import LibraryContinuousLogNormal
+#         theory = LibraryContinuousLogNormal(obj.Ns, obj.Nr)
+#         obj.choose_interaction_matrix(distribution='log_normal',
+#                                       **theory.get_optimal_parameters())
         return obj
 
 
@@ -123,19 +123,25 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
 
     def activity_single(self):
         """ calculates the average activity of each receptor """ 
+
+        # load the parameters    
         steps = int(self.parameters['monte_carlo_steps'])        
-    
-        c_means = self.get_concentration_means()
+        c_prob = self.substrate_probabilities
+        c_means = self.concentrations
     
         count_a = np.zeros(self.Nr)
         for _ in xrange(steps):
             # choose a mixture vector according to substrate probabilities
+            b_not = (np.random.random(self.Ns) >= c_prob)
+
+            # choose a mixture vector according to substrate probabilities
             c = np.random.exponential(size=self.Ns) * c_means
+            c[b_not] = 0
             
             # get the associated output ...
-            alpha = (np.dot(self.int_mat, c) >= 1)
+            a = (np.dot(self.int_mat, c) >= 1)
             
-            count_a[alpha] += 1
+            count_a[a] += 1
             
         return count_a/steps
 
@@ -144,26 +150,31 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
-        base = 2 ** np.arange(0, self.Nr)
-
+        # load the parameters    
         steps = int(self.parameters['monte_carlo_steps'])
-        
-        c_means = self.get_concentration_means()
+        c_prob = self.substrate_probabilities
+        c_means = self.concentrations
+
+        base = 2 ** np.arange(0, self.Nr)
 
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
         for _ in xrange(steps):
             # choose a mixture vector according to substrate probabilities
+            b_not = (np.random.random(self.Ns) >= c_prob)
+
+            # choose a mixture vector according to substrate probabilities
             c = np.random.exponential(size=self.Ns) * c_means
+            c[b_not] = 0
             
             # get the associated output ...
-            alpha = (np.dot(self.int_mat, c) >= 1)
+            a = (np.dot(self.int_mat, c) >= 1)
             
             # ... and represent it as a single integer
-            alpha_id = np.dot(base, alpha)
+            a_id = np.dot(base, a)
             # increment counter for this output
-            count_a[alpha_id] += 1
+            count_a[a_id] += 1
             
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 

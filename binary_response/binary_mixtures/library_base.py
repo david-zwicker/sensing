@@ -79,12 +79,12 @@ class LibraryBinaryBase(LibraryBase):
     
     
     @property
-    def substrate_probability(self):
+    def substrate_probabilities(self):
         """ return the probability of finding each substrate """
         return self._ps
     
-    @substrate_probability.setter
-    def substrate_probability(self, ps):
+    @substrate_probabilities.setter
+    def substrate_probabilities(self, ps):
         """ sets the substrate probability and the associated commonness """
         if len(ps) != self.Ns:
             raise ValueError('Length of the probability vector must match the '
@@ -116,7 +116,7 @@ class LibraryBinaryBase(LibraryBase):
         res = np.zeros(self.Ns + 1)
         res[0] = 1
         # iterate over each substrate and consider its individual probability
-        for k, p in enumerate(self.substrate_probability, 1):
+        for k, p in enumerate(self.substrate_probabilities, 1):
             res[k] = res[k-1]*p
             res[1:k] = (1 - p)*res[1:k] + res[:k-1]*p
             res[0] = (1 - p)*res[0]
@@ -127,7 +127,7 @@ class LibraryBinaryBase(LibraryBase):
     def mixture_size_statistics(self):
         """ calculates the mean and the standard deviation of the number of
         components in mixtures """
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
         l_mean = np.sum(prob_s)
         l_var = np.sum(prob_s/(1 + np.exp(self._hs)))
         
@@ -225,7 +225,7 @@ class LibraryBinaryBase(LibraryBase):
         
         # set the probability which also calculates the commonness and saves
         # the values in the parameters dictionary
-        self.substrate_probability = ps
+        self.substrate_probabilities = ps
         
         # we additionally store the parameters that were used for this function
         c_params = {'scheme': scheme, 'mean_mixture_size': mean_mixture_size}

@@ -178,7 +178,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
     def activity_single_brute_force(self):
         """ calculates the average activity of each receptor """
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
 
         prob_a = np.zeros(self.Nr)
         # iterate over all mixtures
@@ -199,7 +199,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if num is None:
             num = int(self.parameters['monte_carlo_steps'])        
     
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
     
         count_a = np.zeros(self.Nr)
         for _ in xrange(num):
@@ -220,7 +220,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
         I_ai = self.int_mat
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
 
         # calculate the probabilities of exciting receptors and pairs
         if approx_prob:
@@ -239,7 +239,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
 
     def activity_correlations_brute_force(self):
         """ calculates the correlations between receptor activities """
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
 
         prob_Caa = np.zeros((self.Nr, self.Nr))
         for m in itertools.product((0, 1), repeat=self.Ns):
@@ -258,7 +258,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def crosstalk(self):
         """ calculates the expected crosstalk between interaction matrices """
         return np.einsum('ai,bi,i->ab', self.int_mat, self.int_mat,
-                         self.substrate_probability)
+                         self.substrate_probabilities)
 
 
     def mutual_information(self, method='auto', **kwargs):
@@ -290,7 +290,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         mixtures """
         base = 2 ** np.arange(0, self.Nr)
 
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
 
         # prob_a contains the probability of finding activity a as an output.
         prob_a = np.zeros(2**self.Nr)
@@ -320,7 +320,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
         base = 2 ** np.arange(0, self.Nr)
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
 
         steps = int(self.parameters['monte_carlo_steps'])
 
@@ -369,7 +369,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
         base = 2 ** np.arange(0, self.Nr)
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
 
         max_steps = int(self.parameters['monte_carlo_steps'])
         steps, MIs = [], []
@@ -428,7 +428,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
         I_ai = self.int_mat
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
         
         # calculate the probabilities of exciting receptors and pairs
         if approx_prob:
@@ -462,7 +462,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         """ returns the estimated performance of the system, which acts as a
         proxy for the mutual information between input and output """
         I_ai = self.int_mat
-        prob_s = self.substrate_probability
+        prob_s = self.substrate_probabilities
         
         # collect the terms describing the activity entropy
         term_entropy = np.sum((0.5 - np.prod(1 - I_ai*prob_s, axis=1)) ** 2)

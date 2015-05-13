@@ -57,13 +57,13 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        return 1 - np.prod(1 - self.density * self.substrate_probability)
+        return 1 - np.prod(1 - self.density * self.substrate_probabilities)
 
 
     def mutual_information(self, approx_prob=False):
         """ return a theoretical estimate of the mutual information between
         input and output """
-        p_i = self.substrate_probability
+        p_i = self.substrate_probabilities
         
         # get probability p_r that a single receptor is activated 
         if approx_prob:
@@ -111,7 +111,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             if len(np.unique(self.commonness)) > 1:
                 raise RuntimeError('The estimate only works for homogeneous '
                                    'mixtures so far.')
-            p0 = self.substrate_probability[0]
+            p0 = self.substrate_probabilities[0]
             
         # calculate the fraction for the homogeneous case
         return (1 - 2**(-1/self.Ns))/p0
