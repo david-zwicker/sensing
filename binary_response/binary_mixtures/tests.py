@@ -42,7 +42,7 @@ class TestLibraryBinary(unittest.TestCase):
         hs = np.random.random(size=model.Ns)
         model.commonness = hs
         self.assertAllClose(hs, model.commonness)
-        model.substrate_probability = model.substrate_probability
+        model.substrate_probabilities = model.substrate_probabilities
         self.assertAllClose(hs, model.commonness)
         dist = model.mixture_size_distribution()
         self.assertAlmostEqual(dist.sum(), 1)

@@ -60,7 +60,7 @@ def LibraryBinaryNumeric_activity_single_brute_force(self):
     # call the jitted function
     LibraryBinaryNumeric_activity_single_brute_force_numba(
         self.Ns, self.Nr, self.int_mat,
-        self.substrate_probability, #< prob_s
+        self.substrate_probabilities, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
         prob_a
     )
@@ -114,7 +114,7 @@ def LibraryBinaryNumeric_activity_correlations_brute_force(self):
     # call the jitted function
     LibraryBinaryNumeric_activity_correlations_brute_force_numba(
         self.Ns, self.Nr, self.int_mat,
-        self.substrate_probability, #< prob_s
+        self.substrate_probabilities, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
         prob_a
     )
@@ -177,7 +177,7 @@ def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=
     # call the jitted function
     MI = LibraryBinaryNumeric_mutual_information_brute_force_numba(
         self.Ns, self.Nr, self.int_mat,
-        self.substrate_probability, #< prob_s
+        self.substrate_probabilities, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
         prob_a
     )
@@ -247,7 +247,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
     MI = LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
         self.Ns, self.Nr, int(self.parameters['monte_carlo_steps']), 
         self.int_mat,
-        self.substrate_probability, #< prob_s
+        self.substrate_probabilities, #< prob_s
         np.empty(self.Nr, np.uint), #< ak
         prob_a
     )
@@ -353,7 +353,7 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
         # call the jitted function that uses approximate probabilities
         MI = LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
             self.Ns, self.Nr, self.int_mat,
-            self.substrate_probability,  #< prob_s
+            self.substrate_probabilities,  #< prob_s
             np.empty(self.Nr),           #< p_Ga
             np.empty(self.Ns, np.int32), #< ids
         )
@@ -362,7 +362,7 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
         # call the jitted function that uses exact probabilities
         MI = LibraryBinaryNumeric_mutual_information_estimate_numba(
             self.Ns, self.Nr, self.int_mat,
-            self.substrate_probability,  #< prob_s
+            self.substrate_probabilities,  #< prob_s
             np.empty(self.Nr),           #< p_Ga
             np.empty(self.Ns, np.int32), #< ids
         )
@@ -407,7 +407,7 @@ def LibraryBinaryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
 def LibraryBinaryNumeric_inefficiency_estimate(self):
     """ returns the estimated performance of the system, which acts as a
     proxy for the mutual information between input and output """
-    prob_s = self.substrate_probability
+    prob_s = self.substrate_probabilities
     crosstalk_weight = self.parameters['inefficiency_weight']
     return LibraryBinaryNumeric_inefficiency_estimate_numba(self.int_mat, prob_s,
                                                               crosstalk_weight)
