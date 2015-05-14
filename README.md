@@ -9,6 +9,7 @@ Package     | Usage
 numpy       | Array library used for manipulating data
 scipy       | Miscellaneous scientific functions
 simanneal   | Simulated annealing algorithm published on github
+six         | Compatibility layer to support python 2 and 3
 
 
 Optional python packages, which can be installed through `pip`:

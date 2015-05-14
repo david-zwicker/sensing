@@ -95,7 +95,7 @@ class LibraryBase(object):
         else:
             # run the calculations in this process
             result = [getattr(self.__class__(**self.init_arguments), method)()
-                      for _ in xrange(avg_num)]
+                      for _ in range(avg_num)]
     
         # collect the results and calculate the statistics
         result = np.array(result)
