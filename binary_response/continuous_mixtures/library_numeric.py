@@ -8,6 +8,7 @@ from __future__ import division
 
 import numpy as np
 from scipy import stats
+from six.moves import range
 
 from .library_base import LibraryContinuousBase
 
@@ -128,7 +129,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         c_means = self.get_concentration_means()
     
         count_a = np.zeros(self.Nr)
-        for _ in xrange(steps):
+        for _ in range(steps):
             # choose a mixture vector according to substrate probabilities
             c = np.random.exponential(size=self.Ns) * c_means
             
@@ -153,7 +154,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
-        for _ in xrange(steps):
+        for _ in range(steps):
             # choose a mixture vector according to substrate probabilities
             c = np.random.exponential(size=self.Ns) * c_means
             

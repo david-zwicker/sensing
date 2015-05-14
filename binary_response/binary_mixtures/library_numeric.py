@@ -26,8 +26,7 @@ import multiprocessing as mp
 import random
 
 import numpy as np
-
-from simanneal import Annealer
+from six.moves import range
 
 from .library_base import LibraryBinaryBase
 
@@ -202,7 +201,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         prob_s = self.substrate_probabilities
     
         count_a = np.zeros(self.Nr)
-        for _ in xrange(num):
+        for _ in range(num):
             # choose a mixture vector according to substrate probabilities
             m = (np.random.random(self.Ns) < prob_s)
             
@@ -232,7 +231,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             # proper calculation of the cluster probabilities
             p_Ga = np.zeros(self.Nr)
             I_ai_mask = I_ai.astype(np.bool)
-            for a in xrange(self.Nr):
+            for a in range(self.Nr):
                 p_Ga[a] = 1 - np.product(1 - prob_s[I_ai_mask[a, :]])
         return p_Ga
 
@@ -327,7 +326,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
-        for _ in xrange(steps):
+        for _ in range(steps):
             # choose a mixture vector according to substrate probabilities
             m = (np.random.random(self.Ns) < prob_s)
             
@@ -378,7 +377,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # substrates
         count_a = np.zeros(2**self.Nr)
         step_check = 10000
-        for step in xrange(max_steps):
+        for step in range(max_steps):
             # choose a mixture vector according to substrate probabilities
             m = (np.random.random(self.Ns) < prob_s)
             
@@ -404,7 +403,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                     a2, a1, a0 = MIs[-3:]
                     MI_ext = (a0*a2 - a1*a1)/(a0 - 2*a1 + a2)
 #                     MI_ext = self._get_extrapolated_mutual_information(steps, MIs)
-                    print step, MIs[-1], MI_ext
+                    print((step, MIs[-1], MI_ext))
                     
                 step_check += 10000
             
@@ -442,17 +441,17 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             p_Ga = np.zeros(self.Nr)
             p_Gab = np.zeros((self.Nr, self.Nr))
             I_ai_mask = I_ai.astype(np.bool)
-            for a in xrange(self.Nr):
+            for a in range(self.Nr):
                 ps = prob_s[I_ai_mask[a, :]]
                 p_Ga[a] = 1 - np.product(1 - ps)
-                for b in xrange(a + 1, self.Nr):
+                for b in range(a + 1, self.Nr):
                     ps = prob_s[I_ai_mask[a, :] * I_ai_mask[b, :]]
                     p_Gab[a, b] = 1 - np.product(1 - ps)
                     
         # calculate the approximate mutual information
         MI = self.Nr - 0.5*np.sum((1 - 2*p_Ga)**2)
-        for a in xrange(self.Nr):
-            for b in xrange(a + 1, self.Nr):
+        for a in range(self.Nr):
+            for b in range(a + 1, self.Nr):
                 MI -= 2*(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab[a, b]) * p_Gab[a, b]
                 
         return MI              
@@ -546,10 +545,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             # run the calculations in multiple processes
             pool = mp.Pool()
             pool_size = len(pool._pool)
-            for _ in xrange(steps // pool_size):
+            for _ in range(steps // pool_size):
                 joblist = []
                 init_arguments = self.init_arguments
-                for _ in xrange(pool_size):
+                for _ in range(pool_size):
                     # modify the current state and add it to the job list
                     i = random.randrange(self.int_mat.size)
                     self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
@@ -585,7 +584,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 
         else:  
             # run the calculations in this process
-            for _ in xrange(steps):
+            for _ in range(steps):
                 # modify the current state
                 i = random.randrange(self.int_mat.size)
                 self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
@@ -628,7 +627,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             optimization 
         `args` is a dictionary of additional arguments that is passed to the
             target function
-        """        
+        """
+        # lazy import
+        from .optimizer import ReceptorOptimizerAnnealer
+        
         # prepare the class that manages the simulated annealing
         annealer = ReceptorOptimizerAnnealer(self, target, direction, args)
         annealer.steps = int(steps)
@@ -656,59 +658,6 @@ def _ReceptorLibrary_mp_calc(args):
     obj = LibraryBinaryNumeric(**args[0])
     return getattr(obj, args[1])()
 
-   
-   
-class ReceptorOptimizerAnnealer(Annealer):
-    """ class that manages the simulated annealing """
-    updates = 20    # Number of outputs
-    copy_strategy = 'method'
-
-
-    def __init__(self, model, target, direction='max', args=None):
-        """ initialize the optimizer with a `model` to run and a `target`
-        function to call. """
-        self.info = {}
-        self.model = model
-
-        target_function = getattr(model, target)
-        if args is not None:
-            self.target_func = functools.partial(target_function, **args)
-        else:
-            self.target_func = target_function
-
-        self.direction = direction
-        super(ReceptorOptimizerAnnealer, self).__init__(model.int_mat)
-   
-   
-    def move(self):
-        """ change a single entry in the interaction matrix """   
-        i = random.randrange(self.state.size)
-        self.state.flat[i] = 1 - self.state.flat[i]
-
-      
-    def energy(self):
-        """ returns the energy of the current state """
-        self.model.int_mat = self.state
-        value = self.target_func()
-        if self.direction == 'max':
-            return -value
-        else:
-            return value
-    
-
-    def optimize(self):
-        """ optimizes the receptors and returns the best receptor set together
-        with the achieved mutual information """
-        state_best, value_best = self.anneal()
-        self.info['total_time'] = time.time() - self.start    
-        self.info['states_considered'] = self.steps
-        self.info['performance'] = self.steps / self.info['total_time']
-        
-        if self.direction == 'max':
-            return -value_best, state_best
-        else:
-            return value_best, state_best
-   
    
    
 def performance_test(Ns=15, Nr=3):

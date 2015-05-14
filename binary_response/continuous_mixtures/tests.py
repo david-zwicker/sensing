@@ -93,7 +93,7 @@ class TestLibraryContinuous(unittest.TestCase):
         sigma = np.random.random() / 2
         
         # draw from and define distribution        
-        ys = np.random.lognormal(mean=np.log(mean), sigma=sigma, size=1e7)
+        ys = np.random.lognormal(mean=np.log(mean), sigma=sigma, size=int(1e7))
         dist = scipy.stats.lognorm(scale=mean, s=sigma)
         self._check_histogram(ys, dist)
         
@@ -117,12 +117,12 @@ class TestLibraryContinuous(unittest.TestCase):
         dist = scipy.stats.gamma(a=count, scale=mean)
         
         # draw multiple exponential random numbers
-        ci = np.random.exponential(size=(count, 1e5)) * mean
+        ci = np.random.exponential(size=(count, int(1e5))) * mean
         ctot = ci.sum(axis=0)
         self._check_histogram(ctot, dist)
         
         # draw from and define distribution    
-        ys = np.random.gamma(count, mean, size=1e5)    
+        ys = np.random.gamma(count, mean, size=int(1e5))    
         self._check_histogram(ys, dist)
         
         # compare to standard definition of the pdf

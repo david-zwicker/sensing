@@ -33,18 +33,18 @@ def LibrarySparseNumeric_activity_single_numba(Ns, Nr, steps, int_mat, c_prob,
         
     # sample mixtures according to the probabilities of finding
     # substrates
-    for _ in xrange(steps):
+    for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
         alpha[:] = 0  #< activity pattern of this mixture
-        for i in xrange(Ns):
+        for i in range(Ns):
             if np.random.random() < c_prob[i]:
                 # mixture contains substrate i
                 ci = np.random.exponential() * c_means[i]
-                for n in xrange(Nr):
+                for n in range(Nr):
                     alpha[n] += int_mat[n, i] * ci
         
         # calculate the activity pattern id
-        for n in xrange(Nr):
+        for n in range(Nr):
             if alpha[n] >= 1:
                 count_a[n] += 1
     
@@ -84,19 +84,19 @@ def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
         
     # sample mixtures according to the probabilities of finding
     # substrates
-    for _ in xrange(steps):
+    for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
         alpha[:] = 0  #< activity pattern of this mixture
-        for i in xrange(Ns):
+        for i in range(Ns):
             if np.random.random() < c_prob[i]:
                 # mixture contains substrate i
                 ci = np.random.exponential() * c_means[i]
-                for n in xrange(Nr):
+                for n in range(Nr):
                     alpha[n] += int_mat[n, i] * ci
         
         # calculate the activity pattern id
         a_id, base = 0, 1
-        for n in xrange(Nr):
+        for n in range(Nr):
             if alpha[n] >= 1:
                 a_id += base
             base *= 2
@@ -105,7 +105,7 @@ def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
         prob_a[a_id] += 1
         
     # normalize the probabilities by the number of steps we did
-    for k in xrange(len(prob_a)):
+    for k in range(len(prob_a)):
         prob_a[k] /= steps
     
     # calculate the mutual information from the observed probabilities

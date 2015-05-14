@@ -30,18 +30,18 @@ def LibraryBinaryNumeric_activity_single_brute_force_numba(
          Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculates the average activity of each receptor """
     # iterate over all mixtures m
-    for m in xrange(2**Ns):
+    for m in range(2**Ns):
         pm = 1     #< probability of finding this mixture
         ak[:] = 0  #< activity pattern of this mixture
         
         # iterate through substrates in the mixture
-        for i in xrange(Ns):
+        for i in range(Ns):
             r = m % 2
             m //= 2
             if r == 1:
                 # substrate i is present
                 pm *= prob_s[i]
-                for a in xrange(Nr):
+                for a in range(Nr):
                     if int_mat[a, i] == 1:
                         ak[a] = 1
             else:
@@ -49,7 +49,7 @@ def LibraryBinaryNumeric_activity_single_brute_force_numba(
                 pm *= 1 - prob_s[i]
                 
         # add probability to the active receptors
-        for a in xrange(Nr):
+        for a in range(Nr):
             if ak[a] == 1:
                 prob_a[a] += pm
 
@@ -80,18 +80,18 @@ def LibraryBinaryNumeric_activity_correlations_brute_force_numba(
         Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculates the correlations between receptor activities """
     # iterate over all mixtures m
-    for m in xrange(2**Ns):
+    for m in range(2**Ns):
         pm = 1     #< probability of finding this mixture
         ak[:] = 0  #< activity pattern of this mixture
         
         # iterate through substrates in the mixture
-        for i in xrange(Ns):
+        for i in range(Ns):
             r = m % 2
             m //= 2
             if r == 1:
                 # substrate i is present
                 pm *= prob_s[i]
-                for a in xrange(Nr):
+                for a in range(Nr):
                     if int_mat[a, i] == 1:
                         ak[a] = 1
             else:
@@ -99,10 +99,10 @@ def LibraryBinaryNumeric_activity_correlations_brute_force_numba(
                 pm *= 1 - prob_s[i]
                 
         # add probability to the active receptors
-        for a in xrange(Nr):
+        for a in range(Nr):
             if ak[a] == 1:
                 prob_a[a, a] += pm
-                for b in xrange(a + 1, Nr):
+                for b in range(a + 1, Nr):
                     if ak[b] == 1:
                         prob_a[a, b] += pm
                         prob_a[b, a] += pm
@@ -135,17 +135,17 @@ def LibraryBinaryNumeric_mutual_information_brute_force_numba(
     """ calculate the mutual information by constructing all possible
     mixtures """
     # iterate over all mixtures m
-    for m in xrange(2**Ns):
+    for m in range(2**Ns):
         pm = 1     #< probability of finding this mixture
         ak[:] = 0  #< activity pattern of this mixture
         # iterate through substrates in the mixture
-        for i in xrange(Ns):
+        for i in range(Ns):
             r = m % 2
             m //= 2
             if r == 1:
                 # substrate i is present
                 pm *= prob_s[i]
-                for a in xrange(Nr):
+                for a in range(Nr):
                     if int_mat[a, i] == 1:
                         ak[a] = 1
             else:
@@ -154,7 +154,7 @@ def LibraryBinaryNumeric_mutual_information_brute_force_numba(
                 
         # calculate the activity pattern id
         a_id, base = 0, 1
-        for a in xrange(Nr):
+        for a in range(Nr):
             if ak[a] == 1:
                 a_id += base
             base *= 2
@@ -204,20 +204,20 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
         
     # sample mixtures according to the probabilities of finding
     # substrates
-    for _ in xrange(steps):
+    for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
         ak[:] = 0  #< activity pattern of this mixture
-        for i in xrange(Ns):
+        for i in range(Ns):
             if np.random.random() < prob_s[i]:
                 # the substrate i is present in the mixture
-                for a in xrange(Nr):
+                for a in range(Nr):
                     if int_mat[a, i] == 1:
                         # receptor a is activated by substrate i
                         ak[a] = 1
         
         # calculate the activity pattern id
         a_id, base = 0, 1
-        for a in xrange(Nr):
+        for a in range(Nr):
             if ak[a] == 1:
                 a_id += base
             base *= 2
@@ -226,7 +226,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
         prob_a[a_id] += 1
         
     # normalize the probabilities by the number of steps we did
-    for k in xrange(len(prob_a)):
+    for k in range(len(prob_a)):
         prob_a[k] /= steps
     
     # calculate the mutual information from the observed probabilities
@@ -289,11 +289,11 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
     
     MI = Nr
     # iterate over all receptors
-    for a in xrange(Nr):
+    for a in range(Nr):
         # evaluate the direct
         i_count = 0 #< number of substrates that excite receptor a
         prob = 0
-        for i in xrange(Ns):
+        for i in range(Ns):
             if int_mat[a, i] == 1:
                 prob += prob_s[i]
                 ids[i_count] = i
@@ -302,9 +302,9 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
         MI -= 0.5*(1 - 2*p_Ga[a])**2
 
         # iterate over all other receptors to estimate crosstalk
-        for b in xrange(a):
+        for b in range(a):
             prod = 1
-            for k in xrange(i_count):
+            for k in range(i_count):
                 if int_mat[b, ids[k]] == 1:
                     prod *= 1 - prob_s[ids[k]]
             p_Gab = 1 - prod        
@@ -323,11 +323,11 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
     
     MI = Nr
     # iterate over all receptors
-    for a in xrange(Nr):
+    for a in range(Nr):
         # evaluate the direct
         i_count = 0 #< number of substrates that excite receptor a
         prod = 1    #< product important for calculating the probabilities
-        for i in xrange(Ns):
+        for i in range(Ns):
             if int_mat[a, i] == 1:
                 prod *= 1 - prob_s[i]
                 ids[i_count] = i
@@ -336,9 +336,9 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
         MI -= 0.5*(1 - 2*p_Ga[a])**2
 
         # iterate over all other receptors to estimate crosstalk
-        for b in xrange(a):
+        for b in range(a):
             prod = 1
-            for k in xrange(i_count):
+            for k in range(i_count):
                 if int_mat[b, ids[k]] == 1:
                     prod *= 1 - prob_s[ids[k]]
             p_Gab = 1 - prod        
@@ -387,17 +387,17 @@ def LibraryBinaryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
     Nr, Ns = int_mat.shape
     
     res = 0
-    for a in xrange(Nr):
+    for a in range(Nr):
         activity_a = 1
         term_crosstalk = 0
-        for i in xrange(Ns):
+        for i in range(Ns):
             if int_mat[a, i] == 1:
                 # consider the terms describing the activity entropy
                 activity_a *= 1 - prob_s[i]
                 
                 # consider the terms describing the crosstalk
                 sum_crosstalk = 0
-                for b in xrange(a + 1, Nr):
+                for b in range(a + 1, Nr):
                     sum_crosstalk += int_mat[b, i]
                 term_crosstalk += sum_crosstalk * prob_s[i] 
 

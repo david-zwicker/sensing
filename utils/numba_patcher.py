@@ -14,14 +14,14 @@ from .misc import estimate_computation_speed
 
 
 
-def check_return_value(obj, (func1, func2)):
+def check_return_value(obj, funcs):
     """ checks the numba method versus the original one """
-    return np.allclose(func1(obj), func2(obj))
+    return np.allclose(funcs[0](obj), funcs[1](obj))
 
 
-def check_return_value_approx(obj, (func1, func2)):
+def check_return_value_approx(obj, funcs):
     """ checks the numba method versus the original one """
-    return np.allclose(func1(obj), func2(obj), rtol=1e-2, atol=1e-2)
+    return np.allclose(funcs[0](obj), funcs[1](obj), rtol=1e-2, atol=1e-2)
 
 
 
@@ -48,7 +48,7 @@ class NumbaPatcher(object):
     
     def _save_original_function(self):
         """ save the original function such that they can be restored later """
-        for name, data in self.numba_methods.iteritems():
+        for name, data in self.numba_methods.items():
             class_name, method_name = name.split('.')
             class_obj = getattr(self.module, class_name)
             data['original'] = getattr(class_obj, method_name)
@@ -60,7 +60,7 @@ class NumbaPatcher(object):
         if not self.saved_original_functions:
             self._save_original_function()
         
-        for name, data in self.numba_methods.iteritems():
+        for name, data in self.numba_methods.items():
             class_name, method_name = name.split('.')
             class_obj = getattr(self.module, class_name)
             setattr(class_obj, method_name, data['numba'])
@@ -69,7 +69,7 @@ class NumbaPatcher(object):
             
     def disable(self):
         """ disable the numba methods """
-        for name, data in self.numba_methods.iteritems():
+        for name, data in self.numba_methods.items():
             class_name, method_name = name.split('.')
             class_obj = getattr(self.module, class_name)
             setattr(class_obj, method_name, data['original'])
@@ -93,7 +93,7 @@ class NumbaPatcher(object):
         """ prepares the arguments for the two functions that we want to test """
         # prepare the arguments
         test_args = data['test_arguments'].copy()
-        for key, value in test_args.iteritems():
+        for key, value in test_args.items():
             if callable(value):
                 test_args[key] = value()
                 
@@ -110,7 +110,7 @@ class NumbaPatcher(object):
             are 0, 1, 2 with increasing verbosity, respectively.
         """        
         problems = 0
-        for name, data in self.numba_methods.iteritems():
+        for name, data in self.numba_methods.items():
             # extract the class and the functions
             class_name, _ = name.split('.')
             class_obj = getattr(self.module, class_name)
@@ -119,7 +119,7 @@ class NumbaPatcher(object):
             test_func = data['test_function']
             
             # check the functions multiple times
-            for _ in xrange(repeat):
+            for _ in range(repeat):
                 test_obj = class_obj.create_test_instance()
                 func1, func2 = self._prepare_functions(data)
                 if not test_func(test_obj, (func1, func2)):
@@ -141,7 +141,7 @@ class NumbaPatcher(object):
             
     def test_speedup(self, test_duration=1):
         """ tests the speed up of the supplied methods """
-        for name, data in self.numba_methods.iteritems():
+        for name, data in self.numba_methods.items():
             # extract the class and the functions
             class_name, func_name = name.split('.')
             class_obj = getattr(self.module, class_name)

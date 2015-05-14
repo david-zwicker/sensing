@@ -33,16 +33,16 @@ def LibraryContinuousNumeric_activity_single_numba(Ns, Nr, steps, int_mat,
         
     # sample mixtures according to the probabilities of finding
     # substrates
-    for _ in xrange(steps):
+    for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
         alpha[:] = 0  #< activity pattern of this mixture
-        for i in xrange(Ns):
+        for i in range(Ns):
             ci = np.random.exponential() * c_means[i]
-            for a in xrange(Nr):
+            for a in range(Nr):
                 alpha[a] += int_mat[a, i] * ci
         
         # calculate the activity pattern id
-        for a in xrange(Nr):
+        for a in range(Nr):
             if alpha[a] >= 1:
                 count_a[a] += 1
     
@@ -80,17 +80,17 @@ def LibraryContinuousNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
         
     # sample mixtures according to the probabilities of finding
     # substrates
-    for _ in xrange(steps):
+    for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
         alpha[:] = 0  #< activity pattern of this mixture
-        for i in xrange(Ns):
+        for i in range(Ns):
             ci = np.random.exponential() * c_means[i]
-            for a in xrange(Nr):
+            for a in range(Nr):
                 alpha[a] += int_mat[a, i] * ci
         
         # calculate the activity pattern id
         a_id, base = 0, 1
-        for a in xrange(Nr):
+        for a in range(Nr):
             if alpha[a] >= 1:
                 a_id += base
             base *= 2
@@ -99,7 +99,7 @@ def LibraryContinuousNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
         prob_a[a_id] += 1
         
     # normalize the probabilities by the number of steps we did
-    for k in xrange(len(prob_a)):
+    for k in range(len(prob_a)):
         prob_a[k] /= steps
     
     # calculate the mutual information from the observed probabilities

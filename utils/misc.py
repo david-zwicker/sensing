@@ -63,18 +63,24 @@ def get_fastest_entropy_function():
         """ entropy function based on scipy.stats.itemfreq """
         fs = itemfreq(arr)[:, 1]
         return np.sum(fs*np.log2(fs))
-    def entropy_counter(arr):
+    def entropy_counter1(arr):
         """ entropy function based on collections.Counter """
         return sum(val*np.log2(val)
                    for val in Counter(arr).itervalues())
+    def entropy_counter2(arr):
+        """ entropy function based on collections.Counter """
+        return sum(val*np.log2(val)
+                   for val in Counter(arr).values())
 
     test_array = np.random.random_integers(0, 10, 100)
     func_fastest, speed_max = None, 0
-    for test_func in (entropy_numpy, entropy_scipy, entropy_counter):
+    for test_func in (entropy_numpy, entropy_scipy, entropy_counter1,
+                      entropy_counter2):
         try:
             speed = estimate_computation_speed(test_func, test_array)
-        except TypeError:
-            # older numpy versions don't support `return_counts`
+        except (TypeError, AttributeError):
+            # TypeError: older numpy versions don't support `return_counts`
+            # AttributeError: python3 does not have iteritems
             pass
         else:
             if speed > speed_max:
