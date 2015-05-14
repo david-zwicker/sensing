@@ -99,12 +99,11 @@ class LibrarySparseBase(LibraryBinaryBase):
         return np.allclose(h_i, h_i[0]) and np.allclose(d_i, d_i[0])
             
     
-    def set_concentrations(self, scheme, total_concentration, **kwargs):
+    def set_concentrations(self, scheme, mean_concentration, **kwargs):
         """ picks a commonness vector according to the supplied parameters:
         `total_concentration` sets the total concentration to expect for the
             mixture on average.
         """
-        mean_concentration = total_concentration / self.Ns
         
         if scheme == 'const':
             # all substrates are equally likely
@@ -114,7 +113,7 @@ class LibrarySparseBase(LibraryBinaryBase):
             # draw the mean probabilities from a uniform distribution
             c_means = np.random.uniform(0, 2*mean_concentration, self.Ns)
             # make sure that the mean concentration is correct
-            c_means *= total_concentration/c_means.sum()
+            c_means *= mean_concentration / c_means.mean()
             
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
@@ -123,7 +122,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         self.concentrations = c_means
                 
         # we additionally store the parameters that were used for this function
-        c_params = {'scheme': scheme, 'total_concentration': total_concentration}
+        c_params = {'scheme': scheme, 'mean_concentration': mean_concentration}
         c_params.update(kwargs)
         self.parameters['concentration_parameters'] = c_params  
 
