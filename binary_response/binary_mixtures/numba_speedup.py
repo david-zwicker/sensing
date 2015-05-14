@@ -18,13 +18,14 @@ from utils.numba_patcher import NumbaPatcher, check_return_value_approx
 
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
+NUMBA_NOGIL = True
 
 # initialize the numba patcher and add methods one by one
 numba_patcher = NumbaPatcher(module=library_numeric)
 
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON)
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_activity_single_brute_force_numba(
          Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculates the average activity of each receptor """
@@ -74,7 +75,7 @@ numba_patcher.register_method(
     
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON)
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_activity_correlations_brute_force_numba(
         Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculates the correlations between receptor activities """
@@ -128,7 +129,7 @@ numba_patcher.register_method(
     
     
 
-@numba.jit(nopython=NUMBA_NOPYTHON)
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_brute_force_numba(
         Ns, Nr, int_mat, prob_s, ak, prob_a):
     """ calculate the mutual information by constructing all possible
@@ -195,7 +196,7 @@ numba_patcher.register_method(
 
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON) 
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
         Ns, Nr, steps, int_mat, prob_s, ak, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
@@ -279,7 +280,8 @@ numba_patcher.register_method(
 
 
 
-@numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON)
+@numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
+           nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
         Ns, Nr, int_mat, prob_s, p_Ga, ids):
     """ calculate the mutual information by constructing all possible
@@ -312,7 +314,8 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
     return MI
     
     
-@numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON)
+@numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
+           nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_estimate_numba(
         Ns, Nr, int_mat, prob_s, p_Ga, ids):
     """ calculate the mutual information by constructing all possible
@@ -376,7 +379,7 @@ numba_patcher.register_method(
 
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON)
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
                                                        crosstalk_weight):
     """ returns the estimated performance of the system, which acts as a

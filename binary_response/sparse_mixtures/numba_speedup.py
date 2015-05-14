@@ -18,13 +18,14 @@ from utils.numba_patcher import NumbaPatcher, check_return_value_approx
 
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
+NUMBA_NOGIL = True
 
 # initialize the numba patcher and add methods one by one
 numba_patcher = NumbaPatcher(module=library_numeric)
 
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON) 
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_activity_single_numba(Ns, Nr, steps, int_mat, c_prob,
                                                c_means, alpha, count_a):
     """ calculate the mutual information using a monte carlo strategy. The
@@ -74,7 +75,7 @@ numba_patcher.register_method(
 
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON) 
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
                                                   c_prob, c_means, alpha,
                                                   prob_a):
