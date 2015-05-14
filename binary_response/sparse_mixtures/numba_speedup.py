@@ -13,7 +13,8 @@ import numba
 import numpy as np
 
 # these methods are used in getattr calls
-from . import library_numeric
+from . import library_numeric  # @UnresolvedImport
+from utils.misc import CachedArray
 from utils.numba_patcher import NumbaPatcher, check_return_value_approx
 
 
@@ -121,12 +122,8 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     # load the result array from cache to avoid recreating it
-    prob_a = LibrarySparseNumeric_mutual_information._prob_a
-    if prob_a.shape == 2**self.Nr:
-        prob_a[:] = 0
-    else:
-        prob_a = np.zeros(2**self.Nr)
-        LibrarySparseNumeric_mutual_information._prob_a = prob_a
+    prob_a = LibrarySparseNumeric_mutual_information._prob_a(shape=2**self.Nr)
+    print(prob_a.shape)
  
     # call the jitted function
     MI = LibrarySparseNumeric_mutual_information_numba(
@@ -142,8 +139,9 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     else:
         return MI
 
+# initialize cache
+LibrarySparseNumeric_mutual_information._prob_a = CachedArray(value=0)
 
-LibrarySparseNumeric_mutual_information._prob_a = np.empty(0)
 
 numba_patcher.register_method(
     'LibrarySparseNumeric.mutual_information',

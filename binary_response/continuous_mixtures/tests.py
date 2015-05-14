@@ -131,7 +131,7 @@ class TestLibraryContinuous(unittest.TestCase):
         ys2 = (xs**(count - 1) 
                * np.exp(-xs / mean)
                / mean**count
-               / scipy.special.gamma(count))
+               / scipy.special.gamma(count))  # @UndefinedVariable
         self.assertAllClose(ys1, ys2, msg='pdf of scipy gamma distribution is '
                                           'different from expected one')
                

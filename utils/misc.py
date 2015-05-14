@@ -156,3 +156,21 @@ class DeprecationHelper(object):
         return getattr(self.new_target, attr)
     
     
+
+class CachedArray(object):
+    def __init__(self, value=None):
+        self._data = np.empty(0)
+        self.value = value
+    
+    def __call__(self, shape):
+        if self._data.shape == shape:
+            if self.value is not None:
+                self._data.fill(self.value)
+        else:
+            if self.value is None:
+                self._data = np.empty(shape)
+            elif self.value == 0:
+                self._data = np.zeros(shape)
+            else: 
+                self._data = np.full(shape, self.value)
+        return self._data
