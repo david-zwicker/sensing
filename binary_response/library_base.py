@@ -23,7 +23,6 @@ class LibraryBase(object):
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
-        'random_seed': None,           #< seed for the random number generator
         'ensemble_average_num': 32,    #< repetitions for ensemble average
     }
 
@@ -42,8 +41,6 @@ class LibraryBase(object):
                 self.parameters.update(cls.parameters_default)
         if parameters is not None:
             self.parameters.update(parameters)
-        
-        np.random.seed(self.parameters['random_seed'])
 
 
     @property
@@ -108,7 +105,15 @@ class LibraryBase(object):
 
 def _ReceptorLibrary_mp_calc(args):
     """ helper function for multiprocessing """
+    # we have to initialize the random number generator for each process
+    # because we would have the same random sequence for all processes
+    # otherwise.
+    np.random.seed()
+    
+    # create the object to evaluate the function on
     obj = args[0](**args[1])
+    
+    # evaluate the request function 
     return getattr(obj, args[2])()
 
     
