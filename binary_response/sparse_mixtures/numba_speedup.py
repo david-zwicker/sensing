@@ -120,7 +120,13 @@ def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
 def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    prob_a = np.zeros(2**self.Nr) 
+    # load the result array from cache to avoid recreating it
+    prob_a = LibrarySparseNumeric_mutual_information._prob_a
+    if prob_a.shape == 2**self.Nr:
+        prob_a[:] = 0
+    else:
+        prob_a = np.zeros(2**self.Nr)
+        LibrarySparseNumeric_mutual_information._prob_a = prob_a
  
     # call the jitted function
     MI = LibrarySparseNumeric_mutual_information_numba(
@@ -136,6 +142,8 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     else:
         return MI
 
+
+LibrarySparseNumeric_mutual_information._prob_a = np.empty(0)
 
 numba_patcher.register_method(
     'LibrarySparseNumeric.mutual_information',
