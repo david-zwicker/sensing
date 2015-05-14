@@ -61,8 +61,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
         if self.parameters['monte_carlo_steps'] == 'auto':
             steps_min = self.parameters['monte_carlo_steps_min']
             steps_max = self.parameters['monte_carlo_steps_max']
-            steps = np.clip(2 * 2**self.Nr, steps_min, steps_max) 
-            # Here, the first 2 is an arbitrary scaling factor
+            steps = np.clip(10 * 2**self.Nr, steps_min, steps_max) 
+            # Here, the factor 10 is an arbitrary scaling factor
         else:
             steps = self.parameters['monte_carlo_steps']
             
