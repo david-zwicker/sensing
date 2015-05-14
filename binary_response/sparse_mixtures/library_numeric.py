@@ -17,10 +17,12 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
-        'max_num_receptors': 28,    #< prevents memory overflows
-        'interaction_matrix': None, #< will be calculated if not given
+        'max_num_receptors': 28,           #< prevents memory overflows
+        'interaction_matrix': None,        #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
-        'monte_carlo_steps': 1e5,   #< default number of monte carlo steps
+        'monte_carlo_steps': 'auto',       #< default steps for monte carlo
+        'monte_carlo_steps_min': 1e3,      #< minimal steps for monte carlo
+        'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
     }
     
 
@@ -51,7 +53,21 @@ class LibrarySparseNumeric(LibrarySparseBase):
         else:
             # initialize the interaction matrix with zeros
             self.int_mat = np.zeros(int_mat_shape, np.uint8)
+         
             
+    @property
+    def monte_carlo_steps(self):
+        """ calculate the number of monte carlo steps to do """
+        if self.parameters['monte_carlo_steps'] == 'auto':
+            steps_min = self.parameters['monte_carlo_steps_min']
+            steps_max = self.parameters['monte_carlo_steps_max']
+            steps = np.clip(2 * 2**self.Nr, steps_min, steps_max) 
+            # Here, the first 2 is an arbitrary scaling factor
+        else:
+            steps = self.parameters['monte_carlo_steps']
+            
+        return int(steps)
+
             
     @classmethod
     def create_test_instance(cls, **kwargs):
@@ -125,7 +141,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         """ calculates the average activity of each receptor """ 
 
         # load the parameters    
-        steps = int(self.parameters['monte_carlo_steps'])        
+        steps = self.monte_carlo_steps        
         c_prob = self.substrate_probabilities
         c_means = self.concentrations
     
@@ -151,7 +167,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
         # load the parameters    
-        steps = int(self.parameters['monte_carlo_steps'])
+        steps = self.monte_carlo_steps
         c_prob = self.substrate_probabilities
         c_means = self.concentrations
 
