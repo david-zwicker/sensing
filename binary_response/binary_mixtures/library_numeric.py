@@ -26,7 +26,7 @@ import multiprocessing as mp
 import random
 
 import numpy as np
-from six.moves import range
+from six.moves import range, zip
 
 from .library_base import LibraryBinaryBase
 
@@ -113,7 +113,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 if empty_int_mat:
                     # set the receptors for the substrates
                     a_ids = np.random.randint(0, self.Nr, len(i_ids))
-                    for i, a in itertools.izip(i_ids, a_ids):
+                    for i, a in zip(i_ids, a_ids):
                         self.int_mat[a, i] = 1
                     empty_int_mat = False
                     
@@ -629,7 +629,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             target function
         """
         # lazy import
-        from .optimizer import ReceptorOptimizerAnnealer
+        from .optimizer import ReceptorOptimizerAnnealer  # @UnresolvedImport
         
         # prepare the class that manages the simulated annealing
         annealer = ReceptorOptimizerAnnealer(self, target, direction, args)

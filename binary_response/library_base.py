@@ -108,6 +108,8 @@ def _ReceptorLibrary_mp_calc(args):
     # we have to initialize the random number generator for each process
     # because we would have the same random sequence for all processes
     # otherwise.
+    #FIXME: only run this if necessary - don't run it when numba functions
+    # are used -> implement property on class indicating this?
     np.random.seed()
     
     # create the object to evaluate the function on

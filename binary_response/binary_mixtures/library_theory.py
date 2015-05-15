@@ -111,7 +111,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             if len(np.unique(self.commonness)) > 1:
                 raise RuntimeError('The estimate only works for homogeneous '
                                    'mixtures so far.')
-            p0 = self.substrate_probabilities[0]
+            p0 = self.substrate_probabilities.mean()
             
         # calculate the fraction for the homogeneous case
         return (1 - 2**(-1/self.Ns))/p0
