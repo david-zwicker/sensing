@@ -42,7 +42,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         'interaction_matrix_params': None, #< parameters determining I_ai
         'inefficiency_weight': 1,   #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
-        'monte_carlo_steps': 1e5,   #< default number of monte carlo steps
+        'monte_carlo_steps': 1e5,   #< default number of Monte Carlo steps
         'anneal_Tmax': 1e0,         #< Max (starting) temperature for annealing
         'anneal_Tmin': 1e-3,        #< Min (ending) temperature for annealing
         'verbosity': 0,             #< verbosity level    
@@ -315,7 +315,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             
     def mutual_information_monte_carlo(self, ret_error=False,
                                        ret_prob_activity=False):
-        """ calculate the mutual information using a monte carlo strategy. The
+        """ calculate the mutual information using a Monte Carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
         base = 2 ** np.arange(0, self.Nr)
@@ -336,7 +336,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             a = np.dot(base, a)
             # increment counter for this output
             count_a[a] += 1
-            
+        
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 
 
@@ -364,7 +364,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 return MI
         
     def mutual_information_monte_carlo_extrapolate(self, ret_prob_activity=False):
-        """ calculate the mutual information using a monte carlo strategy. The
+        """ calculate the mutual information using a Monte Carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
                 
         base = 2 ** np.arange(0, self.Nr)
@@ -557,7 +557,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                     self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
                     
                 # run all the jobs
-                results = pool.map(_ReceptorLibrary_mp_calc, joblist)
+                results = pool.map(_optimize_library_job, joblist)
                 
                 # find the best result  
                 if direction == 'max':              
@@ -653,15 +653,23 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
 
 
 
-def _ReceptorLibrary_mp_calc(args):
-    """ helper function for multiprocessing """
+def _optimize_library_job(args):
+    """ helper function for optimizing the receptor library using
+    multiprocessing """
+    # Note that we do not set the seed of the random number generator because
+    # we already modified the interaction matrix before calling this function
+    # and it does not harm us when all sub processes have the same sequence of
+    # random numbers.
+    
+    # create the object ...
     obj = LibraryBinaryNumeric(**args[0])
+    # ... and evaluate the requested method 
     return getattr(obj, args[1])()
 
    
    
 def performance_test(Ns=15, Nr=3):
-    """ test the performance of the brute force and the monte carlo method """
+    """ test the performance of the brute force and the Monte Carlo method """
     num = 2**Ns
     hs = np.random.random(Ns)
     model = LibraryBinaryNumeric(Ns, Nr, hs)

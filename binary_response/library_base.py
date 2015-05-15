@@ -82,7 +82,7 @@ class LibraryBase(object):
             # run the calculations in multiple processes  
             arguments = (self.__class__, self.init_arguments, method)
             pool = mp.Pool()
-            result = pool.map(_ReceptorLibrary_mp_calc, [arguments] * avg_num)
+            result = pool.map(_ensemble_average_job, [arguments] * avg_num)
             
             # Apparently, multiprocessing sometimes opens too many files if
             # processes are launched to quickly and the garbage collector cannot
@@ -103,19 +103,17 @@ class LibraryBase(object):
 
     
 
-def _ReceptorLibrary_mp_calc(args):
-    """ helper function for multiprocessing """
-    # we have to initialize the random number generator for each process
+def _ensemble_average_job(args):
+    """ helper function for calculating ensemble averages using
+    multiprocessing """
+    # We have to initialize the random number generator for each process
     # because we would have the same random sequence for all processes
     # otherwise.
-    #FIXME: only run this if necessary - don't run it when numba functions
-    # are used -> implement property on class indicating this?
     np.random.seed()
     
-    # create the object to evaluate the function on
+    # create the object ...
     obj = args[0](**args[1])
-    
-    # evaluate the request function 
+    # ... and evaluate the requested method 
     return getattr(obj, args[2])()
 
     
