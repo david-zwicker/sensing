@@ -14,9 +14,10 @@ script_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(os.path.join(script_path, '..', '..'))
 
 import argparse
-import cPickle as pickle
 import itertools
 import multiprocessing as mp
+
+import six.moves.cPickle as pickle
 
 from binary_response import LibraryBinaryNumeric, LibraryBinaryUniform
 

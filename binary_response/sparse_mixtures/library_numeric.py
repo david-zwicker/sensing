@@ -10,7 +10,8 @@ import numpy as np
 from scipy import stats
 from six.moves import range
 
-from .library_base import LibrarySparseBase
+from .library_base import LibrarySparseBase  # @UnresolvedImport
+
 
 
 class LibrarySparseNumeric(LibrarySparseBase):
