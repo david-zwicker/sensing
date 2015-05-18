@@ -29,9 +29,8 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     def __init__(self, num_substrates, num_receptors, density=1,
                  parameters=None):
         """ initialize the receptor library by setting the number of receptors,
-        the number of substrates it can respond to, the weights `hs` of the 
-        substrates, and the fraction `density` of substrates a single receptor
-        responds to """
+        the number of substrates it can respond to, and the fraction `density`
+        of substrates a single receptor responds to """
         super(LibraryBinaryUniform, self).__init__(num_substrates,
                                                    num_receptors, parameters)
         self.density = density
@@ -101,20 +100,21 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             homogeneous system with the same average number of substrates is
             used instead.
         """
-        if assume_homogeneous:
-            # calculate the idealized substrate probability
-            m_mean = self.mixture_size_statistics()[0]
-            p0 = m_mean / self.Ns
-             
-        else:
-            # check whether the mixtures are all homogeneous
-            if len(np.unique(self.commonness)) > 1:
-                raise RuntimeError('The estimate only works for homogeneous '
-                                   'mixtures so far.')
-            p0 = self.substrate_probabilities.mean()
+        if not assume_homogeneous and len(np.unique(self.commonness)) > 1:
+            # mixture is heterogeneous
+            raise RuntimeError('The estimate only works for homogeneous '
+                               'mixtures so far.')
+                
+        # mean probability of finding a specific substrate in a mixture
+        p0 = self.substrate_probabilities.mean()
             
         # calculate the fraction for the homogeneous case
         return (1 - 2**(-1/self.Ns))/p0
     
     
+    def get_optimal_library(self):
+        """ returns an estimate for the optimal parameters for the random
+        interaction matrices """
+        return {'density': self.density_optimal(assume_homogeneous=True)}
+        
         

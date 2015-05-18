@@ -48,9 +48,10 @@ class TestLibraryBinary(unittest.TestCase):
         self.assertAlmostEqual(dist.sum(), 1)
         ks = np.arange(0, model.Ns + 1)
         dist_mean = (ks*dist).sum()
-        dist_var = (ks*ks*dist).sum() - dist_mean**2 
-        self.assertAllClose((dist_mean, np.sqrt(dist_var)),
-                            model.mixture_size_statistics())
+        dist_var = (ks*ks*dist).sum() - dist_mean**2
+        stats = model.mixture_size_statistics() 
+        self.assertAllClose((dist_mean, dist_var),
+                            (stats['mean'], stats['var']))
         
         # test setting the commonness
         commoness_schemes = [('const', {}),
@@ -65,7 +66,7 @@ class TestLibraryBinary(unittest.TestCase):
                                   np.random.randint(1, model.Ns//3 + 1) + model.Ns//2)
             for mean_mixture_size in mean_mixture_sizes:
                 model.set_commonness(scheme, mean_mixture_size, **params)
-                self.assertAllClose(model.mixture_size_statistics()[0],
+                self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
                 
                 

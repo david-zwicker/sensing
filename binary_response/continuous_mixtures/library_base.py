@@ -79,17 +79,27 @@ class LibraryContinuousBase(LibraryBase):
             
             # save the values, since they were set explicitly 
             self.parameters['commonness_vector'] = self._hs
+
+    
+    @property
+    def concentration_means(self):
+        """ returns the mean concentration with which each substrate is
+        expected """
+        return -1/self.commonness
     
     
     def get_concentration_distribution(self, i):
         """ returns the concentration distribution for component i """
         return stats.expon(scale=-1/self.commonness[i])
+
     
-    
-    def get_concentration_means(self):
-        """ returns the mean concentration with which each substrate is
-        expected """
-        return -1/self.commonness
+    def concentration_statistics(self):
+        """ returns statistics for each individual substrate """
+        hi = self.commonness
+        c_means = -1/hi
+        c_vars = 1/(hi*hi)
+        # return the results in a dictionary to be able to extend it later
+        return {'mean': c_means, 'std': np.sqrt(c_vars), 'var': c_vars}
     
     
     @property

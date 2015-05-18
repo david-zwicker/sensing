@@ -62,8 +62,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         # determine optimal parameters for the interaction matrix
         from .library_theory import LibraryContinuousLogNormal
         theory = LibraryContinuousLogNormal(obj.Ns, obj.Nr)
-        obj.choose_interaction_matrix(distribution='log_normal',
-                                      **theory.get_optimal_parameters())
+        obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
 
 
@@ -126,7 +125,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         """ calculates the average activity of each receptor """ 
         steps = int(self.parameters['monte_carlo_steps'])        
     
-        c_means = self.get_concentration_means()
+        c_means = self.concentration_means
     
         count_a = np.zeros(self.Nr)
         for _ in range(steps):
@@ -149,7 +148,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
 
         steps = int(self.parameters['monte_carlo_steps'])
         
-        c_means = self.get_concentration_means()
+        c_means = self.concentration_means
 
         # sample mixtures according to the probabilities of finding
         # substrates

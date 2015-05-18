@@ -12,7 +12,7 @@ import numpy as np
 import scipy.misc
 
 from .library_base import LibrarySparseBase
-from .numba_speedup import numba_patcher
+from .numba_speedup import numba_patcher  # @UnresolvedImport
 
       
       
@@ -49,11 +49,12 @@ class TestLibrarySparse(unittest.TestCase):
         ks = np.arange(0, model.Ns + 1)
         dist_mean = (ks*dist).sum()
         dist_var = (ks*ks*dist).sum() - dist_mean**2 
-        self.assertAllClose((dist_mean, np.sqrt(dist_var)),
-                            model.mixture_size_statistics())
+        stats = model.mixture_size_statistics() 
+        self.assertAllClose((dist_mean, dist_var),
+                            (stats['mean'], stats['var']))
         
         # probability of having d_s components in a mixture for h_i = h
-        c_means = model.get_concentration_means()
+        c_means = model.concentration_means
         for i, c_mean in enumerate(c_means):
             mean_calc = model.get_concentration_distribution(i).mean()
             pi = model.substrate_probabilities[i]
@@ -72,7 +73,7 @@ class TestLibrarySparse(unittest.TestCase):
                                   np.random.randint(1, model.Ns//3 + 1) + model.Ns//2)
             for mean_mixture_size in mean_mixture_sizes:
                 model.set_commonness(scheme, mean_mixture_size, **params)
-                self.assertAllClose(model.mixture_size_statistics()[0],
+                self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
                 
                 

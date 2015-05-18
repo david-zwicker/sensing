@@ -56,7 +56,7 @@ def LibraryContinuousNumeric_activity_single(self):
     # call the jitted function
     LibraryContinuousNumeric_activity_single_numba(
         self.Ns, self.Nr, steps, self.int_mat,
-        self.get_concentration_means(), #< c_means
+        self.concentration_means, #< c_means
         np.empty(self.Nr, np.double), #< alpha
         count_a
     )
@@ -120,7 +120,7 @@ def LibraryContinuousNumeric_mutual_information(self, ret_prob_activity=False):
     MI = LibraryContinuousNumeric_mutual_information_numba(
         self.Ns, self.Nr, int(self.parameters['monte_carlo_steps']), 
         self.int_mat,
-        self.get_concentration_means(), #< c_means
+        self.concentration_means, #< c_means
         np.empty(self.Nr, np.double), #< alpha
         prob_a
     )

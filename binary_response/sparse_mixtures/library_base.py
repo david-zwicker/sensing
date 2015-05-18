@@ -80,16 +80,27 @@ class LibrarySparseBase(LibraryBinaryBase):
             self.parameters['concentration_vector'] = self._ds
     
     
+    @property
+    def concentration_means(self):
+        """ return the mean concentration at which each substrate is expected
+        on average """
+        return self.substrate_probabilities * self.concentrations
+    
+    
     def get_concentration_distribution(self, i):
         """ returns the concentration distribution for component i """
         return stats.expon(scale=self.concentrations[i])
 
     
-    def get_concentration_means(self):
-        """ returns the mean concentration with which each substrate is
-        expected """
-        return self.substrate_probabilities * self.concentrations
-    
+    def concentration_statistics(self):
+        """ returns statistics for each individual substrate """
+        pi = self.substrate_probabilities
+        di = self.concentrations
+        c_means = pi * di
+        c_vars = di*di * (2*pi - pi*pi)
+        # return the results in a dictionary to be able to extend it later
+        return {'mean': c_means, 'std': np.sqrt(c_vars), 'var': c_vars}
+
     
     @property
     def is_homogeneous(self):
@@ -112,11 +123,12 @@ class LibrarySparseBase(LibraryBinaryBase):
         elif scheme == 'random_uniform':
             # draw the mean probabilities from a uniform distribution
             c_means = np.random.uniform(0, 2*mean_concentration, self.Ns)
-            # make sure that the mean concentration is correct
-            c_means *= mean_concentration / c_means.mean()
             
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
+
+        # make sure that the mean concentration is correct
+        c_means *= mean_concentration / c_means.mean()
         
         # set the concentration
         self.concentrations = c_means

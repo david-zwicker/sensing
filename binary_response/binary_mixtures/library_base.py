@@ -127,11 +127,12 @@ class LibraryBinaryBase(LibraryBase):
     def mixture_size_statistics(self):
         """ calculates the mean and the standard deviation of the number of
         components in mixtures """
+        # calculate basic statistics
         prob_s = self.substrate_probabilities
         l_mean = np.sum(prob_s)
         l_var = np.sum(prob_s/(1 + np.exp(self._hs)))
-        
-        return l_mean, np.sqrt(l_var)
+        # return the results in a dictionary to be able to extend it later
+        return {'mean': l_mean, 'std': np.sqrt(l_var), 'var': l_var}
     
     
     def set_commonness(self, scheme, mean_mixture_size, **kwargs):

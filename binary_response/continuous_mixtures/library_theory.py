@@ -251,13 +251,14 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         return prob_a1
 
 
-    def get_optimal_parameters(self):
+    def get_optimal_library(self):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices """
         sigma = np.pi / np.sqrt(6)
-        c_mean = self.get_concentration_means().mean()
+        c_mean = self.concentration_means.mean()
         I0 = np.exp(-0.5 * sigma**2)/(self.Ns * c_mean)
-        return {'typical_sensitivity': I0, 'sigma': sigma}
+        return {'distribution': 'log_normal',
+                'typical_sensitivity': I0, 'sigma': sigma}
 
 
     def get_optimal_sigma(self):    
@@ -269,7 +270,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         """ estimates the optimal average value of the interaction matrix
         elements """  
         if estimate is None:
-            c_mean = self.get_concentration_means().mean()
+            c_mean = self.concentration_means.mean()
             estimate = np.exp(-0.5 * self.sigma**2)/(self.Ns * c_mean)
         
         # find best typical_sensitivity by optimizing until the average receptor

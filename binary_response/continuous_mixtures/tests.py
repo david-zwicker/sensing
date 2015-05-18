@@ -32,7 +32,7 @@ class TestLibraryContinuous(unittest.TestCase):
         model = LibraryContinuousBase.create_test_instance()
         
         # probability of having d_s components in a mixture for h_i = h
-        c_means = model.get_concentration_means()
+        c_means = model.concentration_means
         for i, c_mean in enumerate(c_means):
             mean_calc = model.get_concentration_distribution(i).mean()
             self.assertAlmostEqual(c_mean, mean_calc)
