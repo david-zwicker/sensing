@@ -72,7 +72,7 @@ class TestLibraryContinuous(unittest.TestCase):
                 
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """
-        numba_patcher.test_consistency(1, verbosity=0)
+        self.assertTrue(numba_patcher.test_consistency(1, verbosity=0))
                 
         
     def _check_histogram(self, observations, distribution):

@@ -51,10 +51,20 @@ class LibraryBase(object):
                 'num_receptors': self.Nr,
                 'parameters': self.parameters}
 
-
+    
     def copy(self):
         """ returns a copy of the current object """
         return self.__class__(**self.init_arguments)
+
+
+    @classmethod
+    def from_other(cls, other, **kwargs):
+        """ creates an instance of this class by using parameters from another
+        instance """
+        # create object with parameters from other object
+        init_arguments = other.init_arguments
+        init_arguments.update(kwargs)
+        return cls(**init_arguments)
 
 
     @classmethod

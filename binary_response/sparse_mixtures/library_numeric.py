@@ -77,10 +77,9 @@ class LibrarySparseNumeric(LibrarySparseBase):
         obj = super(LibrarySparseNumeric, cls).create_test_instance()
 
         # determine optimal parameters for the interaction matrix
-#         from .library_theory import LibraryContinuousLogNormal
-#         theory = LibraryContinuousLogNormal(obj.Ns, obj.Nr)
-#         obj.choose_interaction_matrix(distribution='log_normal',
-#                                       **theory.get_optimal_parameters())
+        from .library_theory import LibrarySparseBinary
+        theory = LibrarySparseBinary.from_other(obj)
+        obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
 
 

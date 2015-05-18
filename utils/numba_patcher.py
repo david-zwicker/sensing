@@ -109,7 +109,7 @@ class NumbaPatcher(object):
         `verbosity` controls how verbose the output is going to be. Valid values
             are 0, 1, 2 with increasing verbosity, respectively.
         """        
-        problems = 0
+        consistent = True
         for name, data in self.numba_methods.items():
             # extract the class and the functions
             class_name, _ = name.split('.')
@@ -127,7 +127,7 @@ class NumbaPatcher(object):
                     print('Native implementation yields %s' % func1(test_obj))
                     print('Numba implementation yields %s' % func2(test_obj))
                     print('Input: %r' % test_obj)
-                    problems += 1
+                    consistent = False
                     break
                 
             else:
@@ -135,8 +135,10 @@ class NumbaPatcher(object):
                 if verbosity >= 2:
                     print('`%s` has a valid numba implementation.' % name) 
 
-        if not problems and verbosity >= 1:
+        if consistent and verbosity >= 1:
             print('All numba implementations are consistent.')
+        
+        return consistent
             
             
     def test_speedup(self, test_duration=1):

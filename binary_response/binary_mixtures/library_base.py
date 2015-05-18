@@ -47,9 +47,9 @@ class LibraryBinaryBase(LibraryBase):
         """ create random arguments for creating test instances """
         args = super(LibraryBinaryBase, cls).get_random_arguments(**kwargs)
         if kwargs.get('homogeneous_mixture', False):
-            hs = np.full(args['num_substrates'], np.random.random() - 1.5)
+            hs = np.full(args['num_substrates'], np.random.random())
         else:
-            hs = np.random.random(args['num_substrates']) - 1.5
+            hs = np.random.random(args['num_substrates'])
         args['parameters'] = {'commonness_vector': hs}
         return args
 
@@ -65,7 +65,7 @@ class LibraryBinaryBase(LibraryBase):
         if hs is None:
             # initialize with default values, but don't save the parameters
             self._hs = np.zeros(self.Ns)
-            self._ps = self._hs + 0.5
+            self._ps = np.full(self.Ns, 0.5)
             
         else:
             if len(hs) != self.Ns:

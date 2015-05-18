@@ -79,7 +79,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
         obj = super(LibraryBinaryNumeric, cls).create_test_instance()
-        obj.choose_interaction_matrix(density=np.random.random())
+        # determine optimal parameters for the interaction matrix
+        from .library_theory import LibraryBinaryUniform
+        theory = LibraryBinaryUniform.from_other(obj)
+        obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
     
 

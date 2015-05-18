@@ -89,7 +89,7 @@ class LibrarySparseBinary(LibrarySparseBase):
         m = self.mixture_size_statistics()['mean']
         d = self.concentration_statistics()['mean'].mean()
         density = self.density_optimal()
-        I0 = 1 / (d*density - d*np.log(2)/m)
+        I0 = 1 / (m*d*density + d*np.log(2))
         return {'distribution': 'binary',
                 'typical_sensitivity': I0, 'density': density}
 

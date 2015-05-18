@@ -61,7 +61,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
 
         # determine optimal parameters for the interaction matrix
         from .library_theory import LibraryContinuousLogNormal
-        theory = LibraryContinuousLogNormal(obj.Ns, obj.Nr)
+        theory = LibraryContinuousLogNormal.from_other(obj)
         obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
 
