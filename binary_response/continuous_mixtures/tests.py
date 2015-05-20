@@ -21,9 +21,11 @@ class TestLibraryContinuous(unittest.TestCase):
     """ unit tests for the continuous library """
 
     
-    def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
+    def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg='The two '
+                       'arrays do not agree within the given tolerance:'):
         """ compares all the entries of the arrays a and b """
-        self.assertTrue(np.allclose(a, b, rtol, atol), msg)
+        if not np.allclose(a, b, rtol, atol):
+            self.fail(msg + 'lhs = %s\nrhs = %s\n' % (a, b))
 
 
     def test_base(self):
@@ -75,10 +77,10 @@ class TestLibraryContinuous(unittest.TestCase):
         self.assertTrue(numba_patcher.test_consistency(1, verbosity=0))
                 
         
-    def _check_histogram(self, observations, distribution):
+    def _check_histogram(self, observations, distribution, bins=32):
         """ checks whether the observations were likely drawn from the given
         distribution """
-        count1, bins = np.histogram(observations, bins=32, normed=True)
+        count1, bins = np.histogram(observations, bins=bins, normed=True)
         xs = 0.5*(bins[1:] + bins[:-1])
         count2 = distribution.pdf(xs)
         self.assertAllClose(count1, count2, atol=1e-1, rtol=1e-2,
@@ -95,7 +97,7 @@ class TestLibraryContinuous(unittest.TestCase):
         # draw from and define distribution        
         ys = np.random.lognormal(mean=np.log(mean), sigma=sigma, size=int(1e7))
         dist = scipy.stats.lognorm(scale=mean, s=sigma)
-        self._check_histogram(ys, dist)
+        self._check_histogram(ys, dist, bins=16)
         
         # compare to standard definition of the pdf
         xs = np.linspace(0, 10)[1:]

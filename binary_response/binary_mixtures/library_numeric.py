@@ -79,7 +79,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        obj = super(LibraryBinaryNumeric, cls).create_test_instance()
+        obj = super(LibraryBinaryNumeric, cls).create_test_instance(**kwargs)
         # determine optimal parameters for the interaction matrix
         from .library_theory import LibraryBinaryUniform
         theory = LibraryBinaryUniform.from_other(obj)
@@ -231,23 +231,24 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
     def activity_single_brute_force(self):
         """ calculates the average activity of each receptor """
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
-        prob_s = self.substrate_probabilities
+        hi = self.commonness
+        Jij = self.correlations
 
         prob_a = np.zeros(self.Nr)
+        Z = 0
         # iterate over all mixtures
-        for m in itertools.product((0, 1), repeat=self.Ns):
-            # get the activity vector associated with m
-            a = np.dot(self.int_mat, m).astype(np.bool)
-
-            # probability of finding this substrate
-            ma = np.array(m, np.bool)
-            pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
-            prob_a[a] += pm
+        for c in itertools.product((0, 1), repeat=self.Ns):
+            c = np.array(c)
             
-        return prob_a
+            # get the activity vector associated with m
+            a = np.dot(self.int_mat, c).astype(np.bool)
+
+            # probability of finding this mixture
+            prob_c = np.exp(np.dot(hi - np.dot(Jij, c), c))
+            prob_a[a] += prob_c
+            Z += prob_c
+            
+        return prob_a / Z
 
             
     def activity_single_monte_carlo(self, num=None):

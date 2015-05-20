@@ -6,6 +6,7 @@ Created on May 1, 2015
 
 from __future__ import division
 
+from contextlib import contextmanager
 import functools
 
 import numpy as np
@@ -57,6 +58,8 @@ class NumbaPatcher(object):
 
     def enable(self):
         """ enables the numba methods """
+        old_state = self.enabled
+        
         if not self.saved_original_functions:
             self._save_original_function()
         
@@ -65,15 +68,21 @@ class NumbaPatcher(object):
             class_obj = getattr(self.module, class_name)
             setattr(class_obj, method_name, data['numba'])
         self.enabled = True
+        
+        return old_state
             
             
     def disable(self):
         """ disable the numba methods """
+        old_state = self.enabled
+
         for name, data in self.numba_methods.items():
             class_name, method_name = name.split('.')
             class_obj = getattr(self.module, class_name)
             setattr(class_obj, method_name, data['original'])
         self.enabled = False
+        
+        return old_state
         
         
     def toggle(self, verbose=True):
@@ -88,6 +97,26 @@ class NumbaPatcher(object):
             if verbose:
                 print('Numba speed-ups have been enabled.')
             
+    
+    def set_state(self, enable=True):
+        """ sets the state to the given value """
+        if enable:
+            self.enable()
+        else:
+            self.disable()
+        
+            
+    @contextmanager
+    def as_distabled(self):
+        """ context manager for temporarily disabling the patcher and restoring
+        the previous state afterwards """
+        if self.enabled:
+            self.disable()
+            yield
+            self.enable()
+        else:
+            yield
+
     
     def _prepare_functions(self, data):
         """ prepares the arguments for the two functions that we want to test """

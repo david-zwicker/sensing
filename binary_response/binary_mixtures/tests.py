@@ -17,16 +17,15 @@ from .library_numeric import LibraryBinaryNumeric
 from .numba_speedup import numba_patcher
       
       
-      
+
 class TestLibraryBinary(unittest.TestCase):
     """ unit tests for the continuous library """
     
-    def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
+    def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg='The two '
+                       'arrays do not agree within the given tolerance:'):
         """ compares all the entries of the arrays a and b """
         if not np.allclose(a, b, rtol, atol):
-            print('lhs = %s' % a)
-            print('rhs = %s' % b)
-            self.fail(msg)
+            self.fail(msg + 'lhs = %s\nrhs = %s\n' % (a, b))
 
 
     def test_base(self):
@@ -103,32 +102,37 @@ class TestLibraryBinary(unittest.TestCase):
             
             # calculate this numerically
             ci_mean_numeric, cij_corr_numeric = model.mixture_statistics()
-            self.assertAllClose(ci_exact, ci_mean_numeric)
-            self.assertAllClose(cij_corr_exact, cij_corr_numeric)
+            self.assertAllClose(ci_exact, ci_mean_numeric,
+                                rtol=1e-2, atol=1e-2)
+            self.assertAllClose(cij_corr_exact, cij_corr_numeric,
+                                rtol=1e-2, atol=1e-2)
 
                 
     def test_numerics(self):
         """ test numerical calculations """
-        for correlated in (True, False):
-            # create test object
-            model = LibraryBinaryNumeric.create_test_instance(
-                                                  correlated_mixture=correlated)
-
-            # test activity patterns
-            prob_a_1 = model.activity_single_brute_force()
-            if not correlated:
-                prob_a_2 = model.activity_single_monte_carlo()
+        # disable the numba patcher for this method
+        with numba_patcher.as_distabled():
+            
+            for correlated in (True, False):
+                # create test object
+                model = LibraryBinaryNumeric.create_test_instance(
+                                                      correlated_mixture=correlated)
+    
+                # test activity patterns
+                prob_a_1 = model.activity_single_brute_force()
+                if not correlated:
+                    prob_a_2 = model.activity_single_monte_carlo()
+                    self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
+                prob_a_2 = model.activity_single_metropolis()
                 self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
-            prob_a_2 = model.activity_single_metropolis()
-            self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
-                
-            # test calculation of mutual information
-            prob_a_1 = model.mutual_information_brute_force()
-            if not correlated:
-                prob_a_2 = model.mutual_information_monte_carlo()
+                    
+                # test calculation of mutual information
+                prob_a_1 = model.mutual_information_brute_force()
+                if not correlated:
+                    prob_a_2 = model.mutual_information_monte_carlo()
+                    self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
+                prob_a_2 = model.mutual_information_metropolis()
                 self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
-            prob_a_2 = model.mutual_information_metropolis()
-            self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
                 
                 
     def test_numba_speedup(self):

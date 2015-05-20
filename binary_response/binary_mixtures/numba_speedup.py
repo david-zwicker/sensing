@@ -291,6 +291,108 @@ numba_patcher.register_method(
 )
 
 
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def _mixture_energy(ci, hi, Jij):
+    """ calculates the "energy" associated with the mixture `ci`, given
+    commonness vector `hi` and correlation matrix `Jij` """ 
+    energy = 0
+    Ns = ci.size
+    # TODO: this can be optimized by only iterating over upper triangle
+    for i in range(Ns):
+        energy -= hi[i] * ci[i]
+        for j in range(Ns):
+            energy += Jij[i, j] * ci[i] * ci[j]
+    return energy
+
+
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
+def LibraryBinaryNumeric_mutual_information_metropolis_numba(
+        Ns, Nr, steps, int_mat, hi, Jij, ci, an, prob_a):
+    """ calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' """
+        
+    # initialize the concentration vector
+    for i in range(Ns):
+        ci[i] = np.random.randint(2) #< set to either 0 or 1
+    E_last = _mixture_energy(ci, hi, Jij)
+        
+    # sample mixtures according to the probabilities of finding
+    # substrates
+    for _ in range(steps):
+        # choose a new mixture based on the old one
+        k = np.random.randint(Ns)
+        ci[k] = 1 - ci[k]
+        E_new = _mixture_energy(ci, hi, Jij)
+        
+        if E_new < E_last or np.random.random() < np.exp(E_last - E_new):
+            # accept the new state
+            E_last = E_new
+        else:
+            # reject the new state and revert to the last one
+            ci[k] = 1 - ci[k]
+        
+        # calculate the activity pattern from this mixture vector
+        an[:] = 0 
+        for i in range(Ns):
+            if ci[i] > 0:
+                # the substrate i is present in the mixture
+                for n in range(Nr):
+                    if int_mat[n, i] == 1:
+                        # receptor a is activated by substrate i
+                        an[n] = 1
+        
+        # calculate the activity pattern id
+        a_id, base = 0, 1
+        for n in range(Nr):
+            if an[n] == 1:
+                a_id += base
+            base *= 2
+        
+        # increment counter for this output
+        prob_a[a_id] += 1
+        
+    # normalize the probabilities by the number of steps we did
+    for k in range(len(prob_a)):
+        prob_a[k] /= steps
+    
+    # calculate the mutual information from the observed probabilities
+    MI = 0
+    for pa in prob_a:
+        if pa > 0:
+            MI -= pa*np.log2(pa)
+    
+    return MI
+    
+
+def LibraryBinaryNumeric_mutual_information_metropolis(self, ret_prob_activity=False):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    prob_a = np.zeros(2**self.Nr) 
+ 
+    # call the jitted function
+    MI = LibraryBinaryNumeric_mutual_information_metropolis_numba(
+        self.Ns, self.Nr, int(self.parameters['metropolis_steps']), 
+        self.int_mat,
+        self.commonness, self.correlations, #< hi, Jij
+        np.empty(self.Ns, np.uint), #< ci
+        np.empty(self.Nr, np.uint), #< an
+        prob_a
+    )
+
+    # do not estimate the error of the mutual information calculation
+    if ret_prob_activity:
+        return MI, prob_a
+    else:
+        return MI
+
+
+numba_patcher.register_method(
+    'LibraryBinaryNumeric.mutual_information_metropolis',
+    LibraryBinaryNumeric_mutual_information_metropolis,
+    check_return_value_approx
+)
+
+
 
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
            nogil=NUMBA_NOGIL)

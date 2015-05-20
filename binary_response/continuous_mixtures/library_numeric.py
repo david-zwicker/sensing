@@ -57,7 +57,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        obj = super(LibraryContinuousNumeric, cls).create_test_instance()
+        obj = super(LibraryContinuousNumeric, cls).create_test_instance(**kwargs)
 
         # determine optimal parameters for the interaction matrix
         from .library_theory import LibraryContinuousLogNormal

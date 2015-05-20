@@ -74,7 +74,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        obj = super(LibrarySparseNumeric, cls).create_test_instance()
+        obj = super(LibrarySparseNumeric, cls).create_test_instance(**kwargs)
 
         # determine optimal parameters for the interaction matrix
         from .library_theory import LibrarySparseBinary
