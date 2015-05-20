@@ -66,9 +66,9 @@ class TestLibraryBinary(unittest.TestCase):
                              ('random_uniform', {}),]
         
         for scheme, params in commoness_schemes:
-            mean_mixture_sizes = (np.random.randint(1, model.Ns//2 + 1),
-                                  np.random.randint(1, model.Ns//3 + 1) + model.Ns//2)
-            for mean_mixture_size in mean_mixture_sizes:
+            size1 = np.random.randint(1, model.Ns//2 + 1)
+            size2 = np.random.randint(1, model.Ns//3 + 1) + model.Ns//2
+            for mean_mixture_size in (size1, size2):
                 model.set_commonness(scheme, mean_mixture_size, **params)
                 self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
@@ -116,7 +116,7 @@ class TestLibraryBinary(unittest.TestCase):
             for correlated in (True, False):
                 # create test object
                 model = LibraryBinaryNumeric.create_test_instance(
-                                                      correlated_mixture=correlated)
+                                                  correlated_mixture=correlated)
     
                 # test activity patterns
                 prob_a_1 = model.activity_single_brute_force()
@@ -127,12 +127,12 @@ class TestLibraryBinary(unittest.TestCase):
                 self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
                     
                 # test calculation of mutual information
-                prob_a_1 = model.mutual_information_brute_force()
+                MI_1 = model.mutual_information_brute_force()
                 if not correlated:
-                    prob_a_2 = model.mutual_information_monte_carlo()
-                    self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
-                prob_a_2 = model.mutual_information_metropolis()
-                self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
+                    MI_2 = model.mutual_information_monte_carlo()
+                    self.assertAllClose(MI_1, MI_2, rtol=1e-2, atol=1e-2)
+                MI_2 = model.mutual_information_metropolis()
+                self.assertAllClose(MI_1, MI_2, rtol=1e-2, atol=1e-2)
                 
                 
     def test_numba_speedup(self):
