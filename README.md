@@ -17,6 +17,8 @@ Optional python packages, which can be installed through `pip`:
 Package      | Usage                                      
 -------------|-------------------------------------------
 numba        | For creating compiled code for faster processing
+nose         | For parallel testing
+coverage     | For measuring test coverage
 
 
 The classes are organized as follows:

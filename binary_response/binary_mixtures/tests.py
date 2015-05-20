@@ -25,7 +25,7 @@ class TestLibraryBinary(unittest.TestCase):
                        'arrays do not agree within the given tolerance:'):
         """ compares all the entries of the arrays a and b """
         if not np.allclose(a, b, rtol, atol):
-            self.fail(msg + 'lhs = %s\nrhs = %s\n' % (a, b))
+            self.fail(msg + '\nlhs = %s\nrhs = %s' % (a, b))
 
 
     def test_base(self):

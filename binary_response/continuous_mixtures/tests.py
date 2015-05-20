@@ -25,7 +25,7 @@ class TestLibraryContinuous(unittest.TestCase):
                        'arrays do not agree within the given tolerance:'):
         """ compares all the entries of the arrays a and b """
         if not np.allclose(a, b, rtol, atol):
-            self.fail(msg + 'lhs = %s\nrhs = %s\n' % (a, b))
+            self.fail(msg + '\nlhs = %s\nrhs = %s' % (a, b))
 
 
     def test_base(self):
@@ -83,7 +83,7 @@ class TestLibraryContinuous(unittest.TestCase):
         count1, bins = np.histogram(observations, bins=bins, normed=True)
         xs = 0.5*(bins[1:] + bins[:-1])
         count2 = distribution.pdf(xs)
-        self.assertAllClose(count1, count2, atol=1e-1, rtol=1e-2,
+        self.assertAllClose(count1, count2, atol=1e-2, rtol=1e-1,
                             msg='distributions do not agree')
                 
                 
@@ -97,7 +97,7 @@ class TestLibraryContinuous(unittest.TestCase):
         # draw from and define distribution        
         ys = np.random.lognormal(mean=np.log(mean), sigma=sigma, size=int(1e7))
         dist = scipy.stats.lognorm(scale=mean, s=sigma)
-        self._check_histogram(ys, dist, bins=16)
+        self._check_histogram(ys, dist, bins=128)
         
         # compare to standard definition of the pdf
         xs = np.linspace(0, 10)[1:]
