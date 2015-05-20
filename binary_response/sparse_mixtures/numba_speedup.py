@@ -52,6 +52,9 @@ def LibrarySparseNumeric_activity_single_numba(Ns, Nr, steps, int_mat, c_prob,
 def LibrarySparseNumeric_activity_single(self):
     """ calculate the mutual information by constructing all possible
     mixtures """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
     count_a = np.zeros(self.Nr, np.uint32) 
     steps = self.monte_carlo_steps
  
@@ -120,6 +123,9 @@ def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
 def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
     prob_a = np.zeros(2**self.Nr)
  
     # call the jitted function

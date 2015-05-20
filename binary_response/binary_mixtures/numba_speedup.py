@@ -56,6 +56,9 @@ def LibraryBinaryNumeric_activity_single_brute_force_numba(
 
 def LibraryBinaryNumeric_activity_single_brute_force(self):
     """ calculates the average activity of each receptor """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
     prob_a = np.zeros(self.Nr) 
     
     # call the jitted function
@@ -110,6 +113,9 @@ def LibraryBinaryNumeric_activity_correlations_brute_force_numba(
     
 def LibraryBinaryNumeric_activity_correlations_brute_force(self):
     """ calculates the correlations between receptor activities """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
     prob_a = np.zeros((self.Nr, self.Nr)) 
     
     # call the jitted function
@@ -173,6 +179,9 @@ def LibraryBinaryNumeric_mutual_information_brute_force_numba(
 def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
     prob_a = np.zeros(2**self.Nr) 
     
     # call the jitted function
@@ -242,6 +251,9 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
                                                         ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
     prob_a = np.zeros(2**self.Nr) 
  
     # call the jitted function
@@ -351,6 +363,9 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
 def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
     if approx_prob:
         # call the jitted function that uses approximate probabilities
         MI = LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
@@ -381,7 +396,7 @@ numba_patcher.register_method(
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
-                                                       crosstalk_weight):
+                                                     crosstalk_weight):
     """ returns the estimated performance of the system, which acts as a
     proxy for the mutual information between input and output """
     Nr, Ns = int_mat.shape
@@ -409,10 +424,13 @@ def LibraryBinaryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
 def LibraryBinaryNumeric_inefficiency_estimate(self):
     """ returns the estimated performance of the system, which acts as a
     proxy for the mutual information between input and output """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
     prob_s = self.substrate_probabilities
     crosstalk_weight = self.parameters['inefficiency_weight']
     return LibraryBinaryNumeric_inefficiency_estimate_numba(self.int_mat, prob_s,
-                                                              crosstalk_weight)
+                                                            crosstalk_weight)
 
 
 numba_patcher.register_method(

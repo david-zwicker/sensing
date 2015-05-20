@@ -23,7 +23,10 @@ class TestLibraryBinary(unittest.TestCase):
     
     def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
         """ compares all the entries of the arrays a and b """
-        self.assertTrue(np.allclose(a, b, rtol, atol), msg)
+        if not np.allclose(a, b, rtol, atol):
+            print('lhs = %s' % a)
+            print('rhs = %s' % b)
+            self.fail(msg)
 
 
     def test_base(self):
@@ -102,10 +105,35 @@ class TestLibraryBinary(unittest.TestCase):
             ci_mean_numeric, cij_corr_numeric = model.mixture_statistics()
             self.assertAllClose(ci_exact, ci_mean_numeric)
             self.assertAllClose(cij_corr_exact, cij_corr_numeric)
+
+                
+    def test_numerics(self):
+        """ test numerical calculations """
+        for correlated in (True, False):
+            # create test object
+            model = LibraryBinaryNumeric.create_test_instance(
+                                                  correlated_mixture=correlated)
+
+            # test activity patterns
+            prob_a_1 = model.activity_single_brute_force()
+            if not correlated:
+                prob_a_2 = model.activity_single_monte_carlo()
+                self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
+            prob_a_2 = model.activity_single_metropolis()
+            self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
+                
+            # test calculation of mutual information
+            prob_a_1 = model.mutual_information_brute_force()
+            if not correlated:
+                prob_a_2 = model.mutual_information_monte_carlo()
+                self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
+            prob_a_2 = model.mutual_information_metropolis()
+            self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
                 
                 
     def test_numba_speedup(self):
         """ test the consistency of the numba functions """
+        # this tests the numba consistency for uncorrelated mixtures
         self.assertTrue(numba_patcher.test_consistency(1, verbosity=0))
     
 

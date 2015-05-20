@@ -209,12 +209,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
             than the method is chosen automatically based on the problem size.
         """
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 method = 'brute_force'
+            elif self.has_correlations:
+                method = 'metropolis'
             else:
                 method = 'monte_carlo'
                 
@@ -222,6 +221,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return self.activity_single_brute_force()
         elif method == 'monte_carlo':
             return self.activity_single_monte_carlo()
+        elif method == 'metropolis':
+            return self.activity_single_metropolis()
         elif method == 'estimate':
             return self.activity_single_estimate()
         else:
@@ -230,6 +231,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
     def activity_single_brute_force(self):
         """ calculates the average activity of each receptor """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         prob_s = self.substrate_probabilities
 
         prob_a = np.zeros(self.Nr)
@@ -248,6 +252,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             
     def activity_single_monte_carlo(self, num=None):
         """ calculates the average activity of each receptor """ 
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         if num is None:
             num = int(self.parameters['monte_carlo_steps'])        
     
@@ -256,21 +263,57 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         count_a = np.zeros(self.Nr)
         for _ in range(num):
             # choose a mixture vector according to substrate probabilities
-            m = (np.random.random(self.Ns) < prob_s)
+            c = (np.random.random(self.Ns) < prob_s)
             
-            # get the associated output ...
-            a = np.dot(self.int_mat, m).astype(np.bool)
+            # get the associated output
+            a = np.dot(self.int_mat, c).astype(np.bool)
             
             count_a[a] += 1
             
+        # return the normalized output
         return count_a/num
+    
+    
+    def activity_single_metropolis(self, num=None):
+        """ calculates the average activity of each receptor """ 
+        if num is None:
+            num = int(self.parameters['metropolis_steps'])        
+    
+        hi = self.commonness
+        Jij = self.correlations
+        
+        # start with a random concentration vector 
+        c = np.random.random_integers(0, 1, self.Ns)
+        Elast = np.dot(hi, c) + np.dot(c, np.dot(Jij, c))
+        
+        count_a = np.zeros(self.Nr)
+        for _ in range(num):
+            i = random.randrange(self.Ns)
+            c[i] = 1 - c[i]
+            Ei = np.dot(np.dot(Jij, c) - hi, c)
+            if Ei < Elast or random.random() < np.exp(Elast - Ei):
+                # accept the new state
+                Elast = Ei
+            else:
+                # reject the new state and revert to the last one
+                c[i] = 1 - c[i]
+        
+            # accept the state and get the associated output
+            a = np.dot(self.int_mat, c).astype(np.bool)
+            count_a[a] += 1
 
+        # return the normalized output
+        return count_a / num
+            
     
     def activity_single_estimate(self, approx_prob=False):
         """ estimates the average activity of each receptor. 
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         I_ai = self.int_mat
         prob_s = self.substrate_probabilities
 
@@ -291,6 +334,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
 
     def activity_correlations_brute_force(self):
         """ calculates the correlations between receptor activities """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         prob_s = self.substrate_probabilities
 
         prob_Caa = np.zeros((self.Nr, self.Nr))
@@ -321,9 +367,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `ret_prob_activity` determines whether the probabilities of the
             different outputs is returned or not
         """
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 method = 'brute_force'
@@ -343,22 +386,27 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def mutual_information_brute_force(self, ret_prob_activity=False):
         """ calculate the mutual information by constructing all possible
         mixtures """
+        hi = self.commonness
+        Jij = self.correlations
         base = 2 ** np.arange(0, self.Nr)
-
-        prob_s = self.substrate_probabilities
 
         # prob_a contains the probability of finding activity a as an output.
         prob_a = np.zeros(2**self.Nr)
-        for m in itertools.product((0, 1), repeat=self.Ns):
+        for c in itertools.product((0, 1), repeat=self.Ns):
+            c = np.array(c)
+
+            # probability of finding this mixture
+            prob_c = np.exp(np.dot(hi - np.dot(Jij, c), c))
+            
             # get the associated output ...
-            a = np.dot(self.int_mat, m).astype(np.bool)
+            a = np.dot(self.int_mat, c).astype(np.bool)
             # ... and represent it as a single integer
             a = np.dot(base, a)
 
-            # probability of finding this substrate
-            ma = np.array(m, np.bool)
-            pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
-            prob_a[a] += pm
+            prob_a[a] += prob_c
+            
+        # normalize the output to make it a probability distribution
+        prob_a /= prob_a.sum()
         
         # calculate the mutual information
         MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
@@ -373,6 +421,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                                        ret_prob_activity=False):
         """ calculate the mutual information using a Monte Carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
                 
         base = 2 ** np.arange(0, self.Nr)
         prob_s = self.substrate_probabilities
@@ -384,10 +434,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         count_a = np.zeros(2**self.Nr)
         for _ in range(steps):
             # choose a mixture vector according to substrate probabilities
-            m = (np.random.random(self.Ns) < prob_s)
+            c = (np.random.random(self.Ns) < prob_s)
             
             # get the associated output ...
-            a = np.dot(self.int_mat, m).astype(np.bool)
+            a = np.dot(self.int_mat, c).astype(np.bool)
             # ... and represent it as a single integer
             a = np.dot(base, a)
             # increment counter for this output
@@ -395,7 +445,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 
-
         prob_a = count_a / steps
         # count_a_err = prob_a * np.sqrt(steps)
         # prob_a_err = count_a_err / steps = prob_a / np.sqrt(steps) / steps
@@ -419,9 +468,12 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             else:
                 return MI
         
+        
     def mutual_information_monte_carlo_extrapolate(self, ret_prob_activity=False):
         """ calculate the mutual information using a Monte Carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
                 
         base = 2 ** np.arange(0, self.Nr)
         prob_s = self.substrate_probabilities
@@ -476,12 +528,59 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         else:
             return MI
                 
+
+    def mutual_information_metropolis(self, ret_prob_activity=False):
+        """ calculates the average activity of each receptor """ 
+    
+        hi = self.commonness
+        Jij = self.correlations
+        base = 2 ** np.arange(0, self.Nr)
         
+        # start with a random concentration vector 
+        c = np.random.random_integers(0, 1, self.Ns)
+        Elast = np.dot(hi, c) + np.dot(c, np.dot(Jij, c))
+        
+        steps = int(self.parameters['metropolis_steps'])        
+        count_a = np.zeros(2**self.Nr)
+        for _ in range(steps):
+            i = random.randrange(self.Ns)
+            c[i] = 1 - c[i]
+            Ei = np.dot(np.dot(Jij, c) - hi, c)
+            if Ei < Elast or random.random() < np.exp(Elast - Ei):
+                # accept the new state
+                Elast = Ei
+            else:
+                # reject the new state and revert to the last one
+                c[i] = 1 - c[i]
+        
+            # accept the state, get the associated output ...
+            a = np.dot(self.int_mat, c).astype(np.bool)
+            # ... and represent it as a single integer
+            a = np.dot(base, a)
+            # increment counter for this output
+            count_a[a] += 1
+
+        # count_a contains the number of times output pattern a was observed.
+        # We can thus construct P_a(a) from count_a. 
+        prob_a = count_a / steps
+        
+        # calculate the mutual information from the result pattern
+        MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
+        # error should not be calculated       
+        if ret_prob_activity:
+            return MI, prob_a
+        else:
+            return MI        
+            
+                    
     def mutual_information_estimate(self, approx_prob=False):
         """ returns a simple estimate of the mutual information.
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         I_ai = self.int_mat
         prob_s = self.substrate_probabilities
         
