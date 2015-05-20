@@ -18,6 +18,9 @@ from .numba_speedup import numba_patcher  # @UnresolvedImport
       
 class TestLibrarySparse(unittest.TestCase):
     """ unit tests for the continuous library """
+
+    _multiprocess_can_split_ = True #< let nose know that tests can run parallel
+    
     
     def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
         """ compares all the entries of the arrays a and b """
@@ -79,7 +82,8 @@ class TestLibrarySparse(unittest.TestCase):
                 
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """
-        self.assertTrue(numba_patcher.test_consistency(1, verbosity=0))
+        self.assertTrue(numba_patcher.test_consistency(1, verbosity=0),
+                        msg='Numba methods are not consistent')
                 
     
 

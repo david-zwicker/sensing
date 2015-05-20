@@ -62,7 +62,6 @@ class LibraryBinaryBase(LibraryBase):
             
         if kwargs.get('correlated_mixture', False):
             Jij = np.random.normal(size=(Ns, Ns))
-            Jij = np.tril(Jij) + np.tril(Jij, -1).T
             np.fill_diagonal(Jij, 0)
         else:
             Jij = np.zeros((Ns, Ns))
@@ -145,6 +144,9 @@ class LibraryBinaryBase(LibraryBase):
                                  'substrates.')
             self._Jij = np.asarray(Jij)
             
+            # symmetrize the matrix
+            self._Jij = np.tril(Jij) + np.tril(Jij, -1).T
+        
             # save the values, since they were set explicitly 
             self.parameters['correlation_matrix'] = self._Jij
     
@@ -319,9 +321,6 @@ class LibraryBinaryBase(LibraryBase):
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
 
-        # symmetrize the matrix
-        Jij = np.tril(Jij) + np.tril(Jij, -1).T
-        
         # set the diagonals to zero if requested
         if diagonal_zero:
             np.fill_diagonal(Jij, 0)

@@ -21,6 +21,9 @@ from .numba_speedup import numba_patcher
 class TestLibraryBinary(unittest.TestCase):
     """ unit tests for the continuous library """
     
+    _multiprocess_can_split_ = True #< let nose know that tests can run parallel
+    
+    
     def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg='The two '
                        'arrays do not agree within the given tolerance:'):
         """ compares all the entries of the arrays a and b """
@@ -110,35 +113,52 @@ class TestLibraryBinary(unittest.TestCase):
                 
     def test_numerics(self):
         """ test numerical calculations """
-        # disable the numba patcher for this method
-        with numba_patcher.as_distabled():
+        # save numba patcher state
+        numba_patcher_enabled = numba_patcher.enabled
+        
+        # try enabled and disabled numba patcher 
+        for numba_enabled in (True, False):
+            numba_patcher.set_state(numba_enabled)
             
-            for correlated in (True, False):
+            # try mixture_correlated and uncorrelated mixtures
+            for mixture_correlated in (True, False):
+                error_msg = ('The different implementations do not agree for '
+                             'numba_enabled=%s and has_correlations=%s'
+                             % (numba_enabled, mixture_correlated))
+                
                 # create test object
                 model = LibraryBinaryNumeric.create_test_instance(
-                                                  correlated_mixture=correlated)
+                                          correlated_mixture=mixture_correlated)
     
                 # test activity patterns
                 prob_a_1 = model.activity_single_brute_force()
-                if not correlated:
+                if not mixture_correlated:
                     prob_a_2 = model.activity_single_monte_carlo()
-                    self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
+                    self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2,
+                                        atol=1e-2, msg=error_msg)
                 prob_a_2 = model.activity_single_metropolis()
-                self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2)
+                self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2,
+                                    msg=error_msg)
                     
                 # test calculation of mutual information
                 MI_1 = model.mutual_information_brute_force()
-                if not correlated:
+                if not mixture_correlated:
                     MI_2 = model.mutual_information_monte_carlo()
-                    self.assertAllClose(MI_1, MI_2, rtol=1e-2, atol=1e-2)
+                    self.assertAllClose(MI_1, MI_2, rtol=1e-2, atol=1e-2,
+                                        msg=error_msg)
                 MI_2 = model.mutual_information_metropolis()
-                self.assertAllClose(MI_1, MI_2, rtol=1e-2, atol=1e-2)
+                self.assertAllClose(MI_1, MI_2, rtol=1e-2, atol=1e-2,
+                                    msg=error_msg)
                 
-                
+        # reset numba patcher state
+        numba_patcher.set_state(numba_patcher_enabled)
+    
+    
     def test_numba_speedup(self):
         """ test the consistency of the numba functions """
         # this tests the numba consistency for uncorrelated mixtures
-        self.assertTrue(numba_patcher.test_consistency(1, verbosity=0))
+        self.assertTrue(numba_patcher.test_consistency(1, verbosity=0),
+                        msg='Numba methods are not consistent')
     
 
 if __name__ == '__main__':

@@ -20,6 +20,8 @@ from .numba_speedup import numba_patcher
 class TestLibraryContinuous(unittest.TestCase):
     """ unit tests for the continuous library """
 
+    _multiprocess_can_split_ = True #< let nose know that tests can run parallel
+
     
     def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg='The two '
                        'arrays do not agree within the given tolerance:'):
@@ -74,7 +76,8 @@ class TestLibraryContinuous(unittest.TestCase):
                 
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """
-        self.assertTrue(numba_patcher.test_consistency(1, verbosity=0))
+        self.assertTrue(numba_patcher.test_consistency(1, verbosity=0),
+                        msg='Numba methods are not consistent')
                 
         
     def _check_histogram(self, observations, distribution, bins=32):
