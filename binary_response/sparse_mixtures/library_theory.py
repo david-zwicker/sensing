@@ -67,6 +67,9 @@ class LibrarySparseBinary(LibrarySparseBase):
             homogeneous system with the same average number of substrates is
             used instead.
         """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         if assume_homogeneous:
             # calculate the idealized substrate probability
             m_mean = self.mixture_size_statistics()['mean']
@@ -86,6 +89,9 @@ class LibrarySparseBinary(LibrarySparseBase):
     def get_optimal_library(self):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         m = self.mixture_size_statistics()['mean']
         d = self.concentration_statistics()['mean'].mean()
         density = self.density_optimal()

@@ -94,6 +94,9 @@ class LibrarySparseBase(LibraryBinaryBase):
     
     def concentration_statistics(self):
         """ returns statistics for each individual substrate """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         pi = self.substrate_probabilities
         di = self.concentrations
         c_means = pi * di

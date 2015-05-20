@@ -23,7 +23,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         'interaction_matrix': None,        #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
         'monte_carlo_steps': 'auto',       #< default steps for monte carlo
-        'monte_carlo_steps_min': 1e3,      #< minimal steps for monte carlo
+        'monte_carlo_steps_min': 1e4,      #< minimal steps for monte carlo
         'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
     }
     
@@ -125,6 +125,16 @@ class LibrarySparseNumeric(LibrarySparseBase):
         elif distribution == 'log_gamma':
             raise NotImplementedError
             
+        elif distribution == 'normal':
+            # normal distribution
+            kwargs.setdefault('sigma', 0.1)
+            if kwargs['sigma'] == 0:
+                self.int_mat = np.full(shape, typical_sensitivity)
+            else:
+                self.int_mat = np.random.normal(loc=typical_sensitivity,
+                                                scale=kwargs['sigma'],
+                                                size=shape)
+            
         elif distribution == 'gamma':
             raise NotImplementedError
             
@@ -140,6 +150,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
     def activity_single(self):
         """ calculates the average activity of each receptor """ 
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
 
         # load the parameters    
         steps = self.monte_carlo_steps        
@@ -166,6 +178,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
                 
         # load the parameters    
         steps = self.monte_carlo_steps

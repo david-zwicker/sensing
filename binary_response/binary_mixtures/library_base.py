@@ -25,6 +25,8 @@ class LibraryBinaryBase(LibraryBase):
     parameters_default = {
         'commonness_vector': None,     #< chosen substrate commonness
         'commonness_parameters': None, #< parameters for substrate commonness
+        'correlation_matrix': None,     #< chosen substrate correlations
+        'correlation_parameters': None, #< parameters for substrate correlations
     }
 
 
@@ -40,17 +42,33 @@ class LibraryBinaryBase(LibraryBase):
             self.commonness = self.parameters['commonness_vector']
         else:
             self.set_commonness(**self.parameters['commonness_parameters'])
+            
+        if self.parameters['correlation_parameters'] is None:
+            self.correlations = self.parameters['correlation_matrix']
+        else:
+            self.set_correlations(**self.parameters['correlation_parameters'])
 
 
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
         args = super(LibraryBinaryBase, cls).get_random_arguments(**kwargs)
+        Ns = args['num_substrates']
+        
         if kwargs.get('homogeneous_mixture', False):
-            hs = np.full(args['num_substrates'], np.random.random())
+            hs = np.full(Ns, np.random.random())
         else:
-            hs = np.random.random(args['num_substrates'])
-        args['parameters'] = {'commonness_vector': hs}
+            hs = np.random.random(Ns)
+            
+        if kwargs.get('correlated_mixture', False):
+            Jij = np.random.normal(size=(Ns, Ns))
+            Jij = np.tril(Jij) + np.tril(Jij, -1).T
+            np.fill_diagonal(Jij, 0)
+        else:
+            Jij = np.zeros((Ns, Ns))
+            
+        args['parameters'] = {'commonness_vector': hs,
+                              'correlation_matrix': Jij}
         return args
 
 
@@ -107,12 +125,44 @@ class LibraryBinaryBase(LibraryBase):
         h_i = self.commonness
         return np.allclose(h_i, h_i[0])
             
+
+    @property
+    def correlations(self):
+        """ return the correlation matrix """
+        return self._Jij
+    
+    @correlations.setter
+    def correlations(self, Jij):
+        """ sets the correlations """
+        if Jij is None:
+            # initialize with default values, but don't save the parameters
+            self._Jij = np.zeros((self.Ns, self.Ns))
             
+        else:
+            if Jij.shape != (self.Ns, self.Ns):
+                raise ValueError('Dimension of the correlation matrix must be '
+                                 'Ns x Ns, where Ns is the number of '
+                                 'substrates.')
+            self._Jij = np.asarray(Jij)
+            
+            # save the values, since they were set explicitly 
+            self.parameters['correlation_matrix'] = self._Jij
+    
+    
+    @property 
+    def has_correlations(self):
+        """ returns True if the mixture has correlations """
+        return np.count_nonzero(self.correlations) > 0
+    
+                
     def mixture_size_distribution(self):
         """ calculates the probabilities of finding a mixture with a given
         number of components. Returns an array of length Ns + 1 of probabilities
         for finding mixtures with the number of components given by the index
         into the array """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+        
         res = np.zeros(self.Ns + 1)
         res[0] = 1
         # iterate over each substrate and consider its individual probability
@@ -127,6 +177,9 @@ class LibraryBinaryBase(LibraryBase):
     def mixture_size_statistics(self):
         """ calculates the mean and the standard deviation of the number of
         components in mixtures """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         # calculate basic statistics
         prob_s = self.substrate_probabilities
         l_mean = np.sum(prob_s)
@@ -172,7 +225,6 @@ class LibraryBinaryBase(LibraryBase):
                 
             else:
                 raise ValueError('Either `p1` or `p_ratio` must be given')
-
             
         elif scheme == 'geometric':
             # substrates have geometrically decreasing commonness 
@@ -232,4 +284,54 @@ class LibraryBinaryBase(LibraryBase):
         c_params = {'scheme': scheme, 'mean_mixture_size': mean_mixture_size}
         c_params.update(kwargs)
         self.parameters['commonness_parameters'] = c_params  
+
+
+    def set_correlations(self, scheme, magnitude, diagonal_zero=True):
+        """ picks a correlation matrix according to the supplied parameters:
+        `magnitude` determines the magnitude of the correlations, which are
+        drawn from the random distribution indicated by `scheme`: 
+            `const`: all correlations are equally to magnitude
+            `random_binary`: the correlations are drawn from a binary
+                distribution which is either 1 or -1 times magnitude.
+            `random_uniform`: the correlations are drawn from a uniform
+                distribution from [-magnitude, magnitude]
+            `random_normal`: the correlations are drawn from a normal
+                distribution with standard deviation `magnitude`
+        """
+        shape = (self.Ns, self.Ns)
+        
+        if scheme == 'const':
+            # all correlations are equal
+            Jij = np.full(shape, magnitude)
+        
+        elif scheme == 'random_binary':
+            # all correlations are binary times magnitude
+            Jij = np.random.choice((-1, 1), shape) * magnitude
+            
+        elif scheme == 'random_uniform':
+            # all correlations are uniformly distributed
+            Jij = np.random.uniform(-magnitude, magnitude, shape)
+            
+        elif scheme == 'random_normal':
+            # all correlations are uniformly distributed
+            Jij = np.random.normal(scale=magnitude, size=shape)
+            
+        else:
+            raise ValueError('Unknown commonness scheme `%s`' % scheme)
+
+        # symmetrize the matrix
+        Jij = np.tril(Jij) + np.tril(Jij, -1).T
+        
+        # set the diagonals to zero if requested
+        if diagonal_zero:
+            np.fill_diagonal(Jij, 0)
+        
+        # set the probability which also calculates the commonness and saves
+        # the values in the parameters dictionary
+        self.correlations = Jij
+        
+        # we additionally store the parameters that were used for this function
+        corr_params = {'scheme': scheme, 'magnitude': magnitude,
+                       'diagonal_zero': diagonal_zero}
+        self.parameters['correlation_parameters'] = corr_params  
 

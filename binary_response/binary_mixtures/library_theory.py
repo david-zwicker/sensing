@@ -56,12 +56,18 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         return 1 - np.prod(1 - self.density * self.substrate_probabilities)
 
 
     def mutual_information(self, approx_prob=False):
         """ return a theoretical estimate of the mutual information between
         input and output """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         p_i = self.substrate_probabilities
         
         # get probability p_r that a single receptor is activated 
@@ -100,6 +106,9 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             homogeneous system with the same average number of substrates is
             used instead.
         """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         if not assume_homogeneous and len(np.unique(self.commonness)) > 1:
             # mixture is heterogeneous
             raise RuntimeError('The estimate only works for homogeneous '
@@ -115,6 +124,9 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     def get_optimal_library(self):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         return {'density': self.density_optimal(assume_homogeneous=True)}
         
         

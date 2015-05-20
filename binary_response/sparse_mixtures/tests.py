@@ -29,12 +29,12 @@ class TestLibrarySparse(unittest.TestCase):
         # construct random model
         model = LibrarySparseBase.create_test_instance()
         
-        # probability of having d_s components in a mixture for h_i = h
+        # probability of having m_s components in a mixture for h_i = h
         hval = np.random.random() - 0.5
         model.commonness = [hval] * model.Ns
-        d_s = np.arange(0, model.Ns + 1)
-        p_m = (scipy.misc.comb(model.Ns, d_s)
-               * np.exp(hval*d_s)/(1 + np.exp(hval))**model.Ns)
+        m_s = np.arange(0, model.Ns + 1)
+        p_m = (scipy.misc.comb(model.Ns, m_s)
+               * np.exp(hval*m_s)/(1 + np.exp(hval))**model.Ns)
         
         self.assertAllClose(p_m, model.mixture_size_distribution())
     
@@ -53,7 +53,7 @@ class TestLibrarySparse(unittest.TestCase):
         self.assertAllClose((dist_mean, dist_var),
                             (stats['mean'], stats['var']))
         
-        # probability of having d_s components in a mixture for h_i = h
+        # probability of having m_s components in a mixture for h_i = h
         c_means = model.concentration_means
         for i, c_mean in enumerate(c_means):
             mean_calc = model.get_concentration_distribution(i).mean()

@@ -43,6 +43,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         'inefficiency_weight': 1,   #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 1e5,   #< default number of Monte Carlo steps
+        'metropolis_steps': 1e5,    #< default number of Metropolis steps
         'anneal_Tmax': 1e0,         #< Max (starting) temperature for annealing
         'anneal_Tmin': 1e-3,        #< Min (ending) temperature for annealing
         'verbosity': 0,             #< verbosity level    
@@ -155,6 +156,52 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         else:
             return int_mat
             
+            
+    def mixture_statistics(self):
+        """ calculates statistics of mixtures. Returns a vector with the 
+        frequencies at which substrates are present in mixtures and a matrix
+        of correlations among substrates """
+        
+        if self.has_correlations:
+            # mixture has correlations => we do Metropolis sampling
+            hi = self.commonness
+            Jij = self.correlations
+            
+            c = np.random.random_integers(0, 1, self.Ns)
+            Elast = np.dot(hi, c) + np.dot(c, np.dot(Jij, c))
+            
+            count = 0
+            hist1d = np.zeros(self.Ns, np.int)
+            hist2d = np.zeros((self.Ns, self.Ns), np.int)
+            for _ in range(int(self.parameters['metropolis_steps'])):
+                i = random.randrange(self.Ns)
+                c[i] = 1 - c[i]
+                Ei = np.dot(np.dot(Jij, c) - hi, c)
+                if Ei < Elast or random.random() < np.exp(Elast - Ei):
+                    # accept the new state
+                    Elast = Ei
+                else:
+                    # reject the new state and revert to the last one
+                    c[i] = 1 - c[i]
+            
+                # accept the state
+                count += 1
+                hist1d += c
+                hist2d += np.outer(c, c)
+            
+            # calculate the frequency and the correlations 
+            ci_mean = hist1d / count
+            cij = hist2d / count
+            cij_corr = cij - np.outer(ci_mean, ci_mean)
+                
+        else:
+            # mixture does not have correlations => we can calculated the
+            # statistics directly
+            ci_mean = self.substrate_probabilities
+            cij_corr = np.diag(ci_mean - ci_mean**2)
+            
+        return ci_mean, cij_corr
+            
 
     def activity_single(self, method='auto'):
         """ calculates the average activity of each receptor
@@ -162,6 +209,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
             than the method is chosen automatically based on the problem size.
         """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 method = 'brute_force'
@@ -271,6 +321,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `ret_prob_activity` determines whether the probabilities of the
             different outputs is returned or not
         """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 method = 'brute_force'
@@ -463,6 +516,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def inefficiency_estimate(self):
         """ returns the estimated performance of the system, which acts as a
         proxy for the mutual information between input and output """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
         I_ai = self.int_mat
         prob_s = self.substrate_probabilities
         
