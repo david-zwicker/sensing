@@ -302,8 +302,11 @@ class LibraryBinaryBase(LibraryBase):
                 distribution with standard deviation `magnitude`
         """
         shape = (self.Ns, self.Ns)
+
+        if magnitude == 0:
+            Jij = np.zeros(shape)
         
-        if scheme == 'const':
+        elif scheme == 'const':
             # all correlations are equal
             Jij = np.full(shape, magnitude)
         

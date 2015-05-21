@@ -409,6 +409,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 method = 'brute_force'
+            elif self.has_correlations:
+                method = 'metropolis'
             else:
                 method = 'monte_carlo'
                 
@@ -416,6 +418,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return self.mutual_information_brute_force(**kwargs)
         elif method == 'monte_carlo':
             return self.mutual_information_monte_carlo(**kwargs)
+        elif method == 'metropolis':
+            return self.mutual_information_metropolis(**kwargs)
         elif method == 'estimate':
             return self.mutual_information_estimate(**kwargs)
         else:

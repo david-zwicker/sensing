@@ -38,13 +38,17 @@ def optimize_receptors(parameters):
     )
     model.choose_interaction_matrix(density=density_optimal)
     model.set_commonness(parameters['scheme'], parameters['m'])
+    model.set_correlations(parameters['correlation-scheme'],
+                           parameters['correlation-magnitude'])
     
-    # optimize
+    # optimize the interaction matrix
     result = model.optimize_library('mutual_information', method='anneal',
                                     steps=parameters['steps'])
     
-    return {'parameters': parameters, 'init_arguments': model.init_arguments,
-            'MI': result[0], 'I_ai': result[1]}
+    return {'parameters': parameters,
+            'init_arguments': model.init_arguments,
+            'mutual_information': result[0],
+            'interaction_matrix': result[1]}
 
 
 
@@ -62,39 +66,49 @@ def main():
                         default=argparse.SUPPRESS, help='number of substrates')
     parser.add_argument('-Nr', nargs='+', type=int, required=True,
                         default=argparse.SUPPRESS, help='number of receptors')
-    parser.add_argument('-m', '-mixture-size', metavar='M', nargs='+',
+    parser.add_argument('-m', '--mixture-size', metavar='M', nargs='+',
                         type=float, required=True, default=argparse.SUPPRESS,
                         help='average number of substrates per mixture')
-    parser.add_argument('-steps', '-s', nargs='+', type=int, default=[100000],
+    parser.add_argument('-s', '--steps', nargs='+', type=int, default=[100000],
                         help='steps in simulated annealing')
-    parser.add_argument('-repeat', '-r', type=int, default=1,
+    parser.add_argument('-r', '--repeat', type=int, default=1,
                         help='number of repeats for each parameter set')
-    parser.add_argument('-scheme', type=str, default='random_uniform',
+    parser.add_argument('--mixture-scheme', '--scheme', type=str,
+                        default='random_uniform',
                         choices=['const', 'linear', 'random_uniform'],
                         help='scheme for picking substrate probabilities')
-    parser.add_argument('-seed', type=int, default=None,
+    parser.add_argument('--correlation-magnitude', '-corr', metavar='C',
+                        nargs='+', type=float, default=[0],
+                        help='magnitude of the substrate correlations')
+    parser.add_argument('--correlation-scheme', type=str, default='const',
+                        choices=['const', 'random_binary', 'random_uniform',
+                                 'random_normal'],
+                        help='scheme for picking substrate correlations')
+    parser.add_argument('--seed', type=int, default=None,
                         help='seed for the random number generator.')
-    parser.add_argument('-parallel', '-p', action='store_true',
+    parser.add_argument('-p', '--parallel', action='store_true',
                         default=False, help='use multiple processes')
-    parser.add_argument('-quite', '-q', action='store_true',
+    parser.add_argument('-q', '--quite', action='store_true',
                         default=False,
                         help='silence the output')
-    parser.add_argument('-filename', '-f', default='result.pkl',
+    parser.add_argument('-f', '--filename', default='result.pkl',
                         help='filename of the result file')
     
     # fetch the arguments and build the parameter list
     args = parser.parse_args()
-    arg_list = (args.Ns, args.Nr, args.m, args.steps, range(args.repeat))
-    parameter_list = [{'Ns': Ns, 'Nr': Nr, 'm': m, 'steps': steps,
-                       'scheme': args.scheme, 'random_seed': args.seed,
-                       'quite': args.quite}
-                      for Ns, Nr, m, steps, _ in itertools.product(*arg_list)]
+    arg_list = (args.Ns, args.Nr, args.mixture_size, args.correlation_magnitude,
+                args.steps, range(args.repeat))
+    job_list = [{'Ns': Ns, 'Nr': Nr, 'm': m, 'scheme': args.mixture_scheme, 
+                 'correlation-magnitude': corr,
+                 'correlation-scheme': args.correlation_scheme,
+                 'random_seed': args.seed, 'steps': steps, 'quite': args.quite}
+                 for Ns, Nr, m, corr, steps, _ in itertools.product(*arg_list)]
         
     # do the optimization
-    if args.parallel and len(parameter_list) > 1:
-        results = mp.Pool().map(optimize_receptors, parameter_list)
+    if args.parallel and len(job_list) > 1:
+        results = mp.Pool().map(optimize_receptors, job_list)
     else:
-        results = map(optimize_receptors, parameter_list)
+        results = map(optimize_receptors, job_list)
         
     # write the pickled result to file
     with open(args.filename, 'wb') as fp:

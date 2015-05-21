@@ -54,24 +54,31 @@ def estimate_computation_speed(func, *args, **kwargs):
 def get_fastest_entropy_function():
     """ returns a function that calculates the entropy of a array of integers
     Here, several alternative definitions are tested and the fastest one is
-    returned """ 
+    returned """
+    
+    # define a bunch of functions that act the same but have different speeds 
+    
     def entropy_numpy(arr):
-        """ entropy function based on numpy.unique """
+        """ calculate the entropy of the distribution given in `arr` """
         fs = np.unique(arr, return_counts=True)[1]
         return np.sum(fs*np.log2(fs))
+    
     def entropy_scipy(arr):
-        """ entropy function based on scipy.stats.itemfreq """
+        """ calculate the entropy of the distribution given in `arr` """
         fs = itemfreq(arr)[:, 1]
         return np.sum(fs*np.log2(fs))
+    
     def entropy_counter1(arr):
-        """ entropy function based on collections.Counter """
+        """ calculate the entropy of the distribution given in `arr` """
         return sum(val*np.log2(val)
                    for val in Counter(arr).itervalues())
+        
     def entropy_counter2(arr):
-        """ entropy function based on collections.Counter """
+        """ calculate the entropy of the distribution given in `arr` """
         return sum(val*np.log2(val)
                    for val in Counter(arr).values())
 
+    # test all functions against a random array to find the fastest one
     test_array = np.random.random_integers(0, 10, 100)
     func_fastest, speed_max = None, 0
     for test_func in (entropy_numpy, entropy_scipy, entropy_counter1,
@@ -88,7 +95,15 @@ def get_fastest_entropy_function():
 
     return func_fastest
 
-calc_entropy = get_fastest_entropy_function()
+
+
+def calc_entropy(arr):
+    """ calculate the entropy of the distribution given in `arr` """
+    # find the fastest entropy function on the first call of this function
+    # and bind it to the same name such that it is used in future times
+    global calc_entropy
+    calc_entropy = get_fastest_entropy_function()
+    return calc_entropy(arr)
 
 
 
