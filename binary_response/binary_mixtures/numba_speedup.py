@@ -34,9 +34,9 @@ def _mixture_energy(ci, hi, Jij):
     # TODO: this can be optimized by only iterating over upper triangle
     for i in range(Ns):
         energy -= hi[i] * ci[i]
-        energy += Jij[i, i] * ci[i] * ci[i]
+        energy -= Jij[i, i] * ci[i] * ci[i]
         for j in range(i + 1, Ns):
-            energy += 2 * Jij[i, j] * ci[i] * ci[j]
+            energy -= 2 * Jij[i, j] * ci[i] * ci[j]
     return energy
 
 

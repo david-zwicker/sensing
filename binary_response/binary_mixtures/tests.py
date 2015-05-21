@@ -6,7 +6,6 @@ Created on May 1, 2015
 
 from __future__ import division
 
-import itertools
 import unittest
 
 import numpy as np
@@ -76,40 +75,6 @@ class TestLibraryBinary(unittest.TestCase):
                 self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
                 
-                
-    def test_correlations(self):
-        """ test mixtures with correlations """
-        for correlated in (True, False):
-            # create test object
-            model = LibraryBinaryNumeric.create_test_instance(
-                                                  correlated_mixture=correlated)
-            
-            # extract parameters
-            hi = model.commonness
-            Jij = model.correlations
-            
-            # calculate the mean correlations 
-            ci_exact = np.zeros(model.Ns)
-            cij_exact = np.zeros((model.Ns, model.Ns))
-            Z = 0
-            for c in itertools.product((0, 1), repeat=model.Ns):
-                c = np.array(c)
-                prob_c = np.exp(np.dot(hi - np.dot(Jij, c), c))
-                Z += prob_c
-                ci_exact += c * prob_c
-                cij_exact += np.outer(c, c) * prob_c
-            
-            ci_exact /= Z
-            cij_exact /= Z
-            cij_corr_exact = cij_exact - np.outer(ci_exact, ci_exact)
-            
-            # calculate this numerically
-            ci_mean_numeric, cij_corr_numeric = model.mixture_statistics()
-            self.assertAllClose(ci_exact, ci_mean_numeric,
-                                rtol=1e-2, atol=1e-2)
-            self.assertAllClose(cij_corr_exact, cij_corr_numeric,
-                                rtol=1e-2, atol=1e-2)
-
                 
     def test_numerics(self):
         """ test numerical calculations """

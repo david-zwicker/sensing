@@ -192,7 +192,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             c = np.array(c)
             
             # probability of finding this mixture
-            prob_c = np.exp(np.dot(hi - np.dot(Jij, c), c))
+            prob_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
             Z += prob_c        
             hist1d += c * prob_c
             hist2d += np.outer(c, c) * prob_c
@@ -211,7 +211,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         Jij = self.correlations
         
         c = np.random.random_integers(0, 1, self.Ns)
-        Elast = np.dot(hi, c) + np.dot(c, np.dot(Jij, c))
+        Elast = -np.dot(np.dot(Jij, c) + hi, c)
         
         count = 0
         hist1d = np.zeros(self.Ns, np.int)
@@ -219,7 +219,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         for _ in range(int(self.parameters['metropolis_steps'])):
             i = random.randrange(self.Ns)
             c[i] = 1 - c[i]
-            Ei = np.dot(np.dot(Jij, c) - hi, c)
+            Ei = -np.dot(np.dot(Jij, c) + hi, c)
             if Ei < Elast or random.random() < np.exp(Elast - Ei):
                 # accept the new state
                 Elast = Ei
@@ -282,7 +282,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             a = np.dot(self.int_mat, c).astype(np.bool)
 
             # probability of finding this mixture
-            prob_c = np.exp(np.dot(hi - np.dot(Jij, c), c))
+            prob_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
             prob_a[a] += prob_c
             Z += prob_c
                 
@@ -323,13 +323,13 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         # start with a random concentration vector 
         c = np.random.random_integers(0, 1, self.Ns)
-        Elast = np.dot(hi, c) + np.dot(c, np.dot(Jij, c))
+        Elast = -np.dot(np.dot(Jij, c) + hi, c)
         
         count_a = np.zeros(self.Nr)
         for _ in range(num):
             i = random.randrange(self.Ns)
             c[i] = 1 - c[i]
-            Ei = np.dot(np.dot(Jij, c) - hi, c)
+            Ei = -np.dot(np.dot(Jij, c) + hi, c)
             if Ei < Elast or random.random() < np.exp(Elast - Ei):
                 # accept the new state
                 Elast = Ei
@@ -435,7 +435,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             c = np.array(c)
 
             # probability of finding this mixture
-            prob_c = np.exp(np.dot(hi - np.dot(Jij, c), c))
+            prob_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
             
             # get the associated output ...
             a = np.dot(self.int_mat, c).astype(np.bool)
@@ -577,14 +577,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         # start with a random concentration vector 
         c = np.random.random_integers(0, 1, self.Ns)
-        Elast = np.dot(hi, c) + np.dot(c, np.dot(Jij, c))
+        Elast = -np.dot(np.dot(Jij, c) + hi, c)
         
         steps = int(self.parameters['metropolis_steps'])        
         count_a = np.zeros(2**self.Nr)
         for _ in range(steps):
             i = random.randrange(self.Ns)
             c[i] = 1 - c[i]
-            Ei = np.dot(np.dot(Jij, c) - hi, c)
+            Ei = -np.dot(np.dot(Jij, c) + hi, c)
             if Ei < Elast or random.random() < np.exp(Elast - Ei):
                 # accept the new state
                 Elast = Ei

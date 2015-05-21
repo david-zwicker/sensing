@@ -23,10 +23,11 @@ class LibraryBinaryBase(LibraryBase):
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
-        'commonness_vector': None,     #< chosen substrate commonness
-        'commonness_parameters': None, #< parameters for substrate commonness
+        'commonness_vector': None,      #< chosen substrate commonness
+        'commonness_parameters': None,  #< parameters for substrate commonness
         'correlation_matrix': None,     #< chosen substrate correlations
         'correlation_parameters': None, #< parameters for substrate correlations
+        'fixed_mixture_size': False,    #< whether mixture size should be fixed
     }
 
 
