@@ -130,6 +130,20 @@ class TestLibraryBinary(unittest.TestCase):
                 model = LibraryBinaryNumeric.create_test_instance(
                                           correlated_mixture=mixture_correlated)
     
+                # test mixture statistics
+                ci_1, cij_1 = model.mixture_statistics_brute_force()
+                if not mixture_correlated:
+                    ci_2, cij_2 = model.mixture_statistics()
+                    self.assertAllClose(ci_1, ci_2, rtol=1e-2, atol=1e-2,
+                                        msg=error_msg)
+                    self.assertAllClose(cij_1, cij_2, rtol=1e-2, atol=1e-2,
+                                        msg=error_msg)
+                ci_2, cij_2 = model.mixture_statistics_metropolis()
+                self.assertAllClose(ci_1, ci_2, rtol=1e-2, atol=1e-2,
+                                    msg=error_msg)
+                self.assertAllClose(cij_1, cij_2, rtol=1e-2, atol=1e-2,
+                                    msg=error_msg)
+                    
                 # test activity patterns
                 prob_a_1 = model.activity_single_brute_force()
                 if not mixture_correlated:

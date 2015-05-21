@@ -137,7 +137,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         self.parameters['interaction_matrix_params'] = {
             'density': density,
             'avoid_correlations': avoid_correlations
-        }
+        }   
             
             
     def sort_interaction_matrix(self, interaction_matrix=None):
@@ -164,35 +164,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         if self.has_correlations:
             # mixture has correlations => we do Metropolis sampling
-            hi = self.commonness
-            Jij = self.correlations
-            
-            c = np.random.random_integers(0, 1, self.Ns)
-            Elast = np.dot(hi, c) + np.dot(c, np.dot(Jij, c))
-            
-            count = 0
-            hist1d = np.zeros(self.Ns, np.int)
-            hist2d = np.zeros((self.Ns, self.Ns), np.int)
-            for _ in range(int(self.parameters['metropolis_steps'])):
-                i = random.randrange(self.Ns)
-                c[i] = 1 - c[i]
-                Ei = np.dot(np.dot(Jij, c) - hi, c)
-                if Ei < Elast or random.random() < np.exp(Elast - Ei):
-                    # accept the new state
-                    Elast = Ei
-                else:
-                    # reject the new state and revert to the last one
-                    c[i] = 1 - c[i]
-            
-                # accept the state
-                count += 1
-                hist1d += c
-                hist2d += np.outer(c, c)
-            
-            # calculate the frequency and the correlations 
-            ci_mean = hist1d / count
-            cij = hist2d / count
-            cij_corr = cij - np.outer(ci_mean, ci_mean)
+            if self.Ns <= self.parameters['brute_force_threshold_Ns']:
+                ci_mean, cij_corr = self.mixture_statistics_brute_force()
+            else:
+                ci_mean, cij_corr = self.mixture_statistics_metropolis()
                 
         else:
             # mixture does not have correlations => we can calculated the
@@ -200,6 +175,68 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             ci_mean = self.substrate_probabilities
             cij_corr = np.diag(ci_mean - ci_mean**2)
             
+        return ci_mean, cij_corr
+    
+    
+    def mixture_statistics_brute_force(self):
+        """ calculates mixture statistics using a brute force algorithm """
+        hi = self.commonness
+        Jij = self.correlations
+        
+        Z = 0
+        hist1d = np.zeros(self.Ns)
+        hist2d = np.zeros((self.Ns, self.Ns))
+        
+        # iterate over all mixtures
+        for c in itertools.product((0, 1), repeat=self.Ns):
+            c = np.array(c)
+            
+            # probability of finding this mixture
+            prob_c = np.exp(np.dot(hi - np.dot(Jij, c), c))
+            Z += prob_c        
+            hist1d += c * prob_c
+            hist2d += np.outer(c, c) * prob_c
+        
+        # calculate the frequency and the correlations 
+        ci_mean = hist1d / Z
+        cij = hist2d / Z
+        cij_corr = cij - np.outer(ci_mean, ci_mean)
+        
+        return ci_mean, cij_corr  
+    
+    
+    def mixture_statistics_metropolis(self):
+        """ calculates mixture statistics using a metropolis algorithm """
+        hi = self.commonness
+        Jij = self.correlations
+        
+        c = np.random.random_integers(0, 1, self.Ns)
+        Elast = np.dot(hi, c) + np.dot(c, np.dot(Jij, c))
+        
+        count = 0
+        hist1d = np.zeros(self.Ns, np.int)
+        hist2d = np.zeros((self.Ns, self.Ns), np.int)
+        for _ in range(int(self.parameters['metropolis_steps'])):
+            i = random.randrange(self.Ns)
+            c[i] = 1 - c[i]
+            Ei = np.dot(np.dot(Jij, c) - hi, c)
+            if Ei < Elast or random.random() < np.exp(Elast - Ei):
+                # accept the new state
+                Elast = Ei
+            else:
+                # reject the new state and revert to the last one
+                c[i] = 1 - c[i]
+        
+            # accept the state
+            count += 1
+            hist1d += c
+            hist2d += np.outer(c, c)
+        
+        # calculate the frequency and the correlations 
+        ci_mean = hist1d / count
+        cij = hist2d / count
+        cij_corr = cij - np.outer(ci_mean, ci_mean)
+        
         return ci_mean, cij_corr
             
 
@@ -236,6 +273,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
 
         prob_a = np.zeros(self.Nr)
         Z = 0
+        
         # iterate over all mixtures
         for c in itertools.product((0, 1), repeat=self.Ns):
             c = np.array(c)
@@ -247,7 +285,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             prob_c = np.exp(np.dot(hi - np.dot(Jij, c), c))
             prob_a[a] += prob_c
             Z += prob_c
-            
+                
         return prob_a / Z
 
             
@@ -553,7 +591,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             else:
                 # reject the new state and revert to the last one
                 c[i] = 1 - c[i]
-        
+
             # accept the state, get the associated output ...
             a = np.dot(self.int_mat, c).astype(np.bool)
             # ... and represent it as a single integer
