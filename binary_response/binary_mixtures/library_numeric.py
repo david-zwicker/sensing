@@ -814,7 +814,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             # run the calculations in multiple processes
             pool = mp.Pool()
             pool_size = len(pool._pool)
-            for _ in range(steps // pool_size):
+            for _ in range(int(steps) // pool_size):
                 joblist = []
                 init_arguments = self.init_arguments
                 for _ in range(pool_size):
@@ -853,7 +853,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 
         else:  
             # run the calculations in this process
-            for _ in range(steps):
+            for _ in range(int(steps)):
                 # modify the current state
                 i = random.randrange(self.int_mat.size)
                 self.int_mat.flat[i] = 1 - self.int_mat.flat[i]

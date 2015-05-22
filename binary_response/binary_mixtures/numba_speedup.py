@@ -33,12 +33,32 @@ def _mixture_energy(ci, hi, Jij):
     Ns = ci.size
     # TODO: this can be optimized by only iterating over upper triangle
     for i in range(Ns):
-        energy -= hi[i] * ci[i]
-        energy -= Jij[i, i] * ci[i] * ci[i]
-        for j in range(i + 1, Ns):
-            energy -= 2 * Jij[i, j] * ci[i] * ci[j]
-    return energy
+        if ci[i] > 0:
+            energy += hi[i] + Jij[i, i]
+            for j in range(i + 1, Ns):
+                energy += 2 * Jij[i, j] * ci[j]
+    return -energy
 
+
+    
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def _mixture_energy_indices(indices, hi, Jij):
+    """ helper function that calculates the "energy" associated with the
+    mixture defined by the `indices` of substrates that are present, given
+    commonness vector `hi` and correlation matrix `Jij` """ 
+    energy = 0
+    # TODO: this can be optimized by only iterating over upper triangle
+    for k, i in enumerate(indices):
+        energy += hi[i] + Jij[i, i]
+        for j in indices[k:]:
+            energy += 2 * Jij[i, j]
+    return -energy
+
+
+    
+#===============================================================================
+# ACTIVITY SINGLE
+#===============================================================================
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
@@ -76,6 +96,7 @@ def LibraryBinaryNumeric_activity_single_brute_force_corr_numba(
         prob_a[a] /= Z
 
 
+
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_activity_single_brute_force_numba(
          int_mat, prob_s, ak, prob_a):
@@ -107,6 +128,7 @@ def LibraryBinaryNumeric_activity_single_brute_force_numba(
                 prob_a[a] += pm
 
 
+
 def LibraryBinaryNumeric_activity_single_brute_force(self):
     """ calculates the average activity of each receptor """
     prob_a = np.zeros(self.Nr) 
@@ -136,11 +158,16 @@ def LibraryBinaryNumeric_activity_single_brute_force(self):
     return prob_a
 
 
+
 numba_patcher.register_method(
     'LibraryBinaryNumeric.activity_single_brute_force',
     LibraryBinaryNumeric_activity_single_brute_force,
 )
     
+    
+#===============================================================================
+# ACTIVITY CORRELATIONS
+#===============================================================================
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
@@ -176,6 +203,7 @@ def LibraryBinaryNumeric_activity_correlations_brute_force_numba(
                         prob_a[b, a] += pm
                     
     
+    
 def LibraryBinaryNumeric_activity_correlations_brute_force(self):
     """ calculates the correlations between receptor activities """
     if self.has_correlations:
@@ -193,12 +221,73 @@ def LibraryBinaryNumeric_activity_correlations_brute_force(self):
     return prob_a
 
 
+
 numba_patcher.register_method(
     'LibraryBinaryNumeric.activity_correlations_brute_force',
     LibraryBinaryNumeric_activity_correlations_brute_force
 )
+
     
+#===============================================================================
+# MUTUAL INFORMATION BRUTE FORCE
+#===============================================================================
+
+            
+@numba.jit(locals={'i': numba.int32, 'j': numba.int32},
+           nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def LibraryBinaryNumeric_mutual_information_brute_force_fixed_numba(
+        Ns, Nr, int_mat, hi, Jij, m, indices, prob_a):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    # initialize the mixture vector
+    for i in range(m):
+        indices[i] = i
+
+    # iterate over all mixtures with a given number of substrates    
+    Z = 0
+    count = 0
+    running = True
+    while running:
+        count += 1
+        # find the next iteration of the mixture
+        for i in range(m - 1, -1, -1):
+            if indices[i] + m != i + Ns:
+                indices[i] += 1
+                for j in range(i + 1, m):
+                    indices[j] = indices[j - 1] + 1
+                break
+        else:
+            # set the last mixture
+            for i in range(m):
+                indices[i] = i
+            running = False
+        # `indices` now holds the indices of ones in the concentration vector
+
+        # calculate the probability of finding this mixture 
+        pm = np.exp(-_mixture_energy_indices(indices, hi, Jij))
+        Z += pm
+
+        # determine the activity pattern 
+        a_id, base = 0, 1
+        for a in range(Nr): 
+            for i in indices:
+                if int_mat[a, i] == 1:
+                    a_id += base
+                    break
+            base *= 2
+        
+        prob_a[a_id] += pm
     
+    # calculate the mutual information from the observed probabilities
+    MI = 0
+    for pa in prob_a:
+        if pa > 0:
+            pa /= Z #< normalize the probability distribution
+            MI -= pa * np.log2(pa)
+    
+    return MI
+        
+   
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_brute_force_corr_numba(
@@ -243,6 +332,7 @@ def LibraryBinaryNumeric_mutual_information_brute_force_corr_numba(
     
     return MI
         
+
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_brute_force_numba(
@@ -289,12 +379,21 @@ def LibraryBinaryNumeric_mutual_information_brute_force_numba(
 def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
+
     prob_a = np.zeros(2**self.Nr) 
+    mixture_size = self.parameters['fixed_mixture_size']
     
-    if self.parameters['fixed_mixture_size'] is not None:
-        raise NotImplementedError
+    if mixture_size is not None:
+        # call the jitted function for mixtures with fixed size
+        MI = LibraryBinaryNumeric_mutual_information_brute_force_fixed_numba(
+            self.Ns, self.Nr, self.int_mat,
+            self.commonness, self.correlations, #< hi, Jij
+            int(mixture_size),
+            np.empty(mixture_size, np.uint), #< inidices
+            prob_a
+        )
     
-    if self.has_correlations:
+    elif self.has_correlations:
         # call the jitted function for correlated mixtures
         MI = LibraryBinaryNumeric_mutual_information_brute_force_corr_numba(
             self.Ns, self.Nr, self.int_mat,
@@ -319,11 +418,16 @@ def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=
         return MI
 
 
+
 numba_patcher.register_method(
     'LibraryBinaryNumeric.mutual_information_brute_force',
     LibraryBinaryNumeric_mutual_information_brute_force
 )
 
+    
+#===============================================================================
+# MUTUAL INFORMATION MONTE CARLO
+#===============================================================================
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
@@ -569,7 +673,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
                 self.Ns, self.Nr, self.get_steps('metropolis'), 
                 self.int_mat,
                 self.commonness, self.correlations, #< hi, Jij
-                mixture_size,
+                int(mixture_size),
                 ci, np.empty(self.Nr, np.uint), #< an
                 prob_a
             )
@@ -596,6 +700,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
             return MI
 
 
+
 numba_patcher.register_method(
     'LibraryBinaryNumeric.mutual_information_monte_carlo',
     LibraryBinaryNumeric_mutual_information_monte_carlo,
@@ -603,6 +708,10 @@ numba_patcher.register_method(
 )
 
     
+#===============================================================================
+# MUTUAL INFORMATION ESTIMATION
+#===============================================================================
+
 
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
            nogil=NUMBA_NOGIL)
@@ -636,6 +745,7 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
             MI -= 2*(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab) * p_Gab
                 
     return MI
+    
     
     
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
@@ -672,6 +782,7 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
     return MI
     
 
+
 def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
@@ -697,6 +808,7 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
         )
     
     return MI
+
 
 
 numba_patcher.register_method(
@@ -733,6 +845,7 @@ def LibraryBinaryNumeric_inefficiency_estimate_numba(int_mat, prob_s,
     return res
 
 
+
 def LibraryBinaryNumeric_inefficiency_estimate(self):
     """ returns the estimated performance of the system, which acts as a
     proxy for the mutual information between input and output """
@@ -743,6 +856,7 @@ def LibraryBinaryNumeric_inefficiency_estimate(self):
     crosstalk_weight = self.parameters['inefficiency_weight']
     return LibraryBinaryNumeric_inefficiency_estimate_numba(self.int_mat, prob_s,
                                                             crosstalk_weight)
+
 
 
 numba_patcher.register_method(
