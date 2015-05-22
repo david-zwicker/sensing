@@ -429,7 +429,7 @@ def LibraryBinaryNumeric_mutual_information_metropolis_numba(
  
  
 
-@numba.jit#(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
         Ns, Nr, steps, int_mat, hi, Jij, mixture_size, ci, an, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
@@ -537,7 +537,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
         # call jitted function implementing simple monte carlo algorithm
 
         MI = LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
-            self.Ns, self.Nr, int(self.parameters['monte_carlo_steps']), 
+            self.Ns, self.Nr, self.get_steps('monte_carlo'), 
             self.int_mat,
             self.substrate_probabilities, #< prob_s
             np.empty(self.Nr, np.uint), #< ak
@@ -550,7 +550,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
         if mixture_size is None:
             # call jitted function implementing simple metropolis algorithm
             MI = LibraryBinaryNumeric_mutual_information_metropolis_numba(
-                self.Ns, self.Nr, int(self.parameters['metropolis_steps']), 
+                self.Ns, self.Nr, self.get_steps('metropolis'), 
                 self.int_mat,
                 self.commonness, self.correlations, #< hi, Jij
                 np.empty(self.Ns, np.uint8), #< ci
@@ -566,7 +566,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
             
             # call jitted function implementing swapping metropolis algorithm
             MI = LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
-                self.Ns, self.Nr, int(self.parameters['metropolis_steps']), 
+                self.Ns, self.Nr, self.get_steps('metropolis'), 
                 self.int_mat,
                 self.commonness, self.correlations, #< hi, Jij
                 mixture_size,

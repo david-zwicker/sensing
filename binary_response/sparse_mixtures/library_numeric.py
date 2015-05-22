@@ -77,7 +77,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         obj = super(LibrarySparseNumeric, cls).create_test_instance(**kwargs)
 
         # determine optimal parameters for the interaction matrix
-        from .library_theory import LibrarySparseBinary
+        from .library_theory import LibrarySparseBinary  # @UnresolvedImport
         theory = LibrarySparseBinary.from_other(obj)
         obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj

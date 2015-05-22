@@ -26,6 +26,7 @@ import multiprocessing as mp
 import random
 
 import numpy as np
+import scipy.misc
 from six.moves import range, zip
 
 from .library_base import LibraryBinaryBase
@@ -37,17 +38,21 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
-        'max_num_receptors': 28,    #< prevents memory overflows
-        'interaction_matrix': None, #< will be calculated if not given
+        'max_num_receptors': 28,        #< prevents memory overflows
+        'interaction_matrix': None,     #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
-        'inefficiency_weight': 1,   #< weighting parameter for inefficiency
+        'inefficiency_weight': 1,       #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
-        'monte_carlo_steps': 1e5,   #< default number of Monte Carlo steps
-        'metropolis_steps': 1e5,    #< default number of Metropolis steps
-        'fixed_mixture_size': None, #< fixed m or None 
-        'anneal_Tmax': 1e0,         #< Max (starting) temperature for annealing
-        'anneal_Tmin': 1e-3,        #< Min (ending) temperature for annealing
-        'verbosity': 0,             #< verbosity level    
+        'monte_carlo_steps': 'auto',    #< default steps for monte carlo
+        'monte_carlo_steps_min': 1e4,   #< minimal steps for monte carlo
+        'monte_carlo_steps_max': 1e5,   #< maximal steps for monte carlo
+        'metropolis_steps': 1e5,        #< default number of Metropolis steps
+        'metropolis_steps_min': 1e4,    #< minimal steps for metropolis
+        'metropolis_steps_max': 1e5,    #< maximal steps for metropolis
+        'fixed_mixture_size': None,     #< fixed m or None 
+        'anneal_Tmax': 1e0,             #< Max (starting) temp. for annealing
+        'anneal_Tmin': 1e-3,            #< Min (ending) temp. for annealing
+        'verbosity': 0,                 #< verbosity level    
     }
     
 
@@ -99,6 +104,34 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         return obj
     
+                
+    def get_steps(self, scheme):
+        """ calculate the number of steps to do for `scheme`"""
+        if scheme == 'monte_carlo':
+            # calculate the number of steps for a monte-carlo scheme
+            if self.parameters['monte_carlo_steps'] == 'auto':
+                steps_min = self.parameters['monte_carlo_steps_min']
+                steps_max = self.parameters['monte_carlo_steps_max']
+                steps = np.clip(10 * 2**self.Nr, steps_min, steps_max) 
+                # Here, the factor 10 is an arbitrary scaling factor
+            else:
+                steps = self.parameters['monte_carlo_steps']
+            
+        elif scheme == 'metropolis':
+            # calculate the number of steps for a metropolis scheme
+            if self.parameters['metropolis_steps'] == 'auto':
+                steps_min = self.parameters['metropolis_steps_min']
+                steps_max = self.parameters['metropolis_steps_max']
+                steps = np.clip(10 * 2**self.Nr, steps_min, steps_max) 
+                # Here, the factor 10 is an arbitrary scaling factor
+            else:
+                steps = self.parameters['metropolis_steps']
+                
+        else:
+            raise ValueError('Unknown stepping scheme `%s`' % scheme)
+            
+        return int(steps)
+
 
     def choose_interaction_matrix(self, density=0, avoid_correlations=False):
         """ creates a interaction matrix with the given properties """
@@ -170,6 +203,16 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return int_mat
         
         
+    @property
+    def _iterate_steps(self):
+        """ return the number of steps we iterate over """
+        mixture_size = self.parameters['fixed_mixture_size']
+        if mixture_size is None:
+            return 2 ** self.Ns
+        else:
+            return scipy.misc.comb(self.Ns, mixture_size, exact=True)
+        
+        
     def _iterate_mixtures(self):
         """ iterate over all mixtures and yield the mixture with probability """
         hi = self.commonness
@@ -193,26 +236,31 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 yield c, weight_c
 
 
-    def _sample_mixtures(self, steps=None):
+    @property
+    def _sample_steps(self):
+        """ returns the number of steps that are sampled """
+        mixture_size = self.parameters['fixed_mixture_size']
+        if not self.has_correlations and mixture_size is None:
+            return self.get_steps('monte_carlo')
+        else:
+            return self.get_steps('metropolis')
+
+
+    def _sample_mixtures(self):
         """ sample mixtures with uniform probability yielding single mixtures """
                 
         mixture_size = self.parameters['fixed_mixture_size']
                 
         if not self.has_correlations and mixture_size is None:
             # use simple monte carlo algorithm
-            if steps is None:
-                steps = int(self.parameters['monte_carlo_steps'])
-            
             prob_s = self.substrate_probabilities
             
-            for _ in range(steps):
+            for _ in range(self._sample_steps):
                 # choose a mixture vector according to substrate probabilities
                 yield (np.random.random(self.Ns) < prob_s)
                 
         else:            
             # use metropolis algorithm
-            if steps is None:
-                steps = int(self.parameters['metropolis_steps'])
             hi = self.commonness
             Jij = self.correlations
 
@@ -223,7 +271,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 c = np.random.random_integers(0, 1, self.Ns)
                 Elast = -np.dot(np.dot(Jij, c) + hi, c)
                 
-                for _ in range(steps):
+                for _ in range(self._sample_steps):
                     i = random.randrange(self.Ns)
                     c[i] = 1 - c[i]
                     Ei = -np.dot(np.dot(Jij, c) + hi, c)
@@ -245,7 +293,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 np.random.shuffle(c)
                 Elast = -np.dot(np.dot(Jij, c) + hi, c)
                 
-                for _ in range(steps):
+                for _ in range(self._sample_steps):
                     # find the next mixture by swapping two items
                     i0 = random.choice(np.flatnonzero(c == 0)) #< find 0
                     i1 = random.choice(np.flatnonzero(c))      #< find 1
@@ -363,13 +411,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         return prob_a / Z
 
             
-    def activity_single_monte_carlo(self, steps=None):
+    def activity_single_monte_carlo(self):
         """ calculates the average activity of each receptor """ 
-        if steps is None:
-            steps = int(self.parameters['monte_carlo_steps'])
-
         count_a = np.zeros(self.Nr)
-        for c in self._sample_mixtures(steps):
+        for c in self._sample_mixtures():
             # choose a mixture vector according to substrate probabilities
             # get the associated output
             a = np.dot(self.int_mat, c).astype(np.bool)
@@ -377,7 +422,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             count_a[a] += 1
             
         # return the normalized output
-        return count_a / steps
+        return count_a / self._sample_steps
             
     
     def activity_single_estimate(self, approx_prob=False):
@@ -486,16 +531,15 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             
     def mutual_information_monte_carlo(self, ret_error=False,
                                        ret_prob_activity=False):
-        """ calculate the mutual information using a Monte Carlo strategy. The
-        number of steps is given by the model parameter 'monte_carlo_steps' """
+        """ calculate the mutual information using a Monte Carlo strategy. """
         base = 2 ** np.arange(0, self.Nr)
 
-        steps = int(self.parameters['monte_carlo_steps'])
+        steps = self._sample_steps
 
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
-        for c in self._sample_mixtures(steps):
+        for c in self._sample_mixtures():
            
             # get the associated output ...
             a = np.dot(self.int_mat, c).astype(np.bool)
@@ -531,15 +575,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         
     def mutual_information_monte_carlo_extrapolate(self, ret_prob_activity=False):
-        """ calculate the mutual information using a Monte Carlo strategy. The
-        number of steps is given by the model parameter 'monte_carlo_steps' """
+        """ calculate the mutual information using a Monte Carlo strategy. """
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
                 
         base = 2 ** np.arange(0, self.Nr)
         prob_s = self.substrate_probabilities
 
-        max_steps = int(self.parameters['monte_carlo_steps'])
+        max_steps = self._sample_steps
         steps, MIs = [], []
 
         # sample mixtures according to the probabilities of finding
