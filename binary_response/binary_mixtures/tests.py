@@ -6,6 +6,8 @@ Created on May 1, 2015
 
 from __future__ import division
 
+import collections
+import itertools
 import unittest
 
 import numpy as np
@@ -81,53 +83,63 @@ class TestLibraryBinary(unittest.TestCase):
         # save numba patcher state
         numba_patcher_enabled = numba_patcher.enabled
         
-        # try enabled and disabled numba patcher 
-        for numba_enabled in (True, False):
-            numba_patcher.set_state(numba_enabled)
+        # collect all settings that we want to test
+        settings = collections.OrderedDict()
+        settings['numba_enabled'] = (True, False)
+        settings['mixture_correlated'] = (True, False)
+        settings['fixed_mixture_size'] = (None, 2)
+        
+        # create all combinations of all settings
+        setting_comb = [dict(zip(settings.keys(), items))
+                        for items in itertools.product(*settings.values())]
+        
+        # try all these settings 
+        for setting in setting_comb:
+            # create a meaningful error message for all cases
+            error_msg = ('The different implementations do not agree for ' +
+                         ', '.join("%s=%s" % v for v in setting.items()))
+
+            numba_patcher.set_state(setting['numba_enabled'])
             
-            # try mixture_correlated and uncorrelated mixtures
-            for mixture_correlated in (True, False):
-                error_msg = ('The different implementations do not agree for '
-                             'numba_enabled=%s and has_correlations=%s'
-                             % (numba_enabled, mixture_correlated))
+            # create test object
+            model = LibraryBinaryNumeric.create_test_instance(
+                        correlated_mixture=setting['mixture_correlated'],
+                        fixed_mixture_size=setting['fixed_mixture_size']
+                    )
+
+            # test mixture statistics
+            ci_1, cij_1 = model.mixture_statistics_brute_force()
+            if not setting['mixture_correlated']:
+                ci_2, cij_2 = model.mixture_statistics()
+                self.assertAllClose(ci_1, ci_2, rtol=5e-2, atol=5e-2,
+                                    msg='Mixture statistics: ' + error_msg)
+                self.assertAllClose(cij_1, cij_2, rtol=5e-2, atol=5e-2,
+                                    msg='Mixture statistics: ' + error_msg)
+            ci_2, cij_2 = model.mixture_statistics_monte_carlo()
+            self.assertAllClose(ci_1, ci_2, rtol=5e-2, atol=5e-2,
+                                msg='Mixture statistics: ' + error_msg)
+            self.assertAllClose(cij_1, cij_2, rtol=5e-2, atol=5e-2,
+                                msg='Mixture statistics: ' + error_msg)
                 
-                # create test object
-                model = LibraryBinaryNumeric.create_test_instance(
-                                          correlated_mixture=mixture_correlated)
-    
-                # test mixture statistics
-                ci_1, cij_1 = model.mixture_statistics_brute_force()
-                if not mixture_correlated:
-                    ci_2, cij_2 = model.mixture_statistics()
-                    self.assertAllClose(ci_1, ci_2, rtol=1e-2, atol=1e-2,
-                                        msg=error_msg)
-                    self.assertAllClose(cij_1, cij_2, rtol=1e-2, atol=1e-2,
-                                        msg=error_msg)
-                ci_2, cij_2 = model.mixture_statistics_metropolis()
-                self.assertAllClose(ci_1, ci_2, rtol=1e-2, atol=1e-2,
-                                    msg=error_msg)
-                self.assertAllClose(cij_1, cij_2, rtol=1e-2, atol=1e-2,
-                                    msg=error_msg)
-                    
-                # test activity patterns
+            # test activity patterns
+            try:
                 prob_a_1 = model.activity_single_brute_force()
-                if not mixture_correlated:
-                    prob_a_2 = model.activity_single_monte_carlo()
-                    self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2,
-                                        atol=1e-2, msg=error_msg)
-                prob_a_2 = model.activity_single_metropolis()
-                self.assertAllClose(prob_a_1, prob_a_2, rtol=1e-2, atol=1e-2,
-                                    msg=error_msg)
-                    
-                # test calculation of mutual information
+            except NotImplementedError:
+                pass
+            else:
+                prob_a_2 = model.activity_single_monte_carlo()
+                self.assertAllClose(prob_a_1, prob_a_2, rtol=5e-2, atol=5e-2,
+                                    msg='Receptor activities: ' + error_msg)
+                
+            # test calculation of mutual information
+            try:
                 MI_1 = model.mutual_information_brute_force()
-                if not mixture_correlated:
-                    MI_2 = model.mutual_information_monte_carlo()
-                    self.assertAllClose(MI_1, MI_2, rtol=1e-2, atol=1e-2,
-                                        msg=error_msg)
-                MI_2 = model.mutual_information_metropolis()
-                self.assertAllClose(MI_1, MI_2, rtol=1e-2, atol=1e-2,
-                                    msg=error_msg)
+            except NotImplementedError:
+                pass
+            else:
+                MI_2 = model.mutual_information_monte_carlo()
+                self.assertAllClose(MI_1, MI_2, rtol=5e-2, atol=5e-2,
+                                    msg='Mutual information: ' + error_msg)
                 
         # reset numba patcher state
         numba_patcher.set_state(numba_patcher_enabled)

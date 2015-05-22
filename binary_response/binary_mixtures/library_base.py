@@ -27,7 +27,6 @@ class LibraryBinaryBase(LibraryBase):
         'commonness_parameters': None,  #< parameters for substrate commonness
         'correlation_matrix': None,     #< chosen substrate correlations
         'correlation_parameters': None, #< parameters for substrate correlations
-        'fixed_mixture_size': False,    #< whether mixture size should be fixed
     }
 
 

@@ -44,6 +44,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 1e5,   #< default number of Monte Carlo steps
         'metropolis_steps': 1e5,    #< default number of Metropolis steps
+        'fixed_mixture_size': None, #< fixed m or None 
         'anneal_Tmax': 1e0,         #< Max (starting) temperature for annealing
         'anneal_Tmin': 1e-3,        #< Min (ending) temperature for annealing
         'verbosity': 0,             #< verbosity level    
@@ -77,13 +78,25 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
 
 
     @classmethod
+    def get_random_arguments(cls, **kwargs):
+        """ create random arguments for creating test instances """
+        args = super(LibraryBinaryNumeric, cls).get_random_arguments(**kwargs)
+        if 'fixed_mixture_size' in kwargs:
+            args['parameters']['fixed_mixture_size'] = \
+                                                kwargs['fixed_mixture_size']
+        return args
+
+
+    @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
         obj = super(LibraryBinaryNumeric, cls).create_test_instance(**kwargs)
+        
         # determine optimal parameters for the interaction matrix
         from .library_theory import LibraryBinaryUniform
         theory = LibraryBinaryUniform.from_other(obj)
         obj.choose_interaction_matrix(**theory.get_optimal_library())
+        
         return obj
     
 
@@ -155,19 +168,112 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             self.int_mat = int_mat
         else:
             return int_mat
+        
+        
+    def _iterate_mixtures(self):
+        """ iterate over all mixtures and yield the mixture with probability """
+        hi = self.commonness
+        Jij = self.correlations
+
+        mixture_size = self.parameters['fixed_mixture_size']
+        if mixture_size is None:
+            # iterate over all mixtures
+            for c in itertools.product((0, 1), repeat=self.Ns):
+                c =  np.array(c, np.uint8)
+                weight_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
+                yield c, weight_c
+                
+        else:
+            # iterate over all mixtures with constant number of substrates
+            c = np.zeros(self.Ns, np.uint8)
+            for nz in itertools.combinations(range(self.Ns), mixture_size):
+                c[:] = 0
+                c[np.array(nz)] = 1
+                weight_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
+                yield c, weight_c
+
+
+    def _sample_mixtures(self, steps=None):
+        """ sample mixtures with uniform probability yielding single mixtures """
+                
+        mixture_size = self.parameters['fixed_mixture_size']
+                
+        if not self.has_correlations and mixture_size is None:
+            # use simple monte carlo algorithm
+            if steps is None:
+                steps = int(self.parameters['monte_carlo_steps'])
             
+            prob_s = self.substrate_probabilities
+            
+            for _ in range(steps):
+                # choose a mixture vector according to substrate probabilities
+                yield (np.random.random(self.Ns) < prob_s)
+                
+        else:            
+            # use metropolis algorithm
+            if steps is None:
+                steps = int(self.parameters['metropolis_steps'])
+            hi = self.commonness
+            Jij = self.correlations
+
+            if mixture_size is None:
+                # go through all mixtures and don't keep the size constant
+                
+                # start with a random concentration vector 
+                c = np.random.random_integers(0, 1, self.Ns)
+                Elast = -np.dot(np.dot(Jij, c) + hi, c)
+                
+                for _ in range(steps):
+                    i = random.randrange(self.Ns)
+                    c[i] = 1 - c[i]
+                    Ei = -np.dot(np.dot(Jij, c) + hi, c)
+                    if Ei < Elast or random.random() < np.exp(Elast - Ei):
+                        # accept the new state
+                        Elast = Ei
+                    else:
+                        # reject the new state and revert to the last one
+                        c[i] = 1 - c[i]
+                
+                    yield c
+                            
+            else:
+                # go through mixtures with keeping their size constant
+
+                # create random concentration vector with fixed substrate count
+                c = np.r_[np.ones(mixture_size, np.uint),
+                          np.zeros(self.Ns - mixture_size, np.uint)]
+                np.random.shuffle(c)
+                Elast = -np.dot(np.dot(Jij, c) + hi, c)
+                
+                for _ in range(steps):
+                    # find the next mixture by swapping two items
+                    i0 = random.choice(np.flatnonzero(c == 0)) #< find 0
+                    i1 = random.choice(np.flatnonzero(c))      #< find 1
+                    c[i0], c[i1] = 1, 0
+                    Ei = -np.dot(np.dot(Jij, c) + hi, c)
+                    if Ei < Elast or random.random() < np.exp(Elast - Ei):
+                        # accept the new state
+                        Elast = Ei
+                    else:
+                        # reject the new state and revert to the last one
+                        c[i0], c[i1] = 0, 1
+                
+                    yield c
+                        
             
     def mixture_statistics(self):
         """ calculates statistics of mixtures. Returns a vector with the 
         frequencies at which substrates are present in mixtures and a matrix
         of correlations among substrates """
         
-        if self.has_correlations:
+        fixed_mixture_size = self.parameters['fixed_mixture_size']
+        
+        if self.has_correlations or fixed_mixture_size is not None:
             # mixture has correlations => we do Metropolis sampling
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 ci_mean, cij_corr = self.mixture_statistics_brute_force()
             else:
-                ci_mean, cij_corr = self.mixture_statistics_metropolis()
+                ci_mean, cij_corr = self.mixture_statistics_monte_carlo()
                 
         else:
             # mixture does not have correlations => we can calculated the
@@ -180,22 +286,16 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     
     def mixture_statistics_brute_force(self):
         """ calculates mixture statistics using a brute force algorithm """
-        hi = self.commonness
-        Jij = self.correlations
         
         Z = 0
         hist1d = np.zeros(self.Ns)
         hist2d = np.zeros((self.Ns, self.Ns))
         
         # iterate over all mixtures
-        for c in itertools.product((0, 1), repeat=self.Ns):
-            c = np.array(c)
-            
-            # probability of finding this mixture
-            prob_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
-            Z += prob_c        
-            hist1d += c * prob_c
-            hist2d += np.outer(c, c) * prob_c
+        for c, weight_c in self._iterate_mixtures():
+            Z += weight_c        
+            hist1d += c * weight_c
+            hist2d += np.outer(c, c) * weight_c
         
         # calculate the frequency and the correlations 
         ci_mean = hist1d / Z
@@ -205,29 +305,15 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         return ci_mean, cij_corr  
     
     
-    def mixture_statistics_metropolis(self):
+    def mixture_statistics_monte_carlo(self):
         """ calculates mixture statistics using a metropolis algorithm """
-        hi = self.commonness
-        Jij = self.correlations
-        
-        c = np.random.random_integers(0, 1, self.Ns)
-        Elast = -np.dot(np.dot(Jij, c) + hi, c)
-        
+       
         count = 0
         hist1d = np.zeros(self.Ns, np.int)
         hist2d = np.zeros((self.Ns, self.Ns), np.int)
-        for _ in range(int(self.parameters['metropolis_steps'])):
-            i = random.randrange(self.Ns)
-            c[i] = 1 - c[i]
-            Ei = -np.dot(np.dot(Jij, c) + hi, c)
-            if Ei < Elast or random.random() < np.exp(Elast - Ei):
-                # accept the new state
-                Elast = Ei
-            else:
-                # reject the new state and revert to the last one
-                c[i] = 1 - c[i]
-        
-            # accept the state
+
+        # sample mixtures uniformly        
+        for c in self._sample_mixtures():
             count += 1
             hist1d += c
             hist2d += np.outer(c, c)
@@ -249,8 +335,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 method = 'brute_force'
-            elif self.has_correlations:
-                method = 'metropolis'
             else:
                 method = 'monte_carlo'
                 
@@ -258,8 +342,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return self.activity_single_brute_force()
         elif method == 'monte_carlo':
             return self.activity_single_monte_carlo()
-        elif method == 'metropolis':
-            return self.activity_single_metropolis()
         elif method == 'estimate':
             return self.activity_single_estimate()
         else:
@@ -268,81 +350,34 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
     def activity_single_brute_force(self):
         """ calculates the average activity of each receptor """
-        hi = self.commonness
-        Jij = self.correlations
-
         prob_a = np.zeros(self.Nr)
         Z = 0
         
         # iterate over all mixtures
-        for c in itertools.product((0, 1), repeat=self.Ns):
-            c = np.array(c)
-            
+        for c, prob_c in self._iterate_mixtures():
             # get the activity vector associated with m
             a = np.dot(self.int_mat, c).astype(np.bool)
-
-            # probability of finding this mixture
-            prob_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
             prob_a[a] += prob_c
             Z += prob_c
                 
         return prob_a / Z
 
             
-    def activity_single_monte_carlo(self, num=None):
+    def activity_single_monte_carlo(self, steps=None):
         """ calculates the average activity of each receptor """ 
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
+        if steps is None:
+            steps = int(self.parameters['monte_carlo_steps'])
 
-        if num is None:
-            num = int(self.parameters['monte_carlo_steps'])        
-    
-        prob_s = self.substrate_probabilities
-    
         count_a = np.zeros(self.Nr)
-        for _ in range(num):
+        for c in self._sample_mixtures(steps):
             # choose a mixture vector according to substrate probabilities
-            c = (np.random.random(self.Ns) < prob_s)
-            
             # get the associated output
             a = np.dot(self.int_mat, c).astype(np.bool)
             
             count_a[a] += 1
             
         # return the normalized output
-        return count_a/num
-    
-    
-    def activity_single_metropolis(self, num=None):
-        """ calculates the average activity of each receptor """ 
-        if num is None:
-            num = int(self.parameters['metropolis_steps'])        
-    
-        hi = self.commonness
-        Jij = self.correlations
-        
-        # start with a random concentration vector 
-        c = np.random.random_integers(0, 1, self.Ns)
-        Elast = -np.dot(np.dot(Jij, c) + hi, c)
-        
-        count_a = np.zeros(self.Nr)
-        for _ in range(num):
-            i = random.randrange(self.Ns)
-            c[i] = 1 - c[i]
-            Ei = -np.dot(np.dot(Jij, c) + hi, c)
-            if Ei < Elast or random.random() < np.exp(Elast - Ei):
-                # accept the new state
-                Elast = Ei
-            else:
-                # reject the new state and revert to the last one
-                c[i] = 1 - c[i]
-        
-            # accept the state and get the associated output
-            a = np.dot(self.int_mat, c).astype(np.bool)
-            count_a[a] += 1
-
-        # return the normalized output
-        return count_a / num
+        return count_a / steps
             
     
     def activity_single_estimate(self, approx_prob=False):
@@ -409,8 +444,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 method = 'brute_force'
-            elif self.has_correlations:
-                method = 'metropolis'
             else:
                 method = 'monte_carlo'
                 
@@ -418,8 +451,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return self.mutual_information_brute_force(**kwargs)
         elif method == 'monte_carlo':
             return self.mutual_information_monte_carlo(**kwargs)
-        elif method == 'metropolis':
-            return self.mutual_information_metropolis(**kwargs)
         elif method == 'estimate':
             return self.mutual_information_estimate(**kwargs)
         else:
@@ -429,18 +460,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def mutual_information_brute_force(self, ret_prob_activity=False):
         """ calculate the mutual information by constructing all possible
         mixtures """
-        hi = self.commonness
-        Jij = self.correlations
         base = 2 ** np.arange(0, self.Nr)
 
         # prob_a contains the probability of finding activity a as an output.
         prob_a = np.zeros(2**self.Nr)
-        for c in itertools.product((0, 1), repeat=self.Ns):
-            c = np.array(c)
-
-            # probability of finding this mixture
-            prob_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
-            
+        for c, prob_c in self._iterate_mixtures():
             # get the associated output ...
             a = np.dot(self.int_mat, c).astype(np.bool)
             # ... and represent it as a single integer
@@ -464,21 +488,15 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                                        ret_prob_activity=False):
         """ calculate the mutual information using a Monte Carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-                
         base = 2 ** np.arange(0, self.Nr)
-        prob_s = self.substrate_probabilities
 
         steps = int(self.parameters['monte_carlo_steps'])
 
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
-        for _ in range(steps):
-            # choose a mixture vector according to substrate probabilities
-            c = (np.random.random(self.Ns) < prob_s)
-            
+        for c in self._sample_mixtures(steps):
+           
             # get the associated output ...
             a = np.dot(self.int_mat, c).astype(np.bool)
             # ... and represent it as a single integer
@@ -570,51 +588,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return MI, prob_a
         else:
             return MI
-                
 
-    def mutual_information_metropolis(self, ret_prob_activity=False):
-        """ calculates the average activity of each receptor """ 
-    
-        hi = self.commonness
-        Jij = self.correlations
-        base = 2 ** np.arange(0, self.Nr)
-        
-        # start with a random concentration vector 
-        c = np.random.random_integers(0, 1, self.Ns)
-        Elast = -np.dot(np.dot(Jij, c) + hi, c)
-        
-        steps = int(self.parameters['metropolis_steps'])        
-        count_a = np.zeros(2**self.Nr)
-        for _ in range(steps):
-            i = random.randrange(self.Ns)
-            c[i] = 1 - c[i]
-            Ei = -np.dot(np.dot(Jij, c) + hi, c)
-            if Ei < Elast or random.random() < np.exp(Elast - Ei):
-                # accept the new state
-                Elast = Ei
-            else:
-                # reject the new state and revert to the last one
-                c[i] = 1 - c[i]
-
-            # accept the state, get the associated output ...
-            a = np.dot(self.int_mat, c).astype(np.bool)
-            # ... and represent it as a single integer
-            a = np.dot(base, a)
-            # increment counter for this output
-            count_a[a] += 1
-
-        # count_a contains the number of times output pattern a was observed.
-        # We can thus construct P_a(a) from count_a. 
-        prob_a = count_a / steps
-        
-        # calculate the mutual information from the result pattern
-        MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
-        # error should not be calculated       
-        if ret_prob_activity:
-            return MI, prob_a
-        else:
-            return MI        
-            
                     
     def mutual_information_estimate(self, approx_prob=False):
         """ returns a simple estimate of the mutual information.
