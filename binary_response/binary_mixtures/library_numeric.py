@@ -19,6 +19,7 @@ https://docs.python.org/2/library/multiprocessing.html#using-a-pool-of-workers
 from __future__ import division
 
 import copy
+import collections
 import functools
 import itertools
 import time
@@ -39,6 +40,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
         'max_num_receptors': 28,        #< prevents memory overflows
+        'max_steps': 1e7,               #< maximal number of steps 
         'interaction_matrix': None,     #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
         'inefficiency_weight': 1,       #< weighting parameter for inefficiency
@@ -215,6 +217,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
     def _iterate_mixtures(self):
         """ iterate over all mixtures and yield the mixture with probability """
+        
+        if self._iterate_steps > self.parameters['max_steps']:
+            raise RuntimeError('The iteration would take more than %g steps'
+                               % self.parameters['max_steps'])
+        
         hi = self.commonness
         Jij = self.correlations
 
@@ -392,11 +399,30 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def mixture_entropy_brute_force(self):
         """ gets the entropy in the mixture distribution using brute force """
         Z, sum_wlogw = 0, 0
+        
         for _, weight_c in self._iterate_mixtures():
             if weight_c > 0:
                 Z += weight_c
                 sum_wlogw += weight_c * np.log2(weight_c)
         return np.log2(Z) - sum_wlogw / Z
+            
+
+    def mixture_entropy_monte_carlo(self):
+        """ gets the entropy in the mixture distribution using brute force """
+        if self.Ns > 63:
+            raise ValueError('Mixture entropy estimation only works for fewer '
+                             'than 64 substrates.')
+        
+        # sample mixtures
+        base = 2 ** np.arange(0, self.Ns)
+        observations = collections.Counter()
+        for c in self._sample_mixtures():
+            observations[np.dot(c, base)] += 1
+        
+        # estimate entropy from the histogram
+        ps = np.array(observations.values(), np.double)
+        ps /= self._sample_steps
+        return -np.sum(ps * np.log2(ps))
             
 
     def activity_single(self, method='auto'):

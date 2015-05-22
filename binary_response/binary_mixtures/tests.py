@@ -83,8 +83,11 @@ class TestLibraryBinary(unittest.TestCase):
         model = LibraryBinaryNumeric.create_test_instance()
         self.assertAlmostEqual(model.mixture_entropy(),
                                model.mixture_entropy_brute_force())
-    
-            
+        
+        self.assertAlmostEqual(model.mixture_entropy(),
+                               model.mixture_entropy_monte_carlo(), places=1)
+
+
     def test_numerics(self):
         """ test numerical calculations """
         # save numba patcher state
