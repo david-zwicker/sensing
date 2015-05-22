@@ -155,12 +155,43 @@ class TestLibraryBinary(unittest.TestCase):
         numba_patcher.set_state(numba_patcher_enabled)
     
     
-    def test_numba_speedup(self):
+    def test_numba_consistency(self):
         """ test the consistency of the numba functions """
         # this tests the numba consistency for uncorrelated mixtures
         self.assertTrue(numba_patcher.test_consistency(1, verbosity=0),
                         msg='Numba methods are not consistent')
     
+    
+    def test_numba_consistency_special(self):
+        """ test the consistency of the numba functions """
+
+        # collect all settings that we want to test
+        settings = collections.OrderedDict()
+        settings['mixture_correlated'] = (True, False)
+        settings['fixed_mixture_size'] = (None, 2)
+        
+        # create all combinations of all settings
+        setting_comb = [dict(zip(settings.keys(), items))
+                        for items in itertools.product(*settings.values())]
+        
+        # define the numba methods that need to be tested
+        numba_methods = ('LibraryBinaryNumeric.mutual_information_brute_force',
+                         'LibraryBinaryNumeric.mutual_information_monte_carlo')
+        
+        # try all these settings 
+        for setting in setting_comb:
+            # create a meaningful error message for all cases
+            error_msg = ('The Numba implementation is not consistent for ' +
+                         ', '.join("%s=%s" % v for v in setting.items()))
+            # test the number class
+            for name in numba_methods:
+                res = numba_patcher.test_function_consistency(
+                                            name, instance_parameters=setting)
+                self.assertTrue(res, msg=name + '\n' + error_msg)
+    
+
 
 if __name__ == '__main__':
     unittest.main()
+    
+

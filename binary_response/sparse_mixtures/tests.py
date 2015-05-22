@@ -11,7 +11,7 @@ import unittest
 import numpy as np
 import scipy.misc
 
-from .library_base import LibrarySparseBase
+from .library_base import LibrarySparseBase  # @UnresolvedImport
 from .numba_speedup import numba_patcher  # @UnresolvedImport
 
       

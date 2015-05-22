@@ -31,7 +31,6 @@ def _mixture_energy(ci, hi, Jij):
     mixture `ci`, given commonness vector `hi` and correlation matrix `Jij` """ 
     energy = 0
     Ns = ci.size
-    # TODO: this can be optimized by only iterating over upper triangle
     for i in range(Ns):
         if ci[i] > 0:
             energy += hi[i] + Jij[i, i]
@@ -47,10 +46,9 @@ def _mixture_energy_indices(indices, hi, Jij):
     mixture defined by the `indices` of substrates that are present, given
     commonness vector `hi` and correlation matrix `Jij` """ 
     energy = 0
-    # TODO: this can be optimized by only iterating over upper triangle
     for k, i in enumerate(indices):
         energy += hi[i] + Jij[i, i]
-        for j in indices[k:]:
+        for j in indices[k + 1:]:
             energy += 2 * Jij[i, j]
     return -energy
 
@@ -245,10 +243,8 @@ def LibraryBinaryNumeric_mutual_information_brute_force_fixed_numba(
 
     # iterate over all mixtures with a given number of substrates    
     Z = 0
-    count = 0
     running = True
     while running:
-        count += 1
         # find the next iteration of the mixture
         for i in range(m - 1, -1, -1):
             if indices[i] + m != i + Ns:
@@ -535,84 +531,78 @@ def LibraryBinaryNumeric_mutual_information_metropolis_numba(
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
-        Ns, Nr, steps, int_mat, hi, Jij, mixture_size, ci, an, prob_a):
+        Ns, Nr, steps, int_mat, hi, Jij, mixture_size, ci, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
-    
     # find out how many zeros and ones there are => these numbers are fixed
-    num_0, num_1 = 0, 0
-    for i in range(Ns):
-        if ci[i] == 0:
-            num_0 += 1
-        elif ci[i] == 1:
-            num_1 += 1
-        else:
-            return -1 #< to signal problem
+    num_0 = Ns - mixture_size
+    num_1 = mixture_size
+    
+    if num_0 == 0 or num_1 == 0:
+        # there will be only a single mixture
+        return 0
 
-    # get energy of the initial concentration vector        
-    E_last = _mixture_energy(ci, hi, Jij)
+    # set the energy of the first substrate to infinity to make sure that the
+    # first modified substrate is accepted        
+    E_last = np.inf
         
     # sample mixtures according to the probabilities of finding
     # substrates
     for _ in range(steps):
-        # choose two substrates to swap. Here, we choose the k0-th zero and the
-        # k1-th one in the vector and switch these two
-        k0 = np.random.randint(num_0)
-        k1 = np.random.randint(num_1)
-        found_0, found_1 = 0, 0
-        i0, i1 = -1, -1
+        # choose two substrates to swap. Here, we choose the want_0-th zero and
+        # the want_1-th one in the vector and swap these two
+        want_0 = np.random.randint(num_0)
+        want_1 = np.random.randint(num_1)
+        count_0, count_1 = 0, 0 #< count how many zeros and ones we found
+        i0, i1 = -1, -1 #< these will store the indices of the k-th 0 and 1
         for i in range(Ns):
             if ci[i] == 0:
                 if i0 < 0:
                     # we are still looking for the index of the zero
-                    if found_0 == k0:
-                        # found the substrate that we chose => switch it to a one
-                        ci[i] = 1
+                    if count_0 == want_0:
+                        # found the substrate that we chose => switch it to a 1
                         i0 = i
-                        if i1 >= 0: #< check if the other was found
+                        ci[i0] = 1
+                        if i1 >= 0: #< check if the one was already found
                             break
                     else:
-                        found_0 += 1
+                        count_0 += 1
     
             else: # ci[i] == 1
                 if i1 < 0:
                     # we are still looking for the index of the one
-                    if found_1 == k1:
-                        # found the substrate that we chose => switch it to a zero
-                        ci[i] = 0
+                    if count_1 == want_1:
+                        # found the substrate that we chose => switch it to a 0
                         i1 = i
-                        if i0 >= 0: #< check if the other was found
+                        ci[i1] = 0
+                        if i0 >= 0: #< check if the zero was already found
                             break
                     else:
-                        found_1 += 1
+                        count_1 += 1
+        # we now switched substrate i0 and i1
         
         # calculate the energy of the new mixture
         E_new = _mixture_energy(ci, hi, Jij)
         
-        if E_new < E_last or np.random.random() < np.exp(E_last - E_new):
-            # accept the new state
-            E_last = E_new
-        else:
-            # reject the new state and revert to the last one
+        if E_new > E_last and np.random.random() > np.exp(E_last - E_new):
+            # reject the new state and revert to the last one  -> we can also
+            # reuse the calculations of the activity pattern from the last step
             ci[i0] = 0
             ci[i1] = 1
-        
-        # calculate the activity pattern from this mixture vector
-        an[:] = 0 
-        for i in range(Ns):
-            if ci[i] > 0:
-                # the substrate i is present in the mixture
-                for n in range(Nr):
-                    if int_mat[n, i] == 1:
-                        # receptor a is activated by substrate i
-                        an[n] = 1
-        
-        # calculate the activity pattern id
-        a_id, base = 0, 1
-        for n in range(Nr):
-            if an[n] == 1:
-                a_id += base
-            base *= 2
+            
+        else:
+            # accept the new mixture vector and save its energy
+            E_last = E_new
+                        
+            # calculate the activity pattern id
+            a_id, base = 0, 1
+            for n in range(Nr):
+                for i in range(Ns):
+                    if ci[i] * int_mat[n, i] == 1:
+                        # substrate is present and excites receptor
+                        a_id += base
+                        break
+                base *= 2
         
         # increment counter for this output
         prob_a[a_id] += 1
@@ -635,11 +625,43 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
                                                         ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    prob_a = np.zeros(2**self.Nr) 
+    prob_a = np.zeros(2**self.Nr)
+    mixture_size = self.parameters['fixed_mixture_size']
  
-    if not self.has_correlations:
-        # call jitted function implementing simple monte carlo algorithm
+    if mixture_size is not None:
+        # use the version of the metropolis algorithm that keeps the number
+        # of substrates in a mixture constant
+        mixture_size = int(mixture_size)
+        
+        # create random concentration vector with fixed substrate count
+        ci = np.r_[np.ones(mixture_size, np.uint8),
+                   np.zeros(self.Ns - mixture_size, np.uint8)]
+        np.random.shuffle(ci)
+        
+        # call jitted function implementing swapping metropolis algorithm
+        MI = LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
+            self.Ns, self.Nr, self.get_steps('metropolis'), 
+            self.int_mat,
+            self.commonness, self.correlations, #< hi, Jij
+            mixture_size, ci, prob_a
+        )
+    
+    elif self.has_correlations:
+        # mixture has correlations and we thus use a metropolis algorithm
 
+        # call jitted function implementing simple metropolis algorithm
+        MI = LibraryBinaryNumeric_mutual_information_metropolis_numba(
+            self.Ns, self.Nr, self.get_steps('metropolis'), 
+            self.int_mat,
+            self.commonness, self.correlations, #< hi, Jij
+            np.empty(self.Ns, np.uint8), #< ci
+            np.empty(self.Nr, np.uint), #< an
+            prob_a
+        )
+    
+    else:
+        # simple case without correlations and unconstraint number of substrates
+        # call jitted function implementing simple monte carlo algorithm
         MI = LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
             self.Ns, self.Nr, self.get_steps('monte_carlo'), 
             self.int_mat,
@@ -647,39 +669,6 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
             np.empty(self.Nr, np.uint), #< ak
             prob_a
         )
-    
-    else:
-        mixture_size = self.parameters['fixed_mixture_size']
-
-        if mixture_size is None:
-            # call jitted function implementing simple metropolis algorithm
-            MI = LibraryBinaryNumeric_mutual_information_metropolis_numba(
-                self.Ns, self.Nr, self.get_steps('metropolis'), 
-                self.int_mat,
-                self.commonness, self.correlations, #< hi, Jij
-                np.empty(self.Ns, np.uint8), #< ci
-                np.empty(self.Nr, np.uint), #< an
-                prob_a
-            )
-            
-        else:
-            # create random concentration vector with fixed substrate count
-            ci = np.r_[np.ones(mixture_size, np.uint8),
-                       np.zeros(self.Ns - mixture_size, np.uint8)]
-            np.random.shuffle(ci)
-            
-            # call jitted function implementing swapping metropolis algorithm
-            MI = LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
-                self.Ns, self.Nr, self.get_steps('metropolis'), 
-                self.int_mat,
-                self.commonness, self.correlations, #< hi, Jij
-                int(mixture_size),
-                ci, np.empty(self.Nr, np.uint), #< an
-                prob_a
-            )
-            
-            if MI == -1:
-                raise RuntimeError
 
     if ret_error:
         # estimate the error of the mutual information calculation

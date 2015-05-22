@@ -132,37 +132,59 @@ class NumbaPatcher(object):
         return func1, func2
 
             
+    def test_function_consistency(self, name, repeat=10, verbosity=1,
+                                  instance_parameters=None):
+        """ tests the consistency of a single numba methods with their original
+        counter part.
+        `verbosity` controls how verbose the output is going to be. Valid values
+            are 0, 1, 2 with increasing verbosity, respectively.
+        """        
+
+        # extract the class and the functions
+        class_name, _ = name.split('.')
+        class_obj = getattr(self.module, class_name)
+        
+        data = self.numba_methods[name]
+
+        # extract the test function
+        test_func = data['test_function']
+        
+        # extract the test instance parameters
+        if instance_parameters is None:
+            instance_parameters = {}
+        
+        # check the functions multiple times
+        consistent = True
+        for _ in range(repeat):
+            test_obj = class_obj.create_test_instance(**instance_parameters)
+            func1, func2 = self._prepare_functions(data)
+            if not test_func(test_obj, (func1, func2)):
+                print('The numba implementation of `%s` is invalid.' % name)
+                print('Native implementation yields %s' % func1(test_obj))
+                print('Numba implementation yields %s' % func2(test_obj))
+                print('Input: %r' % test_obj)
+                consistent = False
+                break
+            
+        else:
+            # there were no problems
+            if verbosity >= 2:
+                print('`%s` has a valid numba implementation.' % name)
+                
+        return consistent
+                     
+                                
     def test_consistency(self, repeat=10, verbosity=1):
         """ tests the consistency of the numba methods with their original
         counter parts.
         `verbosity` controls how verbose the output is going to be. Valid values
             are 0, 1, 2 with increasing verbosity, respectively.
         """        
+        # test all registered numba functions
         consistent = True
-        for name, data in self.numba_methods.items():
-            # extract the class and the functions
-            class_name, _ = name.split('.')
-            class_obj = getattr(self.module, class_name)
-
-            # extract the test function
-            test_func = data['test_function']
-            
-            # check the functions multiple times
-            for _ in range(repeat):
-                test_obj = class_obj.create_test_instance()
-                func1, func2 = self._prepare_functions(data)
-                if not test_func(test_obj, (func1, func2)):
-                    print('The numba implementation of `%s` is invalid.' % name)
-                    print('Native implementation yields %s' % func1(test_obj))
-                    print('Numba implementation yields %s' % func2(test_obj))
-                    print('Input: %r' % test_obj)
-                    consistent = False
-                    break
-                
-            else:
-                # there were no problems
-                if verbosity >= 2:
-                    print('`%s` has a valid numba implementation.' % name) 
+        for name in self.numba_methods:
+            res = self.test_function_consistency(name, repeat, verbosity)
+            consistent = consistent or res
 
         if consistent and verbosity >= 1:
             print('All numba implementations are consistent.')
