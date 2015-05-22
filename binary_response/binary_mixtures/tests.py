@@ -158,8 +158,9 @@ class TestLibraryBinary(unittest.TestCase):
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """
         # this tests the numba consistency for uncorrelated mixtures
-        self.assertTrue(numba_patcher.test_consistency(1, verbosity=0),
-                        msg='Numba methods are not consistent')
+        consistent = numba_patcher.test_consistency(repeat=2, verbosity=0)
+        if not consistent:
+            self.fail(msg='Numba methods are not consistent')
     
     
     def test_numba_consistency_special(self):
@@ -185,9 +186,10 @@ class TestLibraryBinary(unittest.TestCase):
                          ', '.join("%s=%s" % v for v in setting.items()))
             # test the number class
             for name in numba_methods:
-                res = numba_patcher.test_function_consistency(
-                                            name, instance_parameters=setting)
-                self.assertTrue(res, msg=name + '\n' + error_msg)
+                consistent = numba_patcher.test_function_consistency(
+                                    name, repeat=5, instance_parameters=setting)
+                if not consistent:
+                    self.fail(msg=name + '\n' + error_msg)
     
 
 
