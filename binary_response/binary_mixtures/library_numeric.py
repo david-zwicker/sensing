@@ -372,6 +372,31 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         cij_corr = cij - np.outer(ci_mean, ci_mean)
         
         return ci_mean, cij_corr
+    
+    
+    def mixture_entropy(self):
+        """ return the entropy in the mixture distribution """
+        
+        mixture_size = self.parameters['fixed_mixture_size']
+                
+        if self.has_correlations or mixture_size is not None:
+            # complicated case => run brute force
+            return self.mixture_entropy_brute_force()
+        
+        else:
+            # simple case => calculate explicitly
+            return -sum(ps*np.log2(ps) + (1 - ps)*np.log2(1 - ps)
+                        for ps in self.substrate_probabilities)
+        
+    
+    def mixture_entropy_brute_force(self):
+        """ gets the entropy in the mixture distribution using brute force """
+        Z, sum_wlogw = 0, 0
+        for _, weight_c in self._iterate_mixtures():
+            if weight_c > 0:
+                Z += weight_c
+                sum_wlogw += weight_c * np.log2(weight_c)
+        return np.log2(Z) - sum_wlogw / Z
             
 
     def activity_single(self, method='auto'):

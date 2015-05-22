@@ -78,6 +78,13 @@ class TestLibraryBinary(unittest.TestCase):
                                     mean_mixture_size)
                 
                 
+    def test_mixture_entropy(self):
+        """ test the calculations of the mixture entropy """
+        model = LibraryBinaryNumeric.create_test_instance()
+        self.assertAlmostEqual(model.mixture_entropy(),
+                               model.mixture_entropy_brute_force())
+    
+            
     def test_numerics(self):
         """ test numerical calculations """
         # save numba patcher state

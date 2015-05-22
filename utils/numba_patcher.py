@@ -22,7 +22,7 @@ def check_return_value(obj, funcs):
 
 def check_return_value_approx(obj, funcs):
     """ checks the numba method versus the original one """
-    return np.allclose(funcs[0](obj), funcs[1](obj), rtol=1e-2, atol=1e-2)
+    return np.allclose(funcs[0](obj), funcs[1](obj), rtol=5e-2, atol=5e-2)
 
 
 
