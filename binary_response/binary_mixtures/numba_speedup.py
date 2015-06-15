@@ -725,11 +725,10 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
 
         # iterate over all other receptors to estimate crosstalk
         for b in range(a):
-            prod = 1
+            p_Gab = 0
             for k in range(i_count):
                 if int_mat[b, ids[k]] == 1:
-                    prod += prob_s[ids[k]]
-            p_Gab = 1 - prod        
+                    p_Gab += prob_s[ids[k]]
 
             MI -= 2*abs(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab) * p_Gab
                 
