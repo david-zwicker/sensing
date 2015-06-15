@@ -42,7 +42,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         'max_num_receptors': 28,        #< prevents memory overflows
         'max_steps': 1e7,               #< maximal number of steps 
         'interaction_matrix': None,     #< will be calculated if not given
-        'interaction_matrix_params': None, #< parameters determining I_ai
+        'interaction_matrix_params': None, #< parameters determining I_ni
         'inefficiency_weight': 1,       #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 'auto',    #< default steps for monte carlo
@@ -484,22 +484,22 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        I_ai = self.int_mat
+        I_ni = self.int_mat
         prob_s = self.substrate_probabilities
 
         # calculate the probabilities of exciting receptors and pairs
         if approx_prob:
             # approximate calculation for small prob_s
-            p_Ga = np.dot(I_ai, prob_s)
-            assert np.all(p_Ga < 1)
+            p_Gn = np.dot(I_ni, prob_s)
+            assert np.all(p_Gn < 1)
             
         else:
             # proper calculation of the cluster probabilities
-            p_Ga = np.zeros(self.Nr)
-            I_ai_mask = I_ai.astype(np.bool)
+            p_Gn = np.zeros(self.Nr)
+            I_ni_mask = I_ni.astype(np.bool)
             for a in range(self.Nr):
-                p_Ga[a] = 1 - np.product(1 - prob_s[I_ai_mask[a, :]])
-        return p_Ga
+                p_Gn[a] = 1 - np.product(1 - prob_s[I_ni_mask[a, :]])
+        return p_Gn
 
 
     def activity_correlations_brute_force(self):
@@ -689,36 +689,38 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
+            
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        I_ai = self.int_mat
+        I_ni = self.int_mat
         prob_s = self.substrate_probabilities
         
         # calculate the probabilities of exciting receptors and pairs
         if approx_prob:
             # approximate calculation for small prob_s
-            p_Ga = np.dot(I_ai, prob_s)
-            p_Gab = np.einsum('ij,kj,j->ik', I_ai, I_ai, prob_s)
-            assert np.all(p_Ga < 1) and np.all(p_Gab.flat < 1)
+            p_Gn = np.dot(I_ni, prob_s)
+            p_Gnm = np.einsum('ij,kj,j->ik', I_ni, I_ni, prob_s)
+            assert np.all(p_Gn < 1) and np.all(p_Gnm.flat < 1)
             
         else:
-            # proper calculation of the cluster probabilities
-            p_Ga = np.zeros(self.Nr)
-            p_Gab = np.zeros((self.Nr, self.Nr))
-            I_ai_mask = I_ai.astype(np.bool)
-            for a in range(self.Nr):
-                ps = prob_s[I_ai_mask[a, :]]
-                p_Ga[a] = 1 - np.product(1 - ps)
-                for b in range(a + 1, self.Nr):
-                    ps = prob_s[I_ai_mask[a, :] * I_ai_mask[b, :]]
-                    p_Gab[a, b] = 1 - np.product(1 - ps)
+            # proper calculation of the ligand probabilities
+            p_Gn = np.zeros(self.Nr)
+            p_Gnm = np.zeros((self.Nr, self.Nr))
+            I_ni_mask = I_ni.astype(np.bool)
+            for n in range(self.Nr):
+                ps = prob_s[I_ni_mask[n, :]]
+                p_Gn[n] = 1 - np.product(1 - ps)
+                for m in range(n + 1, self.Nr):
+                    ps = prob_s[I_ni_mask[n, :] * I_ni_mask[m, :]]
+                    p_Gnm[n, m] = 1 - np.product(1 - ps)
                     
         # calculate the approximate mutual information
-        MI = self.Nr - 0.5*np.sum((1 - 2*p_Ga)**2)
-        for a in range(self.Nr):
-            for b in range(a + 1, self.Nr):
-                MI -= 2*(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab[a, b]) * p_Gab[a, b]
+        MI = self.Nr
+        for n in range(self.Nr):
+            MI -= 0.5*(1 - 2*p_Gn[n])**2
+            for m in range(n + 1, self.Nr):
+                MI -= 2*abs(1 - p_Gn[n] - p_Gn[m] + 3/4*p_Gnm[n, m])*p_Gnm[n, m]
                 
         return MI              
         
@@ -729,14 +731,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        I_ai = self.int_mat
+        I_ni = self.int_mat
         prob_s = self.substrate_probabilities
         
         # collect the terms describing the activity entropy
-        term_entropy = np.sum((0.5 - np.prod(1 - I_ai*prob_s, axis=1)) ** 2)
+        term_entropy = np.sum((0.5 - np.prod(1 - I_ni*prob_s, axis=1)) ** 2)
         
         # collect the terms describing the crosstalk
-        mat_ab = np.einsum('ij,kj,j->ik', I_ai, I_ai, prob_s)
+        mat_ab = np.einsum('ij,kj,j->ik', I_ni, I_ni, prob_s)
         term_crosstalk = 2*np.sum(mat_ab[np.triu_indices(self.Nr, 1)]) 
         
         # add up the terms to produce the inefficiency parameter

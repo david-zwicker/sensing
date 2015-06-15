@@ -87,8 +87,14 @@ class LibraryBinaryUniform(LibraryBinaryBase):
 
             # calculate the information a single receptor contributes            
             H_r = -(p_r*np.log2(p_r) + (1 - p_r)*np.log2(1 - p_r))
+            
             # calculate the MI assuming that receptors are independent
+            # This expression assumes that each receptor provides a fractional 
+            # information H_r/N_s. Some of the information will be overlapping
+            # and the resulting MI is thus smaller than the naive estimate:
+            #     MI < N_r * H_r
             MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
+            
             # determine the entropy of the mixtures
             H_m = -np.sum(p_i*np.log2(p_i) + (1 - p_i)*np.log2(1 - p_i))
             # limit the MI to the mixture entropy
