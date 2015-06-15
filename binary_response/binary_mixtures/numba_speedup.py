@@ -728,7 +728,7 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
             prod = 1
             for k in range(i_count):
                 if int_mat[b, ids[k]] == 1:
-                    prod *= 1 - prob_s[ids[k]]
+                    prod += prob_s[ids[k]]
             p_Gab = 1 - prod        
 
             MI -= 2*abs(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab) * p_Gab
