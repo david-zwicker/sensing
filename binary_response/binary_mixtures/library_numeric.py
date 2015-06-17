@@ -190,7 +190,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             
     def sort_interaction_matrix(self, interaction_matrix=None):
         """ return the sorted `interaction_matrix` or sorts the internal
-        interaction_matrix in place """
+        interaction_matrix in place. This function rearranges receptors such
+        that receptors reacting to an equal number of substrates and to similar
+        substrates are close together. """
+        
         if interaction_matrix is None:
             int_mat = self.int_mat
         else:
@@ -860,7 +863,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 i = random.randrange(self.int_mat.size)
                 self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
     
-                # initialize the optimizer
+                # get the value of the new state
                 value = target_function()
                 
                 improved = ((direction == 'max' and value > value_best) or

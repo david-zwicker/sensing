@@ -205,6 +205,9 @@ class LibraryBinaryBase(LibraryBase):
             `linear`: the probability of substrates decreases linearly.
             `random_uniform`: the probability of substrates is chosen from a
                 uniform distribution with given mean and maximal variance.
+                An optional parameter `sigma` with values between 0 and 1 can be
+                given in order to restrict the uniform distribution to a
+                fraction of its maximal width. 
         """
         if scheme == 'const':
             # all substrates are equally likely
@@ -255,11 +258,24 @@ class LibraryBinaryBase(LibraryBase):
             ps = np.linspace(a, b, self.Ns)
             
         elif scheme == 'random_uniform':
-            # substrates have random probability chosen from a uniform dist.
+            # substrates have probability chosen from a uniform distribution
+
+            # determine the bounds for the maximal random distribution
             if mean_mixture_size <= 0.5*self.Ns:
                 a, b = 0, 2*mean_mixture_size/self.Ns
             else:
                 a, b = 2*mean_mixture_size/self.Ns - 1, 1
+
+            # determine the width of the distribution 
+            sigma = kwargs.pop('sigma', 1)
+            if 0 <= sigma <= 1: 
+                mean = 0.5*(a + b)
+                halfwidth = 0.5*sigma*(b - a)
+                a = mean - halfwidth
+                b = mean + halfwidth
+            else:
+                raise ValueError("The width sigma of the uniform distribution "
+                                 "must be form the interval [0, 1].")
                 
             # choose random probabilities
             ps = np.random.uniform(a, b, size=self.Ns)
