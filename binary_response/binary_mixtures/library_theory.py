@@ -62,31 +62,48 @@ class LibraryBinaryUniform(LibraryBinaryBase):
         return 1 - np.prod(1 - self.density * self.substrate_probabilities)
 
 
-    def mutual_information(self, approx_prob=False):
+    def mutual_information(self, approx_prob=False, use_polynom=False, 
+                           with_crosstalk=False):
         """ return a theoretical estimate of the mutual information between
-        input and output """
+        input and output.
+            `approx_prob` determines whether a linear approximation should be
+                used to calculate the probabilities that receptors are active
+            `use_polynom` determines whether a polynomial approximation for the
+                mutual information should be used
+            `with_crosstalk` determines whether the crosstalk between receptors
+                should also be included. Note that the cross talk will be
+                approximated by a polynomial expression independent of the
+                `use_polynom` argument.
+        """
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         p_i = self.substrate_probabilities
         
-        # get probability p_r that a single receptor is activated 
+        # get probability q_n and q_nm that receptors are activated 
         if approx_prob:
             # use approximate formulas for calculating the probabilities
-            p_r = self.density * p_i.sum()
+            q_n = self.density * p_i.sum()
+            q_nm = self.density**2 * p_i.sum()
         else:
             # use better formulas for calculating the probabilities 
-            p_r = 1 - np.prod(1 - self.density * p_i)
+            q_n = 1 - np.prod(1 - self.density * p_i)
+            q_nm = 1 - np.prod(1 - self.density**2 * p_i)
         
-        if p_r == 0 or p_r == 1:
+        # calculate the mutual information with requested method
+        if q_n == 0 or q_n == 1:
             # receptors are never or always activated
             return 0
         
+        elif use_polynom:
+            # calculate MI using Taylor approximation
+            MI = self.Nr - 0.5*self.Nr * (1 - 2*q_n)**2
+            
         else:
             # calculate MI by assuming that receptors are independent
 
             # calculate the information a single receptor contributes            
-            H_r = -(p_r*np.log2(p_r) + (1 - p_r)*np.log2(1 - p_r))
+            H_r = -(q_n*np.log2(q_n) + (1 - q_n)*np.log2(1 - q_n))
             
             # calculate the MI assuming that receptors are independent
             # This expression assumes that each receptor provides a fractional 
@@ -94,11 +111,16 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             # and the resulting MI is thus smaller than the naive estimate:
             #     MI < N_r * H_r
             MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
+           
+        if with_crosstalk:
+            Nr = self.Nr
+            MI += (- (Nr**2 - Nr) * (1 - 2*q_n + 0.75*q_nm) * q_nm
+                   - 0.5*(Nr**3 - 3*Nr**2 + 2*Nr) * q_nm**2)
             
-            # determine the entropy of the mixtures
-            H_m = -np.sum(p_i*np.log2(p_i) + (1 - p_i)*np.log2(1 - p_i))
-            # limit the MI to the mixture entropy
-            return min(MI, H_m)
+        # determine the entropy of the mixtures
+        H_m = -np.sum(p_i*np.log2(p_i) + (1 - p_i)*np.log2(1 - p_i))
+        # limit the MI to the mixture entropy
+        return min(MI, H_m)
         
         
     def density_optimal(self, assume_homogeneous=False):
