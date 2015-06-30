@@ -279,15 +279,15 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 
                 # start with a random concentration vector 
                 c = np.random.random_integers(0, 1, self.Ns)
-                Elast = -np.dot(np.dot(Jij, c) + hi, c)
+                E_last = -np.dot(np.dot(Jij, c) + hi, c)
                 
                 for _ in range(self._sample_steps):
                     i = random.randrange(self.Ns)
-                    c[i] = 1 - c[i]
+                    c[i] = 1 - c[i] #< switch the entry
                     Ei = -np.dot(np.dot(Jij, c) + hi, c)
-                    if Ei < Elast or random.random() < np.exp(Elast - Ei):
+                    if Ei < E_last or random.random() < np.exp(E_last - Ei):
                         # accept the new state
-                        Elast = Ei
+                        E_last = Ei
                     else:
                         # reject the new state and revert to the last one
                         c[i] = 1 - c[i]
@@ -301,17 +301,17 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 c = np.r_[np.ones(mixture_size, np.uint),
                           np.zeros(self.Ns - mixture_size, np.uint)]
                 np.random.shuffle(c)
-                Elast = -np.dot(np.dot(Jij, c) + hi, c)
+                E_last = -np.dot(np.dot(Jij, c) + hi, c)
                 
                 for _ in range(self._sample_steps):
                     # find the next mixture by swapping two items
                     i0 = random.choice(np.flatnonzero(c == 0)) #< find 0
                     i1 = random.choice(np.flatnonzero(c))      #< find 1
-                    c[i0], c[i1] = 1, 0
+                    c[i0], c[i1] = 1, 0 #< swap entries
                     Ei = -np.dot(np.dot(Jij, c) + hi, c)
-                    if Ei < Elast or random.random() < np.exp(Elast - Ei):
+                    if Ei < E_last or random.random() < np.exp(E_last - Ei):
                         # accept the new state
-                        Elast = Ei
+                        E_last = Ei
                     else:
                         # reject the new state and revert to the last one
                         c[i0], c[i1] = 0, 1
@@ -584,7 +584,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             
             
     def mutual_information_monte_carlo(self, ret_error=False,
-                                       ret_prob_activity=False):
+                                       ret_prob_activity=False,
+                                       bias_correction=False):
         """ calculate the mutual information using a Monte Carlo strategy. """
         base = 2 ** np.arange(0, self.Nr)
 
@@ -594,7 +595,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # substrates
         count_a = np.zeros(2**self.Nr)
         for c in self._sample_mixtures():
-           
             # get the associated output ...
             a = np.dot(self.int_mat, c).astype(np.bool)
             # ... and represent it as a single integer
@@ -610,6 +610,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         # calculate the mutual information from the result pattern
         MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
+        
+        if bias_correction:
+            # add entropy bias correction
+            MI += (np.count_nonzero(prob_a) - 1)/(2*len(prob_a))
+        
         if ret_error:
             # estimate the error of the mutual information calculation
             MI_err = sum(np.abs(1/np.log(2) + np.log2(pa)) * pa

@@ -53,6 +53,25 @@ def _mixture_energy_indices(indices, hi, Jij):
     return -energy
 
 
+
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def _activity_pattern(int_mat, ci):
+    """ helper function that calculates the id of the activity pattern from a
+    given concentration vector and the associated interaction matrix """
+    Nr, Ns = int_mat.shape
+    
+    # calculate the activity pattern id
+    a_id, base = 0, 1
+    for n in range(Nr):
+        for i in range(Ns):
+            if ci[i] * int_mat[n, i] == 1:
+                # substrate is present and excites receptor
+                a_id += base
+                break
+        base *= 2
+    return a_id
+
+
     
 #===============================================================================
 # ACTIVITY SINGLE
@@ -432,8 +451,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
-    # sample mixtures according to the probabilities of finding
-    # substrates
+    # sample mixtures according to the probabilities of finding substrates
     for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
         ak[:] = 0  #< activity pattern of this mixture
@@ -471,7 +489,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibraryBinaryNumeric_mutual_information_metropolis_numba(
-        Ns, Nr, steps, int_mat, hi, Jij, ci, an, prob_a):
+        Ns, Nr, steps, int_mat, hi, Jij, ci, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -479,9 +497,9 @@ def LibraryBinaryNumeric_mutual_information_metropolis_numba(
     for i in range(Ns):
         ci[i] = np.random.randint(2) #< set to either 0 or 1
     E_last = _mixture_energy(ci, hi, Jij)
+    a_id = _activity_pattern(int_mat, ci)
         
-    # sample mixtures according to the probabilities of finding
-    # substrates
+    # sample mixtures according to the probabilities of finding substrates
     for _ in range(steps):
         # choose a new mixture based on the old one
         k = np.random.randint(Ns)
@@ -491,26 +509,13 @@ def LibraryBinaryNumeric_mutual_information_metropolis_numba(
         if E_new < E_last or np.random.random() < np.exp(E_last - E_new):
             # accept the new state
             E_last = E_new
+
+            # calculate the activity pattern from this mixture vector
+            a_id = _activity_pattern(int_mat, ci)
+        
         else:
             # reject the new state and revert to the last one
             ci[k] = 1 - ci[k]
-        
-        # calculate the activity pattern from this mixture vector
-        an[:] = 0 
-        for i in range(Ns):
-            if ci[i] > 0:
-                # the substrate i is present in the mixture
-                for n in range(Nr):
-                    if int_mat[n, i] == 1:
-                        # receptor a is activated by substrate i
-                        an[n] = 1
-        
-        # calculate the activity pattern id
-        a_id, base = 0, 1
-        for n in range(Nr):
-            if an[n] == 1:
-                a_id += base
-            base *= 2
         
         # increment counter for this output
         prob_a[a_id] += 1
@@ -562,7 +567,7 @@ def LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
                     if count_0 == want_0:
                         # found the substrate that we chose => switch it to a 1
                         i0 = i
-                        ci[i0] = 1
+                        ci[i0] = 1 #< toggle this entry 
                         if i1 >= 0: #< check if the one was already found
                             break
                     else:
@@ -574,35 +579,28 @@ def LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
                     if count_1 == want_1:
                         # found the substrate that we chose => switch it to a 0
                         i1 = i
-                        ci[i1] = 0
+                        ci[i1] = 0 #< toggle this entry
                         if i0 >= 0: #< check if the zero was already found
                             break
                     else:
                         count_1 += 1
-        # we now switched substrate i0 and i1
+        # we now switched the presence of substrate i0 and i1
         
         # calculate the energy of the new mixture
         E_new = _mixture_energy(ci, hi, Jij)
         
-        if E_new > E_last and np.random.random() > np.exp(E_last - E_new):
-            # reject the new state and revert to the last one  -> we can also
-            # reuse the calculations of the activity pattern from the last step
-            ci[i0] = 0
-            ci[i1] = 1
-            
-        else:
+        if E_new < E_last or np.random.random() < np.exp(E_last - E_new):
             # accept the new mixture vector and save its energy
             E_last = E_new
                         
             # calculate the activity pattern id
-            a_id, base = 0, 1
-            for n in range(Nr):
-                for i in range(Ns):
-                    if ci[i] * int_mat[n, i] == 1:
-                        # substrate is present and excites receptor
-                        a_id += base
-                        break
-                base *= 2
+            a_id = _activity_pattern(int_mat, ci)
+            
+        else:
+            # reject the new state and revert to the last one  -> we can also
+            # reuse the calculations of the activity pattern from the last step
+            ci[i0] = 0
+            ci[i1] = 1
         
         # increment counter for this output
         prob_a[a_id] += 1
@@ -655,12 +653,11 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
             self.int_mat,
             self.commonness, self.correlations, #< hi, Jij
             np.empty(self.Ns, np.uint8), #< ci
-            np.empty(self.Nr, np.uint), #< an
             prob_a
         )
     
     else:
-        # simple case without correlations and unconstraint number of substrates
+        # simple case without correlations and unconstrained number of ligands
         # call jitted function implementing simple monte carlo algorithm
         MI = LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
             self.Ns, self.Nr, self.get_steps('monte_carlo'), 

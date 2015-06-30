@@ -192,16 +192,18 @@ class LibraryBinaryBase(LibraryBase):
     
     def set_commonness(self, scheme, mean_mixture_size, **kwargs):
         """ picks a commonness vector according to the supplied parameters:
-        `mean_mixture_size` is determines the mean number of components in each
-        mixture. The value of the commonness vector are furthermore influenced  
-        by the `scheme`, which can be any of the following:
-            `const`: all substrates are equally probable
+        `mean_mixture_size` determines the mean number of components in each
+        mixture. The commonness vector is then chosen according to the given  
+        `scheme`, which can be any of the following:
+            `const`: all substrates have equal probability
             `single`: the first substrate has a different probability, which can
                 either be specified directly by supplying the parameter `p1` or
                 the `ratio` between p1 and the probabilities of the other
                 substrates can be specified.
             `geometric`: the probability of substrates decreases by a factor of
-                `alpha` from each substrate to the next.
+                `alpha` from each substrate to the next. The ratio `alpha`
+                between subsequent probabilities should be supplied as a
+                keyword parameter.
             `linear`: the probability of substrates decreases linearly.
             `random_uniform`: the probability of substrates is chosen from a
                 uniform distribution with given mean and maximal variance.
@@ -232,8 +234,14 @@ class LibraryBinaryBase(LibraryBase):
                 raise ValueError('Either `p1` or `p_ratio` must be given')
             
         elif scheme == 'geometric':
-            # substrates have geometrically decreasing commonness 
-            alpha = kwargs.pop('alpha', 0.9)
+            # substrates have geometrically decreasing commonness
+            try: 
+                alpha = kwargs['alpha']
+            except KeyError:
+                raise ValueError(
+                    'The ratio `alpha` between subsequent probabilities must '
+                    ' be supplied as a keyword parameter'
+                )
 
             if alpha == 1:
                 p0 = mean_mixture_size/self.Ns
