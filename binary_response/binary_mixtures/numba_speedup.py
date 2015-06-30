@@ -670,7 +670,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
         
     if bias_correction:
         # add entropy bias correction
-        MI += (np.count_nonzero(prob_a) - 1)/(2*len(prob_a))
+        MI += (len(prob_a) - np.count_nonzero(prob_a) - 1)/(2*len(prob_a))
 
     if ret_error:
         # estimate the error of the mutual information calculation
