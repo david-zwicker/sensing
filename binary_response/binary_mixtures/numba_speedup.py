@@ -620,7 +620,8 @@ def LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
    
 
 def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
-                                                        ret_prob_activity=False):
+                                                        ret_prob_activity=False,
+                                                        bias_correction=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     prob_a = np.zeros(2**self.Nr)
@@ -666,6 +667,10 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
             np.empty(self.Nr, np.uint), #< ak
             prob_a
         )
+        
+    if bias_correction:
+        # add entropy bias correction
+        MI += (np.count_nonzero(prob_a) - 1)/(2*len(prob_a))
 
     if ret_error:
         # estimate the error of the mutual information calculation
