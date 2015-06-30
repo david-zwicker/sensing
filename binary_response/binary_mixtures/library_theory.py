@@ -91,13 +91,13 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             q_nm = 1 - np.prod(1 - self.density**2 * p_i)
         
         # calculate the mutual information with requested method
-        if q_n == 0 or q_n == 1:
-            # receptors are never or always activated
-            return 0
-        
-        elif use_polynom:
+        if use_polynom:
             # calculate MI using Taylor approximation
             MI = self.Nr - 0.5*self.Nr * (1 - 2*q_n)**2
+
+        elif q_n == 0 or q_n == 1:
+            # receptors are never or always activated
+            MI = 0
             
         else:
             # calculate MI by assuming that receptors are independent
