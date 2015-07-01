@@ -91,7 +91,8 @@ def main():
                                  'random_normal'],
                         help='scheme for picking substrate correlations')
     parser.add_argument('--optimization-scheme', type=str,
-                        default='anneal', choices=['anneal', 'descent'],
+                        default='anneal',
+                        choices=['anneal', 'descent', 'descent_multiple'],
                         help='optimization scheme to use')
     parser.add_argument('--optimization-info', action='store_true',
                         default=False,

@@ -446,9 +446,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             else:
                 method = 'monte_carlo'
                 
-        if method == 'brute_force':
+        if method == 'brute_force' or method == 'brute-force':
             return self.activity_single_brute_force()
-        elif method == 'monte_carlo':
+        elif method == 'monte_carlo' or method == 'monte-carlo':
             return self.activity_single_monte_carlo()
         elif method == 'estimate':
             return self.activity_single_estimate()
@@ -552,9 +552,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             else:
                 method = 'monte_carlo'
                 
-        if method == 'brute_force':
+        if method == 'brute_force' or method == 'brute-force':
             return self.mutual_information_brute_force(**kwargs)
-        elif method == 'monte_carlo':
+        elif method == 'monte_carlo' or method == 'monte-carlo':
             return self.mutual_information_monte_carlo(**kwargs)
         elif method == 'estimate':
             return self.mutual_information_estimate(**kwargs)
@@ -782,7 +782,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         """
         if method == 'descent':
             return self.optimize_library_descent(target, direction, **kwargs)
-        elif method == 'descent_multiple':
+        elif method == 'descent_multiple' or method == 'descent-multiple':
             return self.optimize_library_descent_multiple(target, direction,
                                                           **kwargs)
         elif method == 'anneal':
