@@ -613,7 +613,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         if bias_correction:
             # add entropy bias correction
-            MI += (len(prob_a) - np.count_nonzero(prob_a) - 1)/(2*len(prob_a))
+            MI += (np.count_nonzero(prob_a) - 1)/(2*steps)
         
         if ret_error:
             # estimate the error of the mutual information calculation

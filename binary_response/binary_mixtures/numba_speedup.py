@@ -631,6 +631,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
         # use the version of the metropolis algorithm that keeps the number
         # of substrates in a mixture constant
         mixture_size = int(mixture_size)
+        steps = self.get_steps('metropolis')
         
         # create random concentration vector with fixed substrate count
         ci = np.r_[np.ones(mixture_size, np.uint8),
@@ -639,7 +640,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
         
         # call jitted function implementing swapping metropolis algorithm
         MI = LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
-            self.Ns, self.Nr, self.get_steps('metropolis'), 
+            self.Ns, self.Nr, steps, 
             self.int_mat,
             self.commonness, self.correlations, #< hi, Jij
             mixture_size, ci, prob_a
@@ -647,10 +648,11 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
     
     elif self.has_correlations:
         # mixture has correlations and we thus use a metropolis algorithm
-
+        steps = self.get_steps('metropolis')
+        
         # call jitted function implementing simple metropolis algorithm
         MI = LibraryBinaryNumeric_mutual_information_metropolis_numba(
-            self.Ns, self.Nr, self.get_steps('metropolis'), 
+            self.Ns, self.Nr, steps, 
             self.int_mat,
             self.commonness, self.correlations, #< hi, Jij
             np.empty(self.Ns, np.uint8), #< ci
@@ -659,9 +661,11 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
     
     else:
         # simple case without correlations and unconstrained number of ligands
+        steps = self.get_steps('monte_carlo')
+        
         # call jitted function implementing simple monte carlo algorithm
         MI = LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
-            self.Ns, self.Nr, self.get_steps('monte_carlo'), 
+            self.Ns, self.Nr, steps, 
             self.int_mat,
             self.substrate_probabilities, #< prob_s
             np.empty(self.Nr, np.uint), #< ak
@@ -669,12 +673,11 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
         )
         
     if bias_correction:
-        # add entropy bias correction
-        MI += (len(prob_a) - np.count_nonzero(prob_a) - 1)/(2*len(prob_a))
+        # add entropy bias correction, MLE of [Paninski2003]
+        MI += (np.count_nonzero(prob_a) - 1)/(2*steps)
 
     if ret_error:
         # estimate the error of the mutual information calculation
-        steps = int(self.parameters['monte_carlo_steps'])
         MI_err = sum(np.abs(1/np.log(2) + np.log2(pa)) * pa
                      for pa in prob_a if pa != 0) / np.sqrt(steps)
 
