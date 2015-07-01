@@ -194,7 +194,35 @@ class TestLibraryBinary(unittest.TestCase):
                 if not consistent:
                     self.fail(msg=name + '\n' + error_msg)
     
-
+    
+    def test_optimization_consistency(self):
+        """ test the various optimization methods for consistency """
+        
+        # list all the tests that should be done
+        tests = [
+            {'method': 'descent', 'multiprocessing': False},
+            {'method': 'descent', 'multiprocessing': True},
+            {'method': 'descent_multiple', 'multiprocessing': False},
+            {'method': 'descent_multiple', 'multiprocessing': True},
+            {'method': 'anneal'},
+        ]
+        
+        # initialize a model
+        model = LibraryBinaryNumeric.create_test_instance()
+        
+        MI_ref = None
+        for test_parameters in tests:
+            MI, _ = model.optimize_library('mutual_information', direction='max',
+                                           steps=1e4, **test_parameters)
+            
+            if MI_ref is None:
+                MI_ref = MI
+            else:
+                msg = ("Optimization inconsistent (%g != %g) for %s"
+                       % (MI_ref, MI, str(test_parameters)))
+                self.assertAllClose(MI, MI_ref, rtol=5e-2, atol=5e-2, msg=msg)
+        
+        
 
 if __name__ == '__main__':
     unittest.main()

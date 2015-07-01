@@ -74,7 +74,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         int_mat_shape = (self.Nr, self.Ns)
         if self.parameters['interaction_matrix'] is not None:
             # copy the given matrix
-            self.int_mat[:] = self.parameters['interaction_matrix']
+            self.int_mat = self.parameters['interaction_matrix'].copy()
             assert self.int_mat.shape == int_mat_shape
         elif self.parameters['interaction_matrix_params'] is not None:
             # create a matrix with the given properties
@@ -98,13 +98,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
+        # create a instance with random parameters
         obj = super(LibraryBinaryNumeric, cls).create_test_instance(**kwargs)
-        
-        # determine optimal parameters for the interaction matrix
-        from .library_theory import LibraryBinaryUniform
-        theory = LibraryBinaryUniform.from_other(obj)
-        obj.choose_interaction_matrix(**theory.get_optimal_library())
-        
+        # choose an optimal interaction matrix
+        obj.choose_interaction_matrix('auto')
         return obj
     
                 
@@ -139,9 +136,17 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def choose_interaction_matrix(self, density=0, avoid_correlations=False):
         """ creates a interaction matrix with the given properties """
         shape = (self.Nr, self.Ns)
+        
+        if density == 'auto':
+            # determine optimal parameters for the interaction matrix
+            from .library_theory import LibraryBinaryUniform
+            theory = LibraryBinaryUniform.from_other(self)
+            density = theory.get_optimal_library()['density']
+            
         if density == 0:
             # simple case of empty matrix
             self.int_mat = np.zeros(shape, np.uint8)
+            
         elif density >= 1:
             # simple case of full matrix
             self.int_mat = np.ones(shape, np.uint8)
@@ -756,7 +761,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         
     def optimize_library(self, target, method='descent', direction='max',
-                         steps=100, ret_info=False, args=None):
+                         **kwargs):
         """ optimizes the current library to maximize the result of the target
         function. By default, the function returns the best value and the
         associated interaction matrix as result.        
@@ -771,22 +776,17 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
 
         `method` determines the method used for optimization. Supported are
             `descent`: simple gradient descent for `steps` number of steps
-            `descent_parallel`: multiprocessing gradient descent. Note that this
-                has an overhead and might actually decrease overall performance
-                for small problems.
+            `descent_multiple`: gradient descent starting from multiple initial
+                conditions.
             `anneal`: simulated annealing
         """
         if method == 'descent':
-            return self.optimize_library_descent(target, direction, steps,
-                                                 multiprocessing=False,
-                                                 ret_info=ret_info, args=args)
-        elif method == 'descent_parallel':
-            return self.optimize_library_descent(target, direction, steps,
-                                                 multiprocessing=True,
-                                                 ret_info=ret_info, args=args)
+            return self.optimize_library_descent(target, direction, **kwargs)
+        elif method == 'descent_multiple':
+            return self.optimize_library_descent_multiple(target, direction,
+                                                          **kwargs)
         elif method == 'anneal':
-            return self.optimize_library_anneal(target, direction, steps,
-                                                ret_info=ret_info, args=args)
+            return self.optimize_library_anneal(target, direction, **kwargs)
             
         else:
             raise ValueError('Unknown optimization method `%s`' % method)
@@ -829,7 +829,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             # run the calculations in multiple processes
             pool = mp.Pool()
             pool_size = len(pool._pool)
-            values_step = max(1, values_step // pool_size)
+            if ret_info:
+                values_step = max(1, values_step // pool_size)
             
             # iterate for given number of steps
             for step in range(int(steps) // pool_size):
@@ -891,7 +892,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 if ret_info and step % values_step == 0:
                     info['values'][step] = value_best
 
-        if ret_info is not None:
+        if ret_info:
             info['total_time'] = time.time() - start_time    
             info['states_considered'] = steps
             info['performance'] = steps / info['total_time']
@@ -904,7 +905,51 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return value_best, state_best, info
         else:
             return value_best, state_best
+ 
+             
+    def optimize_library_descent_multiple(self, target, direction='max',
+                                          trials=8, multiprocessing=False,
+                                          **kwargs):
+        """ optimizes the current library to maximize the result of the target
+        function using gradient descent from `trials` different staring
+        positions. Only the result from the best run will be returned """
         
+        # pass some parameters down to the optimization function to call
+        kwargs['target'] = target
+        kwargs['direction'] = direction
+        
+        # initialize the list of jobs with an optimization job starting from the
+        # current interaction matrix
+        joblist = [(self.init_arguments, 'optimize_library_descent', kwargs)]
+        # add additional jobs with random initial interaction matrices
+        init_arguments = self.init_arguments
+        for _ in range(trials - 1):
+            # modify the current state and add it to the job list
+            init_arguments['parameters']['interaction_matrix_params'] = \
+                                                            {'density': 'auto'}
+            joblist.append((copy.deepcopy(init_arguments),
+                            'optimize_library_descent', kwargs))
+        
+        if multiprocessing:
+            # calculate all results in parallel
+            result_iter = mp.Pool().map(_optimize_library_job, joblist)
+        
+        else:
+            # create a generator over which we iterate later
+            result_iter = (_optimize_library_job(job) for job in joblist)
+        
+        # find the best result by iterating over all results
+        result_best = None
+        for result in result_iter:
+            # check whether this run improved the result
+            if result_best is None:
+                result_best = result
+            elif ((direction == 'max' and result[0] > result_best[0]) or
+                  (direction == 'min' and result[0] < result_best[0])):
+                result_best = result
+
+        return result_best
+                               
     
     def optimize_library_anneal(self, target, direction='max', steps=100,
                                 ret_info=False, args=None):
@@ -956,8 +1001,13 @@ def _optimize_library_job(args):
     
     # create the object ...
     obj = LibraryBinaryNumeric(**args[0])
-    # ... and evaluate the requested method 
-    return getattr(obj, args[1])()
+    # ... get the method to evaluate ...
+    method = getattr(obj, args[1])
+    # ... and evaluate it  
+    if len(args) > 2:
+        return method(**args[2])
+    else:
+        return method()
 
    
    
