@@ -52,7 +52,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         'metropolis_steps_min': 1e4,    #< minimal steps for metropolis
         'metropolis_steps_max': 1e5,    #< maximal steps for metropolis
         'fixed_mixture_size': None,     #< fixed m or None 
-        'anneal_Tmax': 1e0,             #< Max (starting) temp. for annealing
+        'anneal_Tmax': 1e-1,            #< Max (starting) temp. for annealing
         'anneal_Tmin': 1e-3,            #< Min (ending) temp. for annealing
         'verbosity': 0,                 #< verbosity level    
     }
@@ -819,6 +819,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         value_best, state_best = value, self.int_mat.copy()
         if ret_info:
             info = {'values': []}
+            
+        start_time = time.time()
         
         if multiprocessing:
             # run the calculations in multiple processes
@@ -883,6 +885,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 if ret_info:
                     info['values'].append(value)
 
+        if ret_info is not None:
+            info['total_time'] = time.time() - start_time    
+            info['states_considered'] = steps
+            info['performance'] = steps / info['total_time']
+
         # sort the best state and store it in the current object
         state_best = self.sort_interaction_matrix(state_best)
         self.int_mat = state_best.copy()
@@ -911,7 +918,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         from .optimizer import ReceptorOptimizerAnnealer  # @UnresolvedImport
         
         # prepare the class that manages the simulated annealing
-        annealer = ReceptorOptimizerAnnealer(self, target, direction, args)
+        annealer = ReceptorOptimizerAnnealer(self, target, direction, args,
+                                             ret_info=ret_info)
         annealer.steps = int(steps)
         annealer.Tmax = self.parameters['anneal_Tmax']
         annealer.Tmin = self.parameters['anneal_Tmin']

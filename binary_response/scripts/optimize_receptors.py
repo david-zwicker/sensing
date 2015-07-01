@@ -42,13 +42,19 @@ def optimize_receptors(parameters):
                            parameters['correlation-magnitude'])
     
     # optimize the interaction matrix
-    result = model.optimize_library('mutual_information', method='anneal',
-                                    steps=parameters['steps'])
+    result = model.optimize_library('mutual_information',
+                                    method=parameters['optimization-scheme'],
+                                    steps=parameters['steps'],
+                                    ret_info=parameters['optimization-info'])
     
-    return {'parameters': parameters,
+    # return result data
+    data = {'parameters': parameters,
             'init_arguments': model.init_arguments,
             'mutual_information': result[0],
             'interaction_matrix': result[1]}
+    if parameters['optimization-info']:
+        data['optimization-info'] = result[2]
+    return data
 
 
 
@@ -84,13 +90,18 @@ def main():
                         choices=['const', 'random_binary', 'random_uniform',
                                  'random_normal'],
                         help='scheme for picking substrate correlations')
+    parser.add_argument('--optimization-scheme', type=str,
+                        default='anneal', choices=['anneal', 'descent'],
+                        help='optimization scheme to use')
+    parser.add_argument('--optimization-info', action='store_true',
+                        default=False,
+                        help='store extra information about the optimization')
     parser.add_argument('--seed', type=int, default=None,
                         help='seed for the random number generator.')
     parser.add_argument('-p', '--parallel', action='store_true',
                         default=False, help='use multiple processes')
     parser.add_argument('-q', '--quite', action='store_true',
-                        default=False,
-                        help='silence the output')
+                        default=False, help='silence the output')
     parser.add_argument('-f', '--filename', default='result.pkl',
                         help='filename of the result file')
     
@@ -101,6 +112,8 @@ def main():
     job_list = [{'Ns': Ns, 'Nr': Nr, 'm': m, 'scheme': args.mixture_scheme, 
                  'correlation-magnitude': corr,
                  'correlation-scheme': args.correlation_scheme,
+                 'optimization-scheme': args.optimization_scheme,
+                 'optimization-info': args.optimization_info,
                  'random_seed': args.seed, 'steps': steps, 'quite': args.quite}
                  for Ns, Nr, m, corr, steps, _ in itertools.product(*arg_list)]
         
