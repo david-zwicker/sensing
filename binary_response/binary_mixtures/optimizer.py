@@ -21,11 +21,13 @@ class ReceptorOptimizerAnnealer(Annealer):
 
 
     def __init__(self, model, target, direction='max', args=None,
-                 ret_info=False):
+                 ret_info=False, values_step=1):
         """ initialize the optimizer with a `model` to run and a `target`
         function to call. """
         if ret_info:
-            self.info = {'values': []}
+            self.info = {'values': {}}
+            self.values_step = values_step
+            self._step = 0
         else:
             self.info = None
         self.model = model
@@ -52,8 +54,9 @@ class ReceptorOptimizerAnnealer(Annealer):
         self.model.int_mat = self.state
         value = self.target_func()
         
-        if self.info is not None:
-            self.info['values'].append(value)
+        if self.info is not None and self._step % self.values_step == 0:
+            self.info['values'][self._step] = value
+            self._step += 1
         
         if self.direction == 'max':
             return -value

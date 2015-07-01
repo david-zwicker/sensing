@@ -51,7 +51,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         'metropolis_steps': 1e5,        #< default number of Metropolis steps
         'metropolis_steps_min': 1e4,    #< minimal steps for metropolis
         'metropolis_steps_max': 1e5,    #< maximal steps for metropolis
-        'fixed_mixture_size': None,     #< fixed m or None 
+        'fixed_mixture_size': None,     #< fixed m or None
+        'optimizer_values_count': 1024, #< maximal number of values stored 
         'anneal_Tmax': 1e-1,            #< Max (starting) temp. for annealing
         'anneal_Tmin': 1e-3,            #< Min (ending) temp. for annealing
         'verbosity': 0,                 #< verbosity level    
@@ -818,7 +819,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         value = target_function()
         value_best, state_best = value, self.int_mat.copy()
         if ret_info:
-            info = {'values': []}
+            info = {'values': {}}
+            values_count = self.parameters['optimizer_values_count']
+            values_step = max(1, steps // values_count)
             
         start_time = time.time()
         
@@ -826,7 +829,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             # run the calculations in multiple processes
             pool = mp.Pool()
             pool_size = len(pool._pool)
-            for _ in range(int(steps) // pool_size):
+            values_step = max(1, values_step // pool_size)
+            
+            # iterate for given number of steps
+            for step in range(int(steps) // pool_size):
                 joblist = []
                 init_arguments = self.init_arguments
                 for _ in range(pool_size):
@@ -860,12 +866,12 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 else:
                     raise ValueError('Unsupported direction `%s`' % direction)
                         
-                if ret_info:
-                    info['values'].append(results[res_best])
+                if ret_info and step % values_step == 0:
+                    info['values'][step * pool_size] = results[res_best]
                 
         else:  
             # run the calculations in this process
-            for _ in range(int(steps)):
+            for step in range(int(steps)):
                 # modify the current state
                 i = random.randrange(self.int_mat.size)
                 self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
@@ -882,8 +888,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                     # undo last change
                     self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
                     
-                if ret_info:
-                    info['values'].append(value)
+                if ret_info and step % values_step == 0:
+                    info['values'][step] = value_best
 
         if ret_info is not None:
             info['total_time'] = time.time() - start_time    
