@@ -33,10 +33,10 @@ def _mixture_energy(ci, hi, Jij):
     Ns = ci.size
     for i in range(Ns):
         if ci[i] > 0:
-            energy += hi[i] + Jij[i, i]
+            energy -= hi[i] + Jij[i, i]
             for j in range(i + 1, Ns):
-                energy += 2 * Jij[i, j] * ci[j]
-    return -energy
+                energy -= 2 * Jij[i, j] * ci[j]
+    return energy
 
 
     
@@ -47,20 +47,20 @@ def _mixture_energy_indices(indices, hi, Jij):
     commonness vector `hi` and correlation matrix `Jij` """ 
     energy = 0
     for k, i in enumerate(indices):
-        energy += hi[i] + Jij[i, i]
+        energy -= hi[i] + Jij[i, i]
         for j in indices[k + 1:]:
-            energy += 2 * Jij[i, j]
-    return -energy
+            energy -= 2 * Jij[i, j]
+    return energy
 
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
-def _activity_pattern(int_mat, ci):
+def _activity_pattern(ci, int_mat):
     """ helper function that calculates the id of the activity pattern from a
     given concentration vector and the associated interaction matrix """
     Nr, Ns = int_mat.shape
     
-    # calculate the activity pattern id
+    # calculate the activity pattern id for given mixture `ci`
     a_id, base = 0, 1
     for n in range(Nr):
         for i in range(Ns):
@@ -71,6 +71,52 @@ def _activity_pattern(int_mat, ci):
         base *= 2
     return a_id
 
+
+
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def _activity_pattern_indices(indices, int_mat):
+    """ helper function that calculates the id of the activity pattern from a
+    concentration vector given by the indices of ligands that are present and
+    the associated interaction matrix """
+    Nr = len(int_mat)
+    
+    # calculate the activity pattern id for given mixture `ci`
+    a_id, base = 0, 1
+    for n in range(Nr):
+        for i in indices:
+            if int_mat[n, i] == 1:
+                # substrate is present and excites receptor
+                a_id += base
+                break
+        base *= 2
+    return a_id
+
+
+
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def _get_entropy(data):
+    """ helper function that calculates the entropy of the input array """
+    H = 0
+    for value in data:
+        if value > 0: 
+            H -= value * np.log2(value)
+    return H
+
+
+    
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def _get_entropy_normalize(data):
+    """ helper function that calculates the entropy of the input array after
+    normalizing it """
+    # normalize the probabilities and calculate the entropy simultaneously
+    Z = data.sum()
+    H = 0
+    for k in range(len(data)):
+        data[k] /= Z
+        value = data[k]
+        if value > 0: 
+            H -= value * np.log2(value)
+    return H
 
     
 #===============================================================================
@@ -261,7 +307,6 @@ def LibraryBinaryNumeric_mutual_information_brute_force_fixed_numba(
         indices[i] = i
 
     # iterate over all mixtures with a given number of substrates    
-    Z = 0
     running = True
     while running:
         # find the next iteration of the mixture
@@ -280,27 +325,14 @@ def LibraryBinaryNumeric_mutual_information_brute_force_fixed_numba(
 
         # calculate the probability of finding this mixture 
         pm = np.exp(-_mixture_energy_indices(indices, hi, Jij))
-        Z += pm
 
-        # determine the activity pattern 
-        a_id, base = 0, 1
-        for a in range(Nr): 
-            for i in indices:
-                if int_mat[a, i] == 1:
-                    a_id += base
-                    break
-            base *= 2
+        # determine the resulting activity pattern 
+        a_id = _activity_pattern_indices(indices, int_mat)
         
         prob_a[a_id] += pm
     
-    # calculate the mutual information from the observed probabilities
-    MI = 0
-    for pa in prob_a:
-        if pa > 0:
-            pa /= Z #< normalize the probability distribution
-            MI -= pa * np.log2(pa)
-    
-    return MI
+    # normalize prob_a and calculate its entropy    
+    return _get_entropy_normalize(prob_a)
         
    
 
@@ -309,8 +341,6 @@ def LibraryBinaryNumeric_mutual_information_brute_force_corr_numba(
         Ns, Nr, int_mat, hi, Jij, ci, ak, prob_a):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    Z = 0
-    
     # iterate over all mixtures m
     for c in range(2**Ns):
         # extract the mixture and the activity from the single integer `c`
@@ -327,7 +357,6 @@ def LibraryBinaryNumeric_mutual_information_brute_force_corr_numba(
             
         # calculate the probability of finding this mixture 
         pm = np.exp(-_mixture_energy(ci, hi, Jij))
-        Z += pm
         
         # calculate the activity pattern id
         a_id, base = 0, 1
@@ -338,15 +367,9 @@ def LibraryBinaryNumeric_mutual_information_brute_force_corr_numba(
         
         prob_a[a_id] += pm
     
-    # calculate the mutual information from the observed probabilities
-    MI = 0
-    for pa in prob_a:
-        if pa > 0:
-            pa /= Z #< normalize the probability distribution
-            MI -= pa*np.log2(pa)
-    
-    return MI
-        
+    # normalize prob_a and calculate its entropy    
+    return _get_entropy_normalize(prob_a)
+       
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
@@ -382,12 +405,7 @@ def LibraryBinaryNumeric_mutual_information_brute_force_numba(
         prob_a[a_id] += pm
     
     # calculate the mutual information from the observed probabilities
-    MI = 0
-    for pa in prob_a:
-        if pa > 0:
-            MI -= pa*np.log2(pa)
-    
-    return MI
+    return _get_entropy(prob_a)
     
 
 
@@ -423,7 +441,7 @@ def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=
         MI = LibraryBinaryNumeric_mutual_information_brute_force_numba(
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities, #< prob_s
-            np.empty(self.Nr, np.uint), #< ak
+            np.empty(self.Nr, np.uint),   #< ak
             prob_a
         )
     
@@ -473,17 +491,8 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo_numba(
         # increment counter for this output
         prob_a[a_id] += 1
         
-    # normalize the probabilities by the number of steps we did
-    for k in range(len(prob_a)):
-        prob_a[k] /= steps
-    
-    # calculate the mutual information from the observed probabilities
-    MI = 0
-    for pa in prob_a:
-        if pa > 0:
-            MI -= pa*np.log2(pa)
-    
-    return MI
+    # normalize prob_a and calculate its entropy    
+    return _get_entropy_normalize(prob_a)
  
  
 
@@ -497,7 +506,7 @@ def LibraryBinaryNumeric_mutual_information_metropolis_numba(
     for i in range(Ns):
         ci[i] = np.random.randint(2) #< set to either 0 or 1
     E_last = _mixture_energy(ci, hi, Jij)
-    a_id = _activity_pattern(int_mat, ci)
+    a_id = _activity_pattern(ci, int_mat)
         
     # sample mixtures according to the probabilities of finding substrates
     for _ in range(steps):
@@ -511,7 +520,7 @@ def LibraryBinaryNumeric_mutual_information_metropolis_numba(
             E_last = E_new
 
             # calculate the activity pattern from this mixture vector
-            a_id = _activity_pattern(int_mat, ci)
+            a_id = _activity_pattern(ci, int_mat)
         
         else:
             # reject the new state and revert to the last one
@@ -520,102 +529,63 @@ def LibraryBinaryNumeric_mutual_information_metropolis_numba(
         # increment counter for this output
         prob_a[a_id] += 1
         
-    # normalize the probabilities by the number of steps we did
-    for k in range(len(prob_a)):
-        prob_a[k] /= steps
-    
-    # calculate the mutual information from the observed probabilities
-    MI = 0
-    for pa in prob_a:
-        if pa > 0:
-            MI -= pa*np.log2(pa)
-    
-    return MI
+    # normalize prob_a and calculate its entropy    
+    return _get_entropy_normalize(prob_a)
  
- 
+
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
-        Ns, Nr, steps, int_mat, hi, Jij, mixture_size, ci, prob_a):
+        Ns, Nr, steps, int_mat, hi, Jij, mixture_size, ind_0, ind_1, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
+    
     # find out how many zeros and ones there are => these numbers are fixed
     num_0 = Ns - mixture_size
     num_1 = mixture_size
+    
+    assert num_0 == len(ind_0)
+    assert num_1 == len(ind_1)
     
     if num_0 == 0 or num_1 == 0:
         # there will be only a single mixture
         return 0
 
-    # set the energy of the first substrate to infinity to make sure that the
-    # first modified substrate is accepted        
-    E_last = np.inf
+    # get the energy and activity pattern of the first mixture      
+    E_last = _mixture_energy_indices(ind_1, hi, Jij)
+    a_id = _activity_pattern_indices(ind_1, int_mat)
         
     # sample mixtures according to the probabilities of finding
     # substrates
     for _ in range(steps):
         # choose two substrates to swap. Here, we choose the want_0-th zero and
         # the want_1-th one in the vector and swap these two
-        want_0 = np.random.randint(num_0)
-        want_1 = np.random.randint(num_1)
-        count_0, count_1 = 0, 0 #< count how many zeros and ones we found
-        i0, i1 = -1, -1 #< these will store the indices of the k-th 0 and 1
-        for i in range(Ns):
-            if ci[i] == 0:
-                if i0 < 0:
-                    # we are still looking for the index of the zero
-                    if count_0 == want_0:
-                        # found the substrate that we chose => switch it to a 1
-                        i0 = i
-                        ci[i0] = 1 #< toggle this entry 
-                        if i1 >= 0: #< check if the one was already found
-                            break
-                    else:
-                        count_0 += 1
-    
-            else: # ci[i] == 1
-                if i1 < 0:
-                    # we are still looking for the index of the one
-                    if count_1 == want_1:
-                        # found the substrate that we chose => switch it to a 0
-                        i1 = i
-                        ci[i1] = 0 #< toggle this entry
-                        if i0 >= 0: #< check if the zero was already found
-                            break
-                    else:
-                        count_1 += 1
-        # we now switched the presence of substrate i0 and i1
-        
+        k0 = np.random.randint(num_0)
+        k1 = np.random.randint(num_1)
+
+        # switch the presence of the two substrates        
+        ind_0[k0], ind_1[k1] = ind_1[k1], ind_0[k0] 
+                
         # calculate the energy of the new mixture
-        E_new = _mixture_energy(ci, hi, Jij)
+        E_new = _mixture_energy_indices(ind_1, hi, Jij)
         
         if E_new < E_last or np.random.random() < np.exp(E_last - E_new):
             # accept the new mixture vector and save its energy
             E_last = E_new
                         
             # calculate the activity pattern id
-            a_id = _activity_pattern(int_mat, ci)
+            a_id = _activity_pattern_indices(ind_1, int_mat)
             
         else:
             # reject the new state and revert to the last one  -> we can also
             # reuse the calculations of the activity pattern from the last step
-            ci[i0] = 0
-            ci[i1] = 1
+            ind_0[k0], ind_1[k1] = ind_1[k1], ind_0[k0] 
         
         # increment counter for this output
         prob_a[a_id] += 1
         
-    # normalize the probabilities by the number of steps we did
-    for k in range(len(prob_a)):
-        prob_a[k] /= steps
-    
-    # calculate the mutual information from the observed probabilities
-    MI = 0
-    for pa in prob_a:
-        if pa > 0:
-            MI -= pa*np.log2(pa)
-    
-    return MI
+    # normalize prob_a and calculate its entropy    
+    return _get_entropy_normalize(prob_a)
 
    
 
@@ -633,17 +603,16 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
         mixture_size = int(mixture_size)
         steps = self.get_steps('metropolis')
         
-        # create random concentration vector with fixed substrate count
-        ci = np.r_[np.ones(mixture_size, np.uint8),
-                   np.zeros(self.Ns - mixture_size, np.uint8)]
-        np.random.shuffle(ci)
+        # choose substrates that are present in the initial mixture
+        ind_1 = np.random.choice(range(self.Ns), mixture_size, replace=False)
+        ind_0 = np.array([i for i in range(self.Ns) if i not in ind_1])
         
         # call jitted function implementing swapping metropolis algorithm
         MI = LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
             self.Ns, self.Nr, steps, 
             self.int_mat,
             self.commonness, self.correlations, #< hi, Jij
-            mixture_size, ci, prob_a
+            mixture_size, ind_0, ind_1, prob_a
         )
     
     elif self.has_correlations:
@@ -655,7 +624,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
             self.Ns, self.Nr, steps, 
             self.int_mat,
             self.commonness, self.correlations, #< hi, Jij
-            np.empty(self.Ns, np.uint8), #< ci
+            np.empty(self.Ns, np.uint8),        #< ci
             prob_a
         )
     
@@ -668,7 +637,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
             self.Ns, self.Nr, steps, 
             self.int_mat,
             self.substrate_probabilities, #< prob_s
-            np.empty(self.Nr, np.uint), #< ak
+            np.empty(self.Nr, np.uint),   #< ak
             prob_a
         )
         
@@ -787,8 +756,8 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
         MI = LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities,  #< prob_s
-            np.empty(self.Nr),           #< p_Ga
-            np.empty(self.Ns, np.int32), #< ids
+            np.empty(self.Nr),             #< p_Ga
+            np.empty(self.Ns, np.int32),   #< ids
         )
 
     else:    
@@ -796,8 +765,8 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
         MI = LibraryBinaryNumeric_mutual_information_estimate_numba(
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities,  #< prob_s
-            np.empty(self.Nr),           #< p_Ga
-            np.empty(self.Ns, np.int32), #< ids
+            np.empty(self.Nr),             #< p_Ga
+            np.empty(self.Ns, np.int32),   #< ids
         )
     
     return MI

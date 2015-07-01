@@ -579,7 +579,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
         
         if ret_prob_activity:
-            return MI, prob_a.mean()
+            return MI, prob_a
         else:
             return MI
             
@@ -869,7 +869,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 if ret_info and step % values_step == 0:
                     info['values'][step * pool_size] = results[res_best]
                 
-        else:  
+        else:
             # run the calculations in this process
             for step in range(int(steps)):
                 # modify the current state

@@ -63,6 +63,7 @@ class LibraryBinaryBase(LibraryBase):
         if kwargs.get('correlated_mixture', False):
             Jij = np.random.normal(size=(Ns, Ns))
             np.fill_diagonal(Jij, 0)
+            # the matrix will be symmetrize when it is set on the instance 
         else:
             Jij = np.zeros((Ns, Ns))
             
