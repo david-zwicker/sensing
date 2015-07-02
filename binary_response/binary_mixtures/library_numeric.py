@@ -932,7 +932,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         if multiprocessing:
             # calculate all results in parallel
-            result_iter = mp.Pool().map(_optimize_library_job, joblist)
+            pool = mp.Pool()
+            result_iter = pool.imap_unordered(_optimize_library_job, joblist)
         
         else:
             # create a generator over which we iterate later

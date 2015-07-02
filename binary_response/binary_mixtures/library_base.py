@@ -212,6 +212,10 @@ class LibraryBinaryBase(LibraryBase):
                 given in order to restrict the uniform distribution to a
                 fraction of its maximal width. 
         """
+        if not 0 <= mean_mixture_size <= self.Ns:
+            raise ValueError('The mean mixture size must be between 0 and the '
+                             'number of ligands/substrates (%d).' % self.Ns) 
+        
         if scheme == 'const':
             # all substrates are equally likely
             ps = np.full(self.Ns, mean_mixture_size/self.Ns)

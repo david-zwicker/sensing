@@ -323,12 +323,12 @@ def LibraryBinaryNumeric_mutual_information_brute_force_fixed_numba(
             running = False
         # `indices` now holds the indices of ones in the concentration vector
 
-        # calculate the probability of finding this mixture 
-        pm = np.exp(-_mixture_energy_indices(indices, hi, Jij))
-
         # determine the resulting activity pattern 
         a_id = _activity_pattern_indices(indices, int_mat)
         
+        # calculate the probability of finding this mixture 
+        pm = np.exp(-_mixture_energy_indices(indices, hi, Jij))
+
         prob_a[a_id] += pm
     
     # normalize prob_a and calculate its entropy    
@@ -338,32 +338,21 @@ def LibraryBinaryNumeric_mutual_information_brute_force_fixed_numba(
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_brute_force_corr_numba(
-        Ns, Nr, int_mat, hi, Jij, ci, ak, prob_a):
+        Ns, Nr, int_mat, hi, Jij, ci, prob_a):
     """ calculate the mutual information by constructing all possible
     mixtures """
     # iterate over all mixtures m
     for c in range(2**Ns):
-        # extract the mixture and the activity from the single integer `c`
-        ak[:] = 0
+        # extract the mixture from the single integer `c`
         for i in range(Ns):
             ci[i] = c % 2
             c //= 2
-        
-            if ci[i] == 1:
-                # determine which receptors this substrate activates
-                for a in range(Nr):
-                    if int_mat[a, i] == 1:
-                        ak[a] = 1
             
+        # calculate the activity pattern id
+        a_id = _activity_pattern(ci, int_mat)
+        
         # calculate the probability of finding this mixture 
         pm = np.exp(-_mixture_energy(ci, hi, Jij))
-        
-        # calculate the activity pattern id
-        a_id, base = 0, 1
-        for a in range(Nr):
-            if ak[a] == 1:
-                a_id += base
-            base *= 2
         
         prob_a[a_id] += pm
     
@@ -432,7 +421,6 @@ def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=
             self.Ns, self.Nr, self.int_mat,
             self.commonness, self.correlations, #< hi, Jij
             np.empty(self.Ns, np.uint), #< ci
-            np.empty(self.Nr, np.uint), #< ak
             prob_a
         )
         
