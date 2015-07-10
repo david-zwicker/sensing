@@ -432,10 +432,16 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             observations[np.dot(c, base)] += 1
         
         # estimate entropy from the histogram
-        ps = np.array(observations.values(), np.double)
-        ps /= self._sample_steps
-        return -np.sum(ps * np.log2(ps))
+        counts = np.array(observations.values(), np.double)
+        
+        # naive implementation of measuring the entropy is
+        #    ps = counts / self._sample_steps
+        #    H = -np.sum(ps * np.log2(ps))
+        # this can be transformed to a more stable implementation
             
+        log_steps = np.log2(self._sample_steps)
+        return -np.sum(counts*(np.log2(counts) - log_steps))/self._sample_steps
+    
 
     def activity_single(self, method='auto'):
         """ calculates the average activity of each receptor
@@ -502,16 +508,16 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # calculate the probabilities of exciting receptors and pairs
         if approx_prob:
             # approximate calculation for small prob_s
-            p_Gn = np.dot(I_ni, prob_s)
-            assert np.all(p_Gn < 1)
+            q_n = np.dot(I_ni, prob_s)
+            assert np.all(q_n <= 1)
             
         else:
             # proper calculation of the cluster probabilities
-            p_Gn = np.zeros(self.Nr)
+            q_n = np.zeros(self.Nr)
             I_ni_mask = I_ni.astype(np.bool)
             for a in range(self.Nr):
-                p_Gn[a] = 1 - np.product(1 - prob_s[I_ni_mask[a, :]])
-        return p_Gn
+                q_n[a] = 1 - np.product(1 - prob_s[I_ni_mask[a, :]])
+        return q_n
 
 
     def activity_correlations_brute_force(self):
@@ -535,10 +541,26 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         return prob_Caa
     
             
-    def crosstalk(self):
+    def crosstalk_estimate(self, approx_prob=False):
         """ calculates the expected crosstalk between interaction matrices """
-        return np.einsum('ai,bi,i->ab', self.int_mat, self.int_mat,
-                         self.substrate_probabilities)
+        int_mat = self.int_mat
+        prob_s = self.substrate_probabilities
+        
+        if approx_prob:
+            # approximate calculation for small prob_s
+            q_nm = np.einsum('ai,bi,i->ab', int_mat, int_mat, prob_s)
+            assert np.all(q_nm <= 1)
+            
+        else:
+            # proper calculation of the cluster probabilities
+            q_nm = np.zeros((self.Nr, self.Nr))
+            I_ni_mask = int_mat.astype(np.bool)
+            for n in range(self.Nr):
+                for m in range(self.Nr):
+                    mask = I_ni_mask[n, :] * I_ni_mask[m, :]
+                    q_nm[n, m] = 1 - np.product(1 - prob_s[mask])
+            
+        return q_nm
 
 
     def mutual_information(self, method='auto', **kwargs):
