@@ -396,8 +396,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         mixture_size = self.parameters['fixed_mixture_size']
                 
         if self.has_correlations or mixture_size is not None:
-            # complicated case => run brute force
-            return self.mixture_entropy_brute_force()
+            # complicated case => run brute force or monte carlo
+            if self.Ns <= self.parameters['brute_force_threshold_Ns']:
+                return self.mixture_entropy_brute_force()
+            else:
+                return self.mixture_entropy_monte_carlo()
         
         else:
             # simple case => calculate explicitly
@@ -818,12 +821,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # initialize the optimizer
         value = target_function()
         value_best, state_best = value, self.int_mat.copy()
+        last_improvement = 0
+        
         if ret_info:
+            # store extra information
+            start_time = time.time()
             info = {'values': {}}
             values_count = self.parameters['optimizer_values_count']
             values_step = max(1, steps // values_count)
-            
-        start_time = time.time()
         
         if multiprocessing:
             # run the calculations in multiple processes
@@ -884,6 +889,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                             (direction == 'min' and value < value_best))
                 if improved:
                     # save the state as the new best value
+                    last_improvement = step
                     value_best, state_best = value, self.int_mat.copy()
                 else:
                     # undo last change
@@ -892,16 +898,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 if ret_info and step % values_step == 0:
                     info['values'][step] = value_best
 
-        if ret_info:
-            info['total_time'] = time.time() - start_time    
-            info['states_considered'] = steps
-            info['performance'] = steps / info['total_time']
-
         # sort the best state and store it in the current object
         state_best = self.sort_interaction_matrix(state_best)
         self.int_mat = state_best.copy()
 
         if ret_info:
+            info['total_time'] = time.time() - start_time    
+            info['states_considered'] = steps
+            info['performance'] = steps / info['total_time']
             return value_best, state_best, info
         else:
             return value_best, state_best
