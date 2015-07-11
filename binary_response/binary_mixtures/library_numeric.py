@@ -934,7 +934,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
  
              
     def optimize_library_descent_multiple(self, target, direction='max',
-                                          trials=8, multiprocessing=False,
+                                          trials=4, multiprocessing=False,
                                           **kwargs):
         """ optimizes the current library to maximize the result of the target
         function using gradient descent from `trials` different staring
