@@ -15,6 +15,7 @@ sys.path.append(os.path.join(script_path, '..', '..'))
 
 import argparse
 import itertools
+import math
 import multiprocessing as mp
 
 import six.moves.cPickle as pickle
@@ -25,6 +26,11 @@ from binary_response import LibraryBinaryNumeric, LibraryBinaryUniform
 
 def optimize_receptors(parameters):
     """ optimize receptors of the system described by `parameters` """
+    if parameters['progress']:
+        job_id, job_count = parameters['job_id'] + 1, parameters['job_count']
+        progress = math.floor(100 * job_id / job_count)
+        print('Start job %d of %d (%d%%)' % (job_id, job_count, progress))
+    
     # get an estimate of the optimal response fraction
     theory = LibraryBinaryUniform(parameters['Ns'], parameters['Nr'])
     theory.set_commonness('const', parameters['m'])
@@ -103,6 +109,8 @@ def main():
                         default=False, help='use multiple processes')
     parser.add_argument('-q', '--quite', action='store_true',
                         default=False, help='silence the output')
+    parser.add_argument('--progress', action='store_true',
+                        help='display some progress output', default=False)
     parser.add_argument('-f', '--filename', default='result.pkl',
                         help='filename of the result file')
     
@@ -110,13 +118,23 @@ def main():
     args = parser.parse_args()
     arg_list = (args.Ns, args.Nr, args.mixture_size, args.correlation_magnitude,
                 args.steps, range(args.repeat))
+    
+    # determine the number of jobs
+    job_count = 1
+    for arg in arg_list:
+        job_count *= len(arg)
+        
+    # build a list with all the jobs
     job_list = [{'Ns': Ns, 'Nr': Nr, 'm': m, 'scheme': args.mixture_scheme, 
                  'correlation-magnitude': corr,
                  'correlation-scheme': args.correlation_scheme,
                  'optimization-scheme': args.optimization_scheme,
                  'optimization-info': args.optimization_info,
-                 'random_seed': args.seed, 'steps': steps, 'quite': args.quite}
-                 for Ns, Nr, m, corr, steps, _ in itertools.product(*arg_list)]
+                 'job_id': job_id, 'job_count': job_count, 
+                 'random_seed': args.seed, 'steps': steps,
+                 'quite': args.quite, 'progress': args.progress}
+                 for job_id, (Ns, Nr, m, corr, steps, _) 
+                    in enumerate(itertools.product(*arg_list))]
         
     # do the optimization
     if args.parallel and len(job_list) > 1:
