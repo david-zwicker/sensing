@@ -30,6 +30,7 @@ def optimize_receptors(parameters):
         job_id, job_count = parameters['job_id'] + 1, parameters['job_count']
         progress = math.floor(100 * job_id / job_count)
         print('Start job %d of %d (%d%%)' % (job_id, job_count, progress))
+        sys.stdout.flush() #< make output appear immediately
     
     # get an estimate of the optimal response fraction
     theory = LibraryBinaryUniform(parameters['Ns'], parameters['Nr'])
