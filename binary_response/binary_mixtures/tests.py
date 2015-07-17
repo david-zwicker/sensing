@@ -32,6 +32,41 @@ class TestLibraryBinary(unittest.TestCase):
             self.fail(msg + '\nlhs = %s\nrhs = %s' % (a, b))
 
 
+    def _create_test_models(self):
+        """ helper method for creating test models """
+        # save numba patcher state
+        numba_patcher_enabled = numba_patcher.enabled
+        
+        # collect all settings that we want to test
+        settings = collections.OrderedDict()
+        settings['numba_enabled'] = (True, False)
+        settings['mixture_correlated'] = (True, False)
+        settings['fixed_mixture_size'] = (None, 2)
+        
+        # create all combinations of all settings
+        setting_comb = [dict(zip(settings.keys(), items))
+                        for items in itertools.product(*settings.values())]
+        
+        # try all these settings 
+        for setting in setting_comb:
+            # set the respective state of the numba patcher
+            numba_patcher.set_state(setting['numba_enabled'])
+            
+            # create test object
+            model = LibraryBinaryNumeric.create_test_instance(
+                        correlated_mixture=setting['mixture_correlated'],
+                        fixed_mixture_size=setting['fixed_mixture_size']
+                    )
+
+            # create a meaningful error message for all cases
+            model.error_msg = ('The different implementations do not agree for '
+                               ', '.join("%s=%s" % v for v in setting.items()))
+            yield model
+
+        # reset numba patcher state
+        numba_patcher.set_state(numba_patcher_enabled)
+
+
     def test_base(self):
         """ consistency tests on the base class """
         # construct random model
@@ -80,46 +115,28 @@ class TestLibraryBinary(unittest.TestCase):
                 
     def test_mixture_entropy(self):
         """ test the calculations of the mixture entropy """
-        model = LibraryBinaryNumeric.create_test_instance()
-        self.assertAlmostEqual(model.mixture_entropy(),
-                               model.mixture_entropy_brute_force())
-        
-        self.assertAlmostEqual(model.mixture_entropy(),
-                               model.mixture_entropy_monte_carlo(), places=1)
-
-
-    def test_numerics(self):
-        """ test numerical calculations """
-        # save numba patcher state
-        numba_patcher_enabled = numba_patcher.enabled
-        
-        # collect all settings that we want to test
-        settings = collections.OrderedDict()
-        settings['numba_enabled'] = (True, False)
-        settings['mixture_correlated'] = (True, False)
-        settings['fixed_mixture_size'] = (None, 2)
-        
-        # create all combinations of all settings
-        setting_comb = [dict(zip(settings.keys(), items))
-                        for items in itertools.product(*settings.values())]
-        
-        # try all these settings 
-        for setting in setting_comb:
-            # create a meaningful error message for all cases
-            error_msg = ('The different implementations do not agree for ' +
-                         ', '.join("%s=%s" % v for v in setting.items()))
-
-            numba_patcher.set_state(setting['numba_enabled'])
+        for model in self._create_test_models():
+            error_msg = model.error_msg
             
-            # create test object
-            model = LibraryBinaryNumeric.create_test_instance(
-                        correlated_mixture=setting['mixture_correlated'],
-                        fixed_mixture_size=setting['fixed_mixture_size']
-                    )
+            # test the mixture entropy calculations
+            self.assertAlmostEqual(model.mixture_entropy(),
+                                   model.mixture_entropy_brute_force(),
+                                   msg='Mixture entropy: ' + error_msg)
+            
+            self.assertAlmostEqual(model.mixture_entropy(),
+                                   model.mixture_entropy_monte_carlo(),
+                                   places=1,
+                                   msg='Mixture entropy: ' + error_msg)
 
-            # test mixture statistics
+
+    def test_mixture_statistics(self):
+        """ test mixture statistics calculations """
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
+            # check the mixture statistics
             ci_1, cij_1 = model.mixture_statistics_brute_force()
-            if not setting['mixture_correlated']:
+            if not model.has_correlations:
                 ci_2, cij_2 = model.mixture_statistics()
                 self.assertAllClose(ci_1, ci_2, rtol=5e-2, atol=5e-2,
                                     msg='Mixture statistics: ' + error_msg)
@@ -131,6 +148,12 @@ class TestLibraryBinary(unittest.TestCase):
             self.assertAllClose(cij_1, cij_2, rtol=5e-2, atol=5e-2,
                                 msg='Mixture statistics: ' + error_msg)
                 
+                
+    def test_activity_single(self):
+        """ test receptor activity calculations """
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
             # test activity patterns
             try:
                 prob_a_1 = model.activity_single_brute_force()
@@ -141,6 +164,28 @@ class TestLibraryBinary(unittest.TestCase):
                 self.assertAllClose(prob_a_1, prob_a_2, rtol=5e-2, atol=5e-2,
                                     msg='Receptor activities: ' + error_msg)
                 
+                
+    def test_crosstalk(self):
+        """ test receptor crosstalk calculations """
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
+            # test crosstalk patterns
+            try:
+                q_nm_1 = model.crosstalk_brute_force()
+            except NotImplementedError:
+                pass
+            else:
+                q_nm_2 = model.crosstalk_monte_carlo()
+                self.assertAllClose(q_nm_1, q_nm_2, rtol=5e-2, atol=5e-2,
+                                    msg='Receptor crosstalk: ' + error_msg)
+                
+                
+    def test_mututal_information(self):
+        """ test mutual information calculation """
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
             # test calculation of mutual information
             try:
                 MI_1 = model.mutual_information_brute_force()
@@ -150,9 +195,6 @@ class TestLibraryBinary(unittest.TestCase):
                 MI_2 = model.mutual_information_monte_carlo()
                 self.assertAllClose(MI_1, MI_2, rtol=5e-2, atol=5e-2,
                                     msg='Mutual information: ' + error_msg)
-                
-        # reset numba patcher state
-        numba_patcher.set_state(numba_patcher_enabled)
     
     
     def test_numba_consistency(self):

@@ -477,7 +477,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             prob_a[a] += prob_c
             Z += prob_c
                 
-        return prob_a / Z
+        # return the normalized output
+        prob_a /= Z
+        return prob_a
 
             
     def activity_single_monte_carlo(self):
@@ -491,7 +493,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             count_a[a] += 1
             
         # return the normalized output
-        return count_a / self._sample_steps
+        count_a /= self._sample_steps
+        return count_a
             
     
     def activity_single_estimate(self, approx_prob=False):
@@ -540,9 +543,61 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         return prob_Caa
     
+    
+    def crosstalk(self, method='auto'):
+        """ calculates the crosstalk between receptors
+        
+        `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
+            than the method is chosen automatically based on the problem size.
+        """
+        if method == 'auto':
+            if self.Ns <= self.parameters['brute_force_threshold_Ns']:
+                method = 'brute_force'
+            else:
+                method = 'monte_carlo'
+                
+        if method == 'brute_force' or method == 'brute-force':
+            return self.crosstalk_brute_force()
+        elif method == 'monte_carlo' or method == 'monte-carlo':
+            return self.crosstalk_monte_carlo()
+        elif method == 'estimate':
+            return self.crosstalk_estimate()
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+            
+    
+    def crosstalk_brute_force(self):
+        """ calculates the crosstalk between receptors using brute force """
+        q_nm = np.zeros((self.Nr, self.Nr))
+        Z = 0
+        
+        # iterate over all mixtures
+        for c, prob_c in self._iterate_mixtures():
+            # get the activity vector associated with m
+            a = np.dot(self.int_mat, c).astype(np.bool)
+            q_nm += prob_c * np.outer(a, a)
+            Z += prob_c
+               
+        # return the normalized output
+        q_nm /= Z 
+        return q_nm
+    
+            
+    def crosstalk_monte_carlo(self):
+        """ calculates the crosstalk between receptors using brute force """
+        q_nm = np.zeros((self.Nr, self.Nr))
+        for c in self._sample_mixtures():
+            # get the output vector
+            a_n = (np.dot(self.int_mat, c) >= 1)
+            q_nm += np.outer(a_n, a_n)
+        
+        # return the normalized output
+        q_nm /= self._sample_steps
+        return q_nm 
+    
             
     def crosstalk_estimate(self, approx_prob=False):
-        """ calculates the expected crosstalk between interaction matrices """
+        """ calculates the estimated crosstalk between receptors """
         int_mat = self.int_mat
         prob_s = self.substrate_probabilities
         
