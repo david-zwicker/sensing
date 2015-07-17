@@ -14,6 +14,7 @@ script_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(os.path.join(script_path, '..', '..'))
 
 import argparse
+import datetime
 import itertools
 import math
 import multiprocessing as mp
@@ -29,7 +30,8 @@ def optimize_receptors(parameters):
     if parameters['progress']:
         job_id, job_count = parameters['job_id'] + 1, parameters['job_count']
         progress = math.floor(100 * job_id / job_count)
-        print('Start job %d of %d (%d%%)' % (job_id, job_count, progress))
+        print('Started job %d of %d (%d%%) at %s' %
+              (job_id, job_count, progress, datetime.datetime.now()))
         sys.stdout.flush() #< make output appear immediately
     
     # get an estimate of the optimal response fraction
