@@ -20,6 +20,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
         'max_num_receptors': 28,           #< prevents memory overflows
+        'max_steps': 1e7,               #< maximal number of steps 
         'interaction_matrix': None,        #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
         'monte_carlo_steps': 'auto',       #< default steps for monte carlo
@@ -81,7 +82,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         theory = LibrarySparseBinary.from_other(obj)
         obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
-
+    
 
     def choose_interaction_matrix(self, distribution, typical_sensitivity=1,
                                   **kwargs):
@@ -148,31 +149,53 @@ class LibrarySparseNumeric(LibrarySparseBase):
         self.parameters['interaction_matrix_params'] = int_mat_params 
 
 
-    def activity_single(self):
-        """ calculates the average activity of each receptor """ 
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
+    @property
+    def _sample_steps(self):
+        """ returns the number of steps that are sampled """
+        return self.monte_carlo_steps
 
-        # load the parameters    
-        steps = self.monte_carlo_steps        
+
+    def _sample_mixtures(self):
+        """ sample mixtures with uniform probability yielding single mixtures """
+        # use simple monte carlo algorithm
         c_prob = self.substrate_probabilities
         c_means = self.concentrations
-    
-        count_a = np.zeros(self.Nr)
-        for _ in range(steps):
+        
+        for _ in range(self._sample_steps):
             # choose a mixture vector according to substrate probabilities
             b_not = (np.random.random(self.Ns) >= c_prob)
 
             # choose a mixture vector according to substrate probabilities
             c = np.random.exponential(size=self.Ns) * c_means
             c[b_not] = 0
+            yield c
+                
+
+    def activity_single(self):
+        """ calculates the average activity of each receptor """ 
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
+        count_a = np.zeros(self.Nr)
+        for c in self._sample_mixtures():
+            # get the output vector
+            count_a[np.dot(self.int_mat, c) >= 1] += 1
             
-            # get the associated output ...
-            a = (np.dot(self.int_mat, c) >= 1)
-            
-            count_a[a] += 1
-            
-        return count_a/steps
+        return count_a / self._sample_steps
+    
+    
+    def crosstalk(self):
+        """ calculates the crosstalk between receptors """
+        q_nm = np.zeros((self.Nr, self.Nr))
+        for c in self._sample_mixtures():
+            # get the output vector
+            a_n = (np.dot(self.int_mat, c) >= 1)
+            q_nm += np.outer(a_n, a_n)
+        
+        # normalize the output
+        q_nm /= self._sample_steps
+        
+        return q_nm 
 
     
     def mutual_information(self, ret_prob_activity=False):
@@ -180,26 +203,14 @@ class LibrarySparseNumeric(LibrarySparseBase):
         number of steps is given by the model parameter 'monte_carlo_steps' """
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
-                
-        # load the parameters    
-        steps = self.monte_carlo_steps
-        c_prob = self.substrate_probabilities
-        c_means = self.concentrations
 
         base = 2 ** np.arange(0, self.Nr)
 
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
-        for _ in range(steps):
-            # choose a mixture vector according to substrate probabilities
-            b_not = (np.random.random(self.Ns) >= c_prob)
-
-            # choose a mixture vector according to substrate probabilities
-            c = np.random.exponential(size=self.Ns) * c_means
-            c[b_not] = 0
-            
-            # get the associated output ...
+        for c in self._sample_mixtures():
+            # get the activity vector ...
             a = (np.dot(self.int_mat, c) >= 1)
             
             # ... and represent it as a single integer
@@ -209,7 +220,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 
-        prob_a = count_a / steps
+        prob_a = count_a / count_a.sum()
         
         # calculate the mutual information from the result pattern
         MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)

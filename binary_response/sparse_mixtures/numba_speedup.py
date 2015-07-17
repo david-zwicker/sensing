@@ -27,7 +27,7 @@ numba_patcher = NumbaPatcher(module=library_numeric)
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_activity_single_numba(Ns, Nr, steps, int_mat, c_prob,
-                                               c_means, alpha, count_a):
+                                               c_means, a, count_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -35,17 +35,17 @@ def LibrarySparseNumeric_activity_single_numba(Ns, Nr, steps, int_mat, c_prob,
     # substrates
     for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
-        alpha[:] = 0  #< activity pattern of this mixture
+        a[:] = 0  #< activity pattern of this mixture
         for i in range(Ns):
             if np.random.random() < c_prob[i]:
                 # mixture contains substrate i
                 ci = np.random.exponential() * c_means[i]
                 for n in range(Nr):
-                    alpha[n] += int_mat[n, i] * ci
+                    a[n] += int_mat[n, i] * ci
         
         # calculate the activity pattern id
         for n in range(Nr):
-            if alpha[n] >= 1:
+            if a[n] >= 1:
                 count_a[n] += 1
     
 
@@ -73,6 +73,63 @@ def LibrarySparseNumeric_activity_single(self):
 numba_patcher.register_method(
     'LibrarySparseNumeric.activity_single',
     LibrarySparseNumeric_activity_single,
+    check_return_value_approx
+)
+
+
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
+def LibrarySparseNumeric_crosstalk_numba(Ns, Nr, steps, int_mat, c_prob,
+                                         c_means, a, q_nm):
+    """ calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' """
+        
+    # sample mixtures according to the probabilities of finding
+    # substrates
+    for _ in range(steps):
+        # choose a mixture vector according to substrate probabilities
+        a[:] = 0  #< activity pattern of this mixture
+        for i in range(Ns):
+            if np.random.random() < c_prob[i]:
+                # mixture contains substrate i
+                ci = np.random.exponential() * c_means[i]
+                for n in range(Nr):
+                    a[n] += int_mat[n, i] * ci
+        
+        # calculate the activity pattern id
+        for n in range(Nr):
+            # apply thresholding function
+            a[n] = (a[n] >= 1)
+            if a[n]:
+                q_nm[n, n] += 1
+                for m in range(n):
+                    q_nm[n, m] += a[m]
+                    q_nm[m, n] += a[m]
+    
+
+def LibrarySparseNumeric_crosstalk(self):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    if self.has_correlations:
+        raise NotImplementedError('Not implemented for correlated mixtures')
+
+    q_nm = np.zeros((self.Nr, self.Nr), np.uint32) 
+    steps = self.monte_carlo_steps
+ 
+    # call the jitted function
+    LibrarySparseNumeric_crosstalk_numba(
+        self.Ns, self.Nr, steps, self.int_mat,
+        self.substrate_probabilities, #< c_prob
+        self.concentrations,          #< c_means
+        np.empty(self.Nr, np.double), #< a
+        q_nm
+    )
+    
+    return q_nm / steps
+
+
+numba_patcher.register_method(
+    'LibrarySparseNumeric.crosstalk',
+    LibrarySparseNumeric_crosstalk,
     check_return_value_approx
 )
 
