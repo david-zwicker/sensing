@@ -13,6 +13,10 @@ from .library_base import LibraryBinaryBase
 
 
 
+LN2 = np.log(2)
+
+
+
 def binom(N, p):
     """ calculate the probability mass function for the binomial distribution
     of `N` experiments with individual probability `p` """
@@ -93,7 +97,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
         # calculate the mutual information with requested method
         if use_polynom:
             # calculate MI using Taylor approximation
-            MI = self.Nr - 0.5*self.Nr * (1 - 2*q_n)**2
+            MI = self.Nr - 0.5/LN2 * self.Nr * (1 - 2*q_n)**2
 
         elif q_n == 0 or q_n == 1:
             # receptors are never or always activated
@@ -114,8 +118,8 @@ class LibraryBinaryUniform(LibraryBinaryBase):
            
         if with_crosstalk:
             Nr = self.Nr
-            MI += (- (Nr**2 - Nr) * (1 - 2*q_n + 0.75*q_nm) * q_nm
-                   - 0.5*(Nr**3 - 3*Nr**2 + 2*Nr) * q_nm**2)
+            MI -= 1/LN2 * (Nr**2 - Nr) * (0.75*q_nm + 2*q_n - 1) * q_nm
+            MI -= 0.5/LN2 * (Nr**3 - 3*Nr**2 + 2*Nr) * q_nm**2
             
         # determine the entropy of the mixtures
         H_m = -np.sum(p_i*np.log2(p_i) + (1 - p_i)*np.log2(1 - p_i))

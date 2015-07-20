@@ -667,32 +667,37 @@ numba_patcher.register_method(
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
            nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
-        Ns, Nr, int_mat, prob_s, p_Ga, ids):
+        Ns, Nr, int_mat, prob_s, q_n, q_nm_row, ids):
     """ calculate the mutual information by constructing all possible
     mixtures """
+    LN2 = np.log(2) #< compile-time constant
     
     MI = Nr
     # iterate over all receptors
-    for a in range(Nr):
+    for n in range(Nr):
         # evaluate the direct
-        i_count = 0 #< number of substrates that excite receptor a
+        i_count = 0 #< number of substrates that excite receptor n
         prob = 0
         for i in range(Ns):
-            if int_mat[a, i] == 1:
+            if int_mat[n, i] == 1:
                 prob += prob_s[i]
                 ids[i_count] = i
                 i_count += 1
-        p_Ga[a] = prob
-        MI -= 0.5*(1 - 2*p_Ga[a])**2
+        q_n[n] = prob
+        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
 
         # iterate over all other receptors to estimate crosstalk
-        for b in range(a):
-            p_Gab = 0
+        for m in range(n):
+            q_nm_val = 0
             for k in range(i_count):
-                if int_mat[b, ids[k]] == 1:
-                    p_Gab += prob_s[ids[k]]
+                if int_mat[m, ids[k]] == 1:
+                    q_nm_val += prob_s[ids[k]]
 
-            MI -= 2*abs(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab) * p_Gab
+            MI -= 2/LN2 * (0.75*q_nm_val + q_n[n] + q_n[m] - 1) * q_nm_val
+            
+            q_nm_row[m] = q_nm_val #< save the crosstalk for later
+            for l in range(m):
+                MI -= 3/LN2 * q_nm_val * q_nm_row[l]
                 
     return MI
     
@@ -701,33 +706,38 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
            nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_estimate_numba(
-        Ns, Nr, int_mat, prob_s, p_Ga, ids):
+        Ns, Nr, int_mat, prob_s, q_n, q_nm_row, ids):
     """ calculate the mutual information by constructing all possible
     mixtures """
+    LN2 = np.log(2) #< compile-time constant
     
     MI = Nr
     # iterate over all receptors
-    for a in range(Nr):
+    for n in range(Nr):
         # evaluate the direct
-        i_count = 0 #< number of substrates that excite receptor a
+        i_count = 0 #< number of substrates that excite receptor n
         prod = 1    #< product important for calculating the probabilities
         for i in range(Ns):
-            if int_mat[a, i] == 1:
+            if int_mat[n, i] == 1:
                 prod *= 1 - prob_s[i]
                 ids[i_count] = i
                 i_count += 1
-        p_Ga[a] = 1 - prod
-        MI -= 0.5*(1 - 2*p_Ga[a])**2
+        q_n[n] = 1 - prod
+        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
 
         # iterate over all other receptors to estimate crosstalk
-        for b in range(a):
+        for m in range(n):
             prod = 1
             for k in range(i_count):
-                if int_mat[b, ids[k]] == 1:
+                if int_mat[m, ids[k]] == 1:
                     prod *= 1 - prob_s[ids[k]]
-            p_Gab = 1 - prod        
+            q_nm_val = 1 - prod
 
-            MI -= 2*abs(1 - p_Ga[a] - p_Ga[b] + 3/4*p_Gab) * p_Gab
+            MI -= 2/LN2 * (0.75*q_nm_val + q_n[n] + q_n[m] - 1) * q_nm_val
+            
+            q_nm_row[m] = q_nm_val #< save the crosstalk for later
+            for l in range(m):
+                MI -= 3/LN2 * q_nm_val * q_nm_row[l]
                 
     return MI
     
@@ -744,7 +754,8 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
         MI = LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities,  #< prob_s
-            np.empty(self.Nr),             #< p_Ga
+            np.empty(self.Nr),             #< q_n
+            np.empty(self.Nr),             #< q_nm row
             np.empty(self.Ns, np.int32),   #< ids
         )
 
@@ -753,7 +764,8 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
         MI = LibraryBinaryNumeric_mutual_information_estimate_numba(
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities,  #< prob_s
-            np.empty(self.Nr),             #< p_Ga
+            np.empty(self.Nr),             #< q_n
+            np.empty(self.Nr),             #< q_nm row
             np.empty(self.Ns, np.int32),   #< ids
         )
     
