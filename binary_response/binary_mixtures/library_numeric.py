@@ -791,26 +791,26 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        I_ni = self.int_mat
+        S_ni = self.int_mat
         prob_s = self.substrate_probabilities
         
         # calculate the probabilities of exciting receptors and pairs
         if approx_prob:
             # approximate calculation for small prob_s
-            q_n = np.dot(I_ni, prob_s)
-            q_nm = np.einsum('ij,kj,j->ik', I_ni, I_ni, prob_s)
+            q_n = np.dot(S_ni, prob_s)
+            q_nm = np.einsum('ij,kj,j->ik', S_ni, S_ni, prob_s)
             assert np.all(q_n < 1) and np.all(q_nm.flat < 1)
             
         else:
             # proper calculation of the ligand probabilities
             q_n = np.zeros(self.Nr)
             q_nm = np.zeros((self.Nr, self.Nr))
-            I_ni_mask = I_ni.astype(np.bool)
+            S_ni_mask = S_ni.astype(np.bool)
             for n in range(self.Nr):
-                ps = prob_s[I_ni_mask[n, :]]
+                ps = prob_s[S_ni_mask[n, :]]
                 q_n[n] = 1 - np.product(1 - ps)
-                for m in range(n + 1, self.Nr):
-                    ps = prob_s[I_ni_mask[n, :] * I_ni_mask[m, :]]
+                for m in range(self.Nr):
+                    ps = prob_s[S_ni_mask[n, :] * S_ni_mask[m, :]]
                     q_nm[n, m] = 1 - np.product(1 - ps)
                     
         # set diagonal to zero to simplify subsequent sums
@@ -820,8 +820,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         MI = self.Nr
         for n in range(self.Nr):
             MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
-            # We only iterate over half the items to save time
-            # => we correct with a prefactor 2 in both expressions 
             for m in range(self.Nr):
                 MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1)*q_nm[n, m]
                 for l in range(self.Nr):

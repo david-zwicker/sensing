@@ -14,7 +14,8 @@ import numpy as np
 
 # these methods are used in getattr calls
 from . import library_numeric
-from utils.numba_patcher import NumbaPatcher, check_return_value_approx
+from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
+                                 check_return_value_exact)
 
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
@@ -720,9 +721,7 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
 
         # calculate crosstalk
         for m in range(Nr):
-            if n == m:
-                q_nm[n, m] = 0
-            else:
+            if n != m:
                 prod = 1
                 for k in range(i_count):
                     if int_mat[m, ids[k]] == 1:
@@ -775,7 +774,8 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
 
 numba_patcher.register_method(
     'LibraryBinaryNumeric.mutual_information_estimate',
-    LibraryBinaryNumeric_mutual_information_estimate
+    LibraryBinaryNumeric_mutual_information_estimate,
+    test_function=check_return_value_exact
 )
 
 

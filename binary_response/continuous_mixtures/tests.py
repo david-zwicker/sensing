@@ -76,7 +76,7 @@ class TestLibraryContinuous(unittest.TestCase):
                 
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """
-        self.assertTrue(numba_patcher.test_consistency(3, verbosity=0),
+        self.assertTrue(numba_patcher.test_consistency(repeat=3, verbosity=1),
                         msg='Numba methods are not consistent')
                 
         

@@ -25,6 +25,11 @@ def check_return_value_approx(obj, funcs):
     return np.allclose(funcs[0](obj), funcs[1](obj), rtol=5e-2, atol=5e-2)
 
 
+def check_return_value_exact(obj, funcs):
+    """ checks the numba method versus the original one """
+    return np.allclose(funcs[0](obj), funcs[1](obj), rtol=1e-10, atol=1e-14)
+
+
 
 class NumbaPatcher(object):
     """ class for managing numba monkey patching. """   
@@ -174,22 +179,26 @@ class NumbaPatcher(object):
         return consistent
                      
                                 
-    def test_consistency(self, repeat=10, verbosity=1):
+    def test_consistency(self, repeat=10, verbosity=2):
         """ tests the consistency of the numba methods with their original
         counter parts.
         `verbosity` controls how verbose the output is going to be. Valid values
             are 0, 1, 2 with increasing verbosity, respectively.
         """        
         # test all registered numba functions
-        consistent = True
         for name in self.numba_methods:
-            res = self.test_function_consistency(name, repeat, verbosity)
-            consistent = consistent or res
+            consistent = self.test_function_consistency(name, repeat, verbosity)
+            if not consistent:
+                # we found a mistake and return immediately
+                if verbosity >= 1:
+                    print('Numba method `%s` is not consistent.' % name) 
+                return False
 
-        if consistent and verbosity >= 1:
+        # we did not find a mistake and signal that to the caller
+        if verbosity >= 2:
             print('All numba implementations are consistent.')
         
-        return consistent
+        return True
             
             
     def test_speedup(self, test_duration=1):

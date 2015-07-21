@@ -200,9 +200,8 @@ class TestLibraryBinary(unittest.TestCase):
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """
         # this tests the numba consistency for uncorrelated mixtures
-        consistent = numba_patcher.test_consistency(repeat=3, verbosity=0)
-        if not consistent:
-            self.fail(msg='Numba methods are not consistent')
+        self.assertTrue(numba_patcher.test_consistency(repeat=3, verbosity=1),
+                        msg='Numba methods are not consistent')
     
     
     def test_numba_consistency_special(self):
