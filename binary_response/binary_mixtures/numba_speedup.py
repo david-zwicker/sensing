@@ -672,37 +672,28 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
     mixtures """
     LN2 = np.log(2) #< compile-time constant
     
-    MI = Nr
-    # iterate over all receptors
+    # iterate over all receptors to estimate crosstalk
     for n in range(Nr):
-        # evaluate the direct
-        i_count = 0 #< number of substrates that excite receptor n
-        prob = 0
+        # evaluate the probability that a receptor gets activated by ligand i
         for i in range(Ns):
             if int_mat[n, i] == 1:
-                prob += prob_s[i]
-                ids[i_count] = i
-                i_count += 1
-        q_n[n] = prob
-        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
-        
-        # calculate crosstalk
-        for m in range(Nr):
-            prod = 1
-            for k in range(i_count):
-                if int_mat[m, ids[k]] == 1:
-                    prod *= 1 - prob_s[ids[k]]
-            q_nm[n, m] = 1 - prod
+                q_n[n] += prob_s[i]
+                
+                # calculate crosstalk with other receptors
+                for m in range(Nr):
+                    if n != m and int_mat[m, i] == 1:
+                        q_nm[n, m] += prob_s[i]
 
-    # iterate over all receptors
+    # iterate over all receptors to estimate mutual information
+    #TODO: these loops can be optimized
+    MI = Nr
     for n in range(Nr):
-        # iterate over all other receptors to estimate crosstalk
+        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
         for m in range(Nr):
             MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1) * q_nm[n, m]
             for l in range(Nr):
                 MI -= 0.5/LN2 * q_nm[n, l] * q_nm[m, l]
 
-                
     return MI
     
     
@@ -715,8 +706,7 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
     mixtures """
     LN2 = np.log(2) #< compile-time constant
     
-    MI = Nr
-    # iterate over all receptors
+    # iterate over all receptors to determine q_n and q_nm
     for n in range(Nr):
         # evaluate the direct
         i_count = 0 #< number of substrates that excite receptor n
@@ -727,19 +717,23 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
                 ids[i_count] = i
                 i_count += 1
         q_n[n] = 1 - prod
-        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
 
         # calculate crosstalk
         for m in range(Nr):
-            prod = 1
-            for k in range(i_count):
-                if int_mat[m, ids[k]] == 1:
-                    prod *= 1 - prob_s[ids[k]]
-            q_nm[n, m] = 1 - prod
+            if n == m:
+                q_nm[n, m] = 0
+            else:
+                prod = 1
+                for k in range(i_count):
+                    if int_mat[m, ids[k]] == 1:
+                        prod *= 1 - prob_s[ids[k]]
+                q_nm[n, m] = 1 - prod
 
+    #TODO: these loops can be optimized
     # iterate over all receptors
+    MI = Nr
     for n in range(Nr):
-        # iterate over all other receptors to estimate crosstalk
+        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
         for m in range(Nr):
             MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1) * q_nm[n, m]
             for l in range(Nr):
@@ -760,8 +754,8 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
         MI = LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities,  #< prob_s
-            np.empty(self.Nr),             #< q_n
-            np.empty((self.Nr, self.Nr)),  #< q_nm
+            np.zeros(self.Nr),             #< q_n
+            np.zeros((self.Nr, self.Nr)),  #< q_nm
             np.empty(self.Ns, np.int32),   #< ids
         )
 
@@ -771,7 +765,7 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities,  #< prob_s
             np.empty(self.Nr),             #< q_n
-            np.empty((self.Nr, self.Nr)),  #< q_nm
+            np.zeros((self.Nr, self.Nr)),  #< q_nm
             np.empty(self.Ns, np.int32),   #< ids
         )
     
