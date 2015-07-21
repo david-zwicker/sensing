@@ -667,7 +667,7 @@ numba_patcher.register_method(
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
            nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
-        Ns, Nr, int_mat, prob_s, q_n, q_nm_row, ids):
+        Ns, Nr, int_mat, prob_s, q_n, q_nm, ids):
     """ calculate the mutual information by constructing all possible
     mixtures """
     LN2 = np.log(2) #< compile-time constant
@@ -685,19 +685,23 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
                 i_count += 1
         q_n[n] = prob
         MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
-
-        # iterate over all other receptors to estimate crosstalk
-        for m in range(n):
-            q_nm_val = 0
+        
+        # calculate crosstalk
+        for m in range(Nr):
+            prod = 1
             for k in range(i_count):
                 if int_mat[m, ids[k]] == 1:
-                    q_nm_val += prob_s[ids[k]]
+                    prod *= 1 - prob_s[ids[k]]
+            q_nm[n, m] = 1 - prod
 
-            MI -= 2/LN2 * (0.75*q_nm_val + q_n[n] + q_n[m] - 1) * q_nm_val
-            
-            q_nm_row[m] = q_nm_val #< save the crosstalk for later
-            for l in range(m):
-                MI -= 3/LN2 * q_nm_val * q_nm_row[l]
+    # iterate over all receptors
+    for n in range(Nr):
+        # iterate over all other receptors to estimate crosstalk
+        for m in range(Nr):
+            MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1) * q_nm[n, m]
+            for l in range(Nr):
+                MI -= 0.5/LN2 * q_nm[n, l] * q_nm[m, l]
+
                 
     return MI
     
@@ -706,7 +710,7 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
            nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_estimate_numba(
-        Ns, Nr, int_mat, prob_s, q_n, q_nm_row, ids):
+        Ns, Nr, int_mat, prob_s, q_n, q_nm, ids):
     """ calculate the mutual information by constructing all possible
     mixtures """
     LN2 = np.log(2) #< compile-time constant
@@ -725,19 +729,21 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
         q_n[n] = 1 - prod
         MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
 
-        # iterate over all other receptors to estimate crosstalk
-        for m in range(n):
+        # calculate crosstalk
+        for m in range(Nr):
             prod = 1
             for k in range(i_count):
                 if int_mat[m, ids[k]] == 1:
                     prod *= 1 - prob_s[ids[k]]
-            q_nm_val = 1 - prod
+            q_nm[n, m] = 1 - prod
 
-            MI -= 2/LN2 * (0.75*q_nm_val + q_n[n] + q_n[m] - 1) * q_nm_val
-            
-            q_nm_row[m] = q_nm_val #< save the crosstalk for later
-            for l in range(m):
-                MI -= 3/LN2 * q_nm_val * q_nm_row[l]
+    # iterate over all receptors
+    for n in range(Nr):
+        # iterate over all other receptors to estimate crosstalk
+        for m in range(Nr):
+            MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1) * q_nm[n, m]
+            for l in range(Nr):
+                MI -= 0.5/LN2 * q_nm[n, l] * q_nm[m, l]
                 
     return MI
     
@@ -755,7 +761,7 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities,  #< prob_s
             np.empty(self.Nr),             #< q_n
-            np.empty(self.Nr),             #< q_nm row
+            np.empty((self.Nr, self.Nr)),  #< q_nm
             np.empty(self.Ns, np.int32),   #< ids
         )
 
@@ -765,7 +771,7 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
             self.Ns, self.Nr, self.int_mat,
             self.substrate_probabilities,  #< prob_s
             np.empty(self.Nr),             #< q_n
-            np.empty(self.Nr),             #< q_nm row
+            np.empty((self.Nr, self.Nr)),  #< q_nm
             np.empty(self.Ns, np.int32),   #< ids
         )
     

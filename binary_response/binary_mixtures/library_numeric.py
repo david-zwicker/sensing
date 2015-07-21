@@ -813,16 +813,19 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                     ps = prob_s[I_ni_mask[n, :] * I_ni_mask[m, :]]
                     q_nm[n, m] = 1 - np.product(1 - ps)
                     
+        # set diagonal to zero to simplify subsequent sums
+        np.fill_diagonal(q_nm, 0)
+                    
         # calculate the approximate mutual information
         MI = self.Nr
         for n in range(self.Nr):
             MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
+            # We only iterate over half the items to save time
+            # => we correct with a prefactor 2 in both expressions 
             for m in range(n + 1, self.Nr):
-                # prefactor 2 because we only iterate half the items 
                 MI -= 2/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1)*q_nm[n, m]
-                for l in range(m + 1, self.Nr):
-                    # extra prefactor 6 because we only iterate one quadrant
-                    MI -= 3/LN2 * q_nm[n, m]*q_nm[m, l]
+                for l in range(self.Nr):
+                    MI -= 1/LN2 * q_nm[n, m]*q_nm[m, l]
                 
         return MI              
         
