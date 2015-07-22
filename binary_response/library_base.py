@@ -23,6 +23,7 @@ class LibraryBase(object):
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
+        'initialize_state': 'auto',     #< how to initialize the state
         'ensemble_average_num': 32,    #< repetitions for ensemble average
     }
 
@@ -39,6 +40,7 @@ class LibraryBase(object):
         for cls in reversed(self.__class__.__mro__):
             if hasattr(cls, 'parameters_default'):
                 self.parameters.update(cls.parameters_default)
+        # update parameters with the supplied ones
         if parameters is not None:
             self.parameters.update(parameters)
 
@@ -89,8 +91,12 @@ class LibraryBase(object):
             avg_num = self.parameters['ensemble_average_num']
         
         if multiprocessing and avg_num > 1:
-            # run the calculations in multiple processes  
-            arguments = (self.__class__, self.init_arguments, method)
+            
+            init_arguments = self.init_arguments
+            init_arguments['parameters']['initialize_state'] = 'ensemble'
+            
+            # run the calculations in multiple processes
+            arguments = (self.__class__, init_arguments, method)
             pool = mp.Pool()
             result = pool.map(_ensemble_average_job, [arguments] * avg_num)
             

@@ -37,11 +37,29 @@ class LibraryContinuousBase(LibraryBase):
                                                     num_receptors,
                                                     parameters)
 
-        # apply the parameters to the object
-        if self.parameters['commonness_parameters'] is None:
+        initialize_state = self.parameters['initialize_state'] 
+        if initialize_state is None:
+            # do not initialize with anything
+            self.commonness = None
+            
+        elif initialize_state == 'exact':
+            # initialize the state using saved parameters
             self.commonness = self.parameters['commonness_vector']
-        else:
+            
+        elif initialize_state == 'ensemble':
+            # initialize the state using the ensemble parameters
             self.set_commonness(**self.parameters['commonness_parameters'])
+            
+        elif initialize_state == 'auto':
+            # use exact values if saved or ensemble properties otherwise
+            if self.parameters['commonness_parameters'] is None:
+                self.commonness = self.parameters['commonness_vector']
+            else:
+                self.set_commonness(**self.parameters['commonness_parameters'])
+        
+        else:
+            raise ValueError('Unknown initialization protocol `%s`' % 
+                             initialize_state)
 
 
     @classmethod

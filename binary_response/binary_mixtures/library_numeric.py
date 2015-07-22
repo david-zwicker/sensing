@@ -46,7 +46,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         'max_num_receptors': 28,        #< prevents memory overflows
         'max_steps': 1e7,               #< maximal number of steps 
         'interaction_matrix': None,     #< will be calculated if not given
-        'interaction_matrix_params': None, #< parameters determining I_ni
+        'interaction_matrix_params': None, #< parameters determining S_ni
         'inefficiency_weight': 1,       #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 'auto',    #< default steps for monte carlo
@@ -75,18 +75,40 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # prevent integer overflow in collecting activity patterns
         assert num_receptors <= self.parameters['max_num_receptors'] <= 63
 
+        initialize_state = self.parameters['initialize_state'] 
         int_mat_shape = (self.Nr, self.Ns)
-        if self.parameters['interaction_matrix'] is not None:
-            # copy the given matrix
-            self.int_mat = self.parameters['interaction_matrix'].copy()
-            assert self.int_mat.shape == int_mat_shape
-        elif self.parameters['interaction_matrix_params'] is not None:
-            # create a matrix with the given properties
-            params = self.parameters['interaction_matrix_params']
-            self.choose_interaction_matrix(**params)
-        else:
-            # initialize the interaction matrix with zeros
+        
+        if initialize_state is None:
+            # do not initialize with anything
             self.int_mat = np.zeros(int_mat_shape, np.uint8)
+            
+        elif initialize_state == 'exact':
+            # initialize the state using saved parameters
+                self.int_mat = self.parameters['interaction_matrix'].copy()
+            
+        elif initialize_state == 'ensemble':
+            # initialize the state using the ensemble parameters
+                params = self.parameters['interaction_matrix_params']
+                self.choose_interaction_matrix(**params)
+            
+        elif initialize_state == 'auto':
+            # use exact values if saved or ensemble properties otherwise
+            if self.parameters['interaction_matrix'] is not None:
+                # copy the given matrix
+                self.int_mat = self.parameters['interaction_matrix'].copy()
+            elif self.parameters['interaction_matrix_params'] is not None:
+                # create a matrix with the given properties
+                params = self.parameters['interaction_matrix_params']
+                self.choose_interaction_matrix(**params)
+            else:
+                # initialize the interaction matrix with zeros
+                self.int_mat = np.zeros(int_mat_shape, np.uint8)
+
+        else:
+            raise ValueError('Unknown initialization protocol `%s`' % 
+                             initialize_state)
+
+        assert self.int_mat.shape == int_mat_shape
 
 
     @classmethod
@@ -509,21 +531,22 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        I_ni = self.int_mat
+        S_ni = self.int_mat
         prob_s = self.substrate_probabilities
 
         # calculate the probabilities of exciting receptors and pairs
         if approx_prob:
             # approximate calculation for small prob_s
-            q_n = np.dot(I_ni, prob_s)
+            q_n = np.dot(S_ni, prob_s)
             assert np.all(q_n <= 1)
             
         else:
             # proper calculation of the cluster probabilities
             q_n = np.zeros(self.Nr)
-            I_ni_mask = I_ni.astype(np.bool)
+            S_ni_mask = S_ni.astype(np.bool)
             for a in range(self.Nr):
-                q_n[a] = 1 - np.product(1 - prob_s[I_ni_mask[a, :]])
+                q_n[a] = 1 - np.product(1 - prob_s[S_ni_mask[a, :]])
+                
         return q_n
 
 
@@ -602,21 +625,24 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             
     def crosstalk_estimate(self, approx_prob=False):
         """ calculates the estimated crosstalk between receptors """
-        int_mat = self.int_mat
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
+        S_ni = self.int_mat
         prob_s = self.substrate_probabilities
         
         if approx_prob:
             # approximate calculation for small prob_s
-            q_nm = np.einsum('ai,bi,i->ab', int_mat, int_mat, prob_s)
+            q_nm = np.einsum('ai,bi,i->ab', S_ni, S_ni, prob_s)
             assert np.all(q_nm <= 1)
             
         else:
-            # proper calculation of the cluster probabilities
+            # proper calculation of the probabilities
             q_nm = np.zeros((self.Nr, self.Nr))
-            I_ni_mask = int_mat.astype(np.bool)
+            S_ni_mask = S_ni.astype(np.bool)
             for n in range(self.Nr):
                 for m in range(self.Nr):
-                    mask = I_ni_mask[n, :] * I_ni_mask[m, :]
+                    mask = S_ni_mask[n, :] * S_ni_mask[m, :]
                     q_nm[n, m] = 1 - np.product(1 - prob_s[mask])
             
         return q_nm
@@ -628,7 +654,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
             than the method is chosen automatically based on the problem size.
         `ret_prob_activity` determines whether the probabilities of the
-            different outputs is returned or not
+            different outputs are returned or not
         """
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
@@ -788,30 +814,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
             
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
-        S_ni = self.int_mat
-        prob_s = self.substrate_probabilities
-        
-        # calculate the probabilities of exciting receptors and pairs
-        if approx_prob:
-            # approximate calculation for small prob_s
-            q_n = np.dot(S_ni, prob_s)
-            q_nm = np.einsum('ij,kj,j->ik', S_ni, S_ni, prob_s)
-            assert np.all(q_n < 1) and np.all(q_nm.flat < 1)
-            
-        else:
-            # proper calculation of the ligand probabilities
-            q_n = np.zeros(self.Nr)
-            q_nm = np.zeros((self.Nr, self.Nr))
-            S_ni_mask = S_ni.astype(np.bool)
-            for n in range(self.Nr):
-                ps = prob_s[S_ni_mask[n, :]]
-                q_n[n] = 1 - np.product(1 - ps)
-                for m in range(self.Nr):
-                    ps = prob_s[S_ni_mask[n, :] * S_ni_mask[m, :]]
-                    q_nm[n, m] = 1 - np.product(1 - ps)
+        q_n = self.activity_single_estimate(approx_prob=approx_prob)
+        q_nm = self.crosstalk_estimate(approx_prob=approx_prob)
                     
         # set diagonal to zero to simplify subsequent sums
         np.fill_diagonal(q_nm, 0)
@@ -834,14 +838,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        I_ni = self.int_mat
+        S_ni = self.int_mat
         prob_s = self.substrate_probabilities
         
         # collect the terms describing the activity entropy
-        term_entropy = np.sum((0.5 - np.prod(1 - I_ni*prob_s, axis=1)) ** 2)
+        term_entropy = np.sum((0.5 - np.prod(1 - S_ni*prob_s, axis=1)) ** 2)
         
         # collect the terms describing the crosstalk
-        mat_ab = np.einsum('ij,kj,j->ik', I_ni, I_ni, prob_s)
+        mat_ab = np.einsum('ij,kj,j->ik', S_ni, S_ni, prob_s)
         term_crosstalk = 2*np.sum(mat_ab[np.triu_indices(self.Nr, 1)]) 
         
         # add up the terms to produce the inefficiency parameter
@@ -930,7 +934,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                     # modify the current state and add it to the job list
                     i = random.randrange(self.int_mat.size)
                     self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
-                    init_arguments['parameters']['interaction_matrix'] = self.int_mat
+                    init_arguments['parameters'].update({
+                            'initialize_state': 'exact',
+                            'interaction_matrix': self.int_mat
+                        })
                     joblist.append((copy.deepcopy(init_arguments), target))
                     self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
                     
@@ -938,7 +945,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 results = pool.map(_optimize_library_job, joblist)
                 
                 # find the best result  
-                if direction == 'max':              
+                if direction == 'max':
                     res_best = np.argmax(results)
                     if results[res_best] > value_best:
                         value_best = results[res_best]
@@ -1009,14 +1016,24 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # initialize the list of jobs with an optimization job starting from the
         # current interaction matrix
         joblist = [(self.init_arguments, 'optimize_library_descent', kwargs)]
+        int_mat = self.int_mat #< store matrix to restore it later
+
         # add additional jobs with random initial interaction matrices
         init_arguments = self.init_arguments
         for _ in range(trials - 1):
             # modify the current state and add it to the job list
-            init_arguments['parameters']['interaction_matrix_params'] = \
-                                                            {'density': 'auto'}
+            self.choose_interaction_matrix(density='auto')
+            
+            init_arguments['parameters'].update({
+                    'initialize_state': 'exact',
+                    'interaction_matrix': self.int_mat
+                })
+                                                            
             joblist.append((copy.deepcopy(init_arguments),
                             'optimize_library_descent', kwargs))
+            
+        # restore interaction matrix of this object
+        self.int_mat = int_mat
         
         if multiprocessing:
             # calculate all results in parallel
@@ -1120,6 +1137,4 @@ def performance_test(Ns=15, Nr=3):
             
 if __name__ == '__main__':
     performance_test()
-    
-
     

@@ -42,20 +42,40 @@ class LibrarySparseNumeric(LibrarySparseBase):
         # prevent integer overflow in collecting activity patterns
         assert num_receptors <= self.parameters['max_num_receptors'] <= 63
 
+        initialize_state = self.parameters['initialize_state'] 
         int_mat_shape = (self.Nr, self.Ns)
-        if self.parameters['interaction_matrix'] is not None:
-            # copy the given matrix
-            self.int_mat[:] = self.parameters['interaction_matrix']
-            assert self.int_mat.shape == int_mat_shape
-            
-        elif self.parameters['interaction_matrix_params'] is not None:
-            # create a matrix with the given properties
-            params = self.parameters['interaction_matrix_params']
-            self.choose_interaction_matrix(**params)
-            
-        else:
-            # initialize the interaction matrix with zeros
+        
+        if initialize_state is None:
+            # do not initialize with anything
             self.int_mat = np.zeros(int_mat_shape, np.uint8)
+            
+        elif initialize_state == 'exact':
+            # initialize the state using saved parameters
+                self.int_mat = self.parameters['interaction_matrix'].copy()
+            
+        elif initialize_state == 'ensemble':
+            # initialize the state using the ensemble parameters
+                params = self.parameters['interaction_matrix_params']
+                self.choose_interaction_matrix(**params)
+            
+        elif initialize_state == 'auto':
+            # use exact values if saved or ensemble properties otherwise
+            if self.parameters['interaction_matrix'] is not None:
+                # copy the given matrix
+                self.int_mat = self.parameters['interaction_matrix'].copy()
+            elif self.parameters['interaction_matrix_params'] is not None:
+                # create a matrix with the given properties
+                params = self.parameters['interaction_matrix_params']
+                self.choose_interaction_matrix(**params)
+            else:
+                # initialize the interaction matrix with zeros
+                self.int_mat = np.zeros(int_mat_shape, np.uint8)
+
+        else:
+            raise ValueError('Unknown initialization protocol `%s`' % 
+                             initialize_state)
+
+        assert self.int_mat.shape == int_mat_shape
          
             
     @property
