@@ -319,7 +319,7 @@ class LibraryBinaryBase(LibraryBase):
                 b = mean + halfwidth
             else:
                 raise ValueError("The width sigma of the uniform distribution "
-                                 "must be form the interval [0, 1].")
+                                 "must be chosen from the interval [0, 1].")
                 
             # choose random probabilities
             ps = np.random.uniform(a, b, size=self.Ns)

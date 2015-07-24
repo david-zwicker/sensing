@@ -1053,6 +1053,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             elif ((direction == 'max' and result[0] > result_best[0]) or
                   (direction == 'min' and result[0] < result_best[0])):
                 result_best = result
+                
+        # sort the best state and store it in the current object
+        state = self.sort_interaction_matrix(result_best[1])
+        self.int_mat = state.copy()
 
         return result_best
                                
