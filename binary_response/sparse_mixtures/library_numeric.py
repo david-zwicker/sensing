@@ -7,7 +7,7 @@ Created on May 1, 2015
 from __future__ import division
 
 import numpy as np
-from scipy import stats
+from scipy import stats, special
 from six.moves import range
 
 from .library_base import LibrarySparseBase  # @UnresolvedImport
@@ -189,9 +189,25 @@ class LibrarySparseNumeric(LibrarySparseBase):
             c = np.random.exponential(size=self.Ns) * c_means
             c[b_not] = 0
             yield c
-                
 
-    def activity_single(self):
+
+    def activity_single(self, method='auto'):
+        """ calculates the average activity of each receptor
+        
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.activity_single_monte_carlo()
+        elif method == 'estimate':
+            return self.activity_single_estimate()
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+                        
+
+    def activity_single_monte_carlo(self):
         """ calculates the average activity of each receptor """ 
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
@@ -202,6 +218,21 @@ class LibrarySparseNumeric(LibrarySparseBase):
             count_a[np.dot(self.int_mat, c) >= 1] += 1
             
         return count_a / self._sample_steps
+    
+    
+    def activity_single_estimate(self):
+        """ estimates the average activity of each receptor """ 
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+        
+        S_ni = self.int_mat
+        pi = self.substrate_probabilities
+        di = self.concentrations
+        
+        enum = 1 - np.dot(S_ni, di*pi)
+        deno = np.sqrt(2*np.dot(S_ni**2, di**2 * pi))
+        
+        return 0.5*special.erfc(enum/deno)
     
     
     def crosstalk(self):

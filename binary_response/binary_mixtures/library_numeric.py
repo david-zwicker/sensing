@@ -472,8 +472,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def activity_single(self, method='auto'):
         """ calculates the average activity of each receptor
         
-        `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
-            than the method is chosen automatically based on the problem size.
+        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto'].
+            If it is 'auto' than the method is chosen automatically based on the
+            problem size.
         """
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
@@ -574,8 +575,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def crosstalk(self, method='auto'):
         """ calculates the crosstalk between receptors
         
-        `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
-            than the method is chosen automatically based on the problem size.
+        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto']
+            If it is 'auto' than the method is chosen automatically based on the
+            problem size.
         """
         if method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
@@ -651,8 +653,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def mutual_information(self, method='auto', **kwargs):
         """ calculate the mutual information.
         
-        `method` can be one of ['brute_force', 'monte_carlo', 'auto']. If 'auto'
-            than the method is chosen automatically based on the problem size.
+        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto']
+            If it is 'auto' than the method is chosen automatically based on the
+            problem size.
         `ret_prob_activity` determines whether the probabilities of the
             different outputs are returned or not
         """
