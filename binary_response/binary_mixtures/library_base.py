@@ -196,8 +196,8 @@ class LibraryBinaryBase(LibraryBase):
             res[0] = (1 - p)*res[0]
             
         return res
-            
-            
+
+
     def mixture_size_statistics(self):
         """ calculates the mean and the standard deviation of the number of
         components in mixtures """
@@ -208,9 +208,19 @@ class LibraryBinaryBase(LibraryBase):
         prob_s = self.substrate_probabilities
         l_mean = np.sum(prob_s)
         l_var = np.sum(prob_s/(1 + np.exp(self._hs)))
+        
         # return the results in a dictionary to be able to extend it later
         return {'mean': l_mean, 'std': np.sqrt(l_var), 'var': l_var}
-    
+
+
+    def mixture_entropy(self):
+        """ return the entropy in the mixture distribution """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
+        return -sum(ps*np.log2(ps) + (1 - ps)*np.log2(1 - ps)
+                    for ps in self.substrate_probabilities)
+
     
     def set_commonness(self, scheme, mean_mixture_size, **kwargs):
         """ picks a commonness vector according to the supplied parameters:

@@ -24,11 +24,18 @@ import six.moves.cPickle as pickle
 from binary_response import LibraryBinaryNumeric, LibraryBinaryUniform
 
 
+# introduce global variable for keeping track of the number the started jobs
+jobs_started = mp.Value('I', 0)
+
+
 
 def optimize_receptors(parameters):
     """ optimize receptors of the system described by `parameters` """
+    global jobs_started
+    
     if parameters['progress']:
-        job_id, job_count = parameters['job_id'] + 1, parameters['job_count']
+        jobs_started.value += 1
+        job_id, job_count = jobs_started.value, parameters['job_count']
         progress = math.floor(100 * job_id / job_count)
         print('Started job %d of %d (%d%%) at %s' %
               (job_id, job_count, progress, datetime.datetime.now()))
@@ -133,11 +140,10 @@ def main():
                  'correlation-scheme': args.correlation_scheme,
                  'optimization-scheme': args.optimization_scheme,
                  'optimization-info': args.optimization_info,
-                 'job_id': job_id, 'job_count': job_count, 
                  'random_seed': args.seed, 'steps': steps,
-                 'quite': args.quite, 'progress': args.progress}
-                 for job_id, (Ns, Nr, m, corr, steps, _) 
-                    in enumerate(itertools.product(*arg_list))]
+                 'quite': args.quite,
+                 'job_count': job_count, 'progress': args.progress}
+                 for Ns, Nr, m, corr, steps, _  in itertools.product(*arg_list)]
         
     # do the optimization
     if args.parallel and len(job_list) > 1:
