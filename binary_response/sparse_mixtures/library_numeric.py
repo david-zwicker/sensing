@@ -242,8 +242,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
             return 0.5 * special.erfc(-delta / np.sqrt(2))        
     
     
-    def crosstalk(self, method='auto'):
-        """ calculates the crosstalk between receptor
+    def activity_correlations(self, method='auto'):
+        """ calculates the correlations between receptor
         
         `method` can be one of [monte_carlo', 'estimate'].
         """
@@ -258,22 +258,22 @@ class LibrarySparseNumeric(LibrarySparseBase):
             raise ValueError('Unknown method `%s`.' % method)
                         
 
-    def crosstalk_monte_carlo(self):
-        """ calculates the crosstalk between receptors """
-        q_nm = np.zeros((self.Nr, self.Nr))
+    def activity_correlations_monte_carlo(self):
+        """ calculates the correlations between receptors """
+        r_nm = np.zeros((self.Nr, self.Nr))
         for c in self._sample_mixtures():
             # get the output vector
             a_n = (np.dot(self.int_mat, c) >= 1)
-            q_nm += np.outer(a_n, a_n)
+            r_nm += np.outer(a_n, a_n)
         
         # normalize the output
-        q_nm /= self._sample_steps
+        r_nm /= self._sample_steps
         
-        return q_nm 
+        return r_nm 
 
 
-    def crosstalk_estimate(self):
-        """ estimates the crosstalk between receptors """
+    def activity_correlations_estimate(self):
+        """ estimates the correlations between receptors """
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
@@ -289,12 +289,12 @@ class LibrarySparseNumeric(LibrarySparseBase):
         delta = (b_mean - 1)/ b_std             #< deviation from optimum
         rho = b_covar / np.outer(b_std, b_std)  #< correlation coefficient
 
-        q_nm = (0.25
-                + np.add.outer(delta, delta) / np.sqrt(2*np.pi)
+        r_nm = (0.25
+                + np.add.outer(delta, delta) / np.sqrt(8*np.pi)
                 + (np.outer(delta, delta) + rho) / (2*np.pi)
                 )
         
-        return q_nm 
+        return r_nm 
 
     
     def mutual_information(self, ret_prob_activity=False):

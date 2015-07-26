@@ -234,62 +234,62 @@ numba_patcher.register_method(
 #===============================================================================
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
-def LibraryBinaryNumeric_activity_correlations_brute_force_numba(
-        Ns, Nr, int_mat, prob_s, ak, prob_a):
-    """ calculates the correlations between receptor activities """
-    # iterate over all mixtures m
-    for m in range(2**Ns):
-        pm = 1     #< probability of finding this mixture
-        ak[:] = 0  #< activity pattern of this mixture
-        
-        # iterate through substrates in the mixture
-        for i in range(Ns):
-            r = m % 2
-            m //= 2
-            if r == 1:
-                # substrate i is present
-                pm *= prob_s[i]
-                for a in range(Nr):
-                    if int_mat[a, i] == 1:
-                        ak[a] = 1
-            else:
-                # substrate i is not present
-                pm *= 1 - prob_s[i]
-                
-        # add probability to the active receptors
-        for a in range(Nr):
-            if ak[a] == 1:
-                prob_a[a, a] += pm
-                for b in range(a + 1, Nr):
-                    if ak[b] == 1:
-                        prob_a[a, b] += pm
-                        prob_a[b, a] += pm
-                    
-    
-    
-def LibraryBinaryNumeric_activity_correlations_brute_force(self):
-    """ calculates the correlations between receptor activities """
-    if self.has_correlations:
-        raise NotImplementedError('Not implemented for correlated mixtures')
-
-    prob_a = np.zeros((self.Nr, self.Nr)) 
-    
-    # call the jitted function
-    LibraryBinaryNumeric_activity_correlations_brute_force_numba(
-        self.Ns, self.Nr, self.int_mat,
-        self.substrate_probabilities, #< prob_s
-        np.empty(self.Nr, np.uint), #< ak
-        prob_a
-    )
-    return prob_a
-
-
-
-numba_patcher.register_method(
-    'LibraryBinaryNumeric.activity_correlations_brute_force',
-    LibraryBinaryNumeric_activity_correlations_brute_force
-)
+# @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+# def LibraryBinaryNumeric_activity_correlations_brute_force_numba(
+#         Ns, Nr, int_mat, prob_s, ak, prob_a):
+#     """ calculates the correlations between receptor activities """
+#     # iterate over all mixtures m
+#     for m in range(2**Ns):
+#         pm = 1     #< probability of finding this mixture
+#         ak[:] = 0  #< activity pattern of this mixture
+#         
+#         # iterate through substrates in the mixture
+#         for i in range(Ns):
+#             r = m % 2
+#             m //= 2
+#             if r == 1:
+#                 # substrate i is present
+#                 pm *= prob_s[i]
+#                 for a in range(Nr):
+#                     if int_mat[a, i] == 1:
+#                         ak[a] = 1
+#             else:
+#                 # substrate i is not present
+#                 pm *= 1 - prob_s[i]
+#                 
+#         # add probability to the active receptors
+#         for a in range(Nr):
+#             if ak[a] == 1:
+#                 prob_a[a, a] += pm
+#                 for b in range(a + 1, Nr):
+#                     if ak[b] == 1:
+#                         prob_a[a, b] += pm
+#                         prob_a[b, a] += pm
+#                     
+#     
+#     
+# def LibraryBinaryNumeric_activity_correlations_brute_force(self):
+#     """ calculates the correlations between receptor activities """
+#     if self.has_correlations:
+#         raise NotImplementedError('Not implemented for correlated mixtures')
+# 
+#     prob_a = np.zeros((self.Nr, self.Nr)) 
+#     
+#     # call the jitted function
+#     LibraryBinaryNumeric_activity_correlations_brute_force_numba(
+#         self.Ns, self.Nr, self.int_mat,
+#         self.substrate_probabilities, #< prob_s
+#         np.empty(self.Nr, np.uint), #< ak
+#         prob_a
+#     )
+#     return prob_a
+# 
+# 
+# 
+# numba_patcher.register_method(
+#     'LibraryBinaryNumeric.activity_correlations_brute_force',
+#     LibraryBinaryNumeric_activity_correlations_brute_force
+# )
 
     
 #===============================================================================

@@ -78,8 +78,8 @@ numba_patcher.register_method(
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_crosstalk_numba(Ns, Nr, steps, int_mat, c_prob,
-                                         c_means, a, q_nm):
+def LibrarySparseNumeric_activity_correlations_monte_carlo_numba(
+                            Ns, Nr, steps, int_mat, c_prob, c_means, a, q_nm):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -106,7 +106,7 @@ def LibrarySparseNumeric_crosstalk_numba(Ns, Nr, steps, int_mat, c_prob,
                     q_nm[m, n] += a[m]
     
 
-def LibrarySparseNumeric_crosstalk(self):
+def LibrarySparseNumeric_activity_correlations_monte_carlo(self):
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.has_correlations:
@@ -116,7 +116,7 @@ def LibrarySparseNumeric_crosstalk(self):
     steps = self.monte_carlo_steps
  
     # call the jitted function
-    LibrarySparseNumeric_crosstalk_numba(
+    LibrarySparseNumeric_activity_correlations_monte_carlo_numba(
         self.Ns, self.Nr, steps, self.int_mat,
         self.substrate_probabilities, #< c_prob
         self.concentrations,          #< c_means
@@ -128,8 +128,8 @@ def LibrarySparseNumeric_crosstalk(self):
 
 
 numba_patcher.register_method(
-    'LibrarySparseNumeric.crosstalk',
-    LibrarySparseNumeric_crosstalk,
+    'LibrarySparseNumeric.activity_correlations_monte_carlo',
+    LibrarySparseNumeric_activity_correlations_monte_carlo,
     check_return_value_approx
 )
 

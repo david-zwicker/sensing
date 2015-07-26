@@ -60,7 +60,7 @@ class TestLibraryBinary(unittest.TestCase):
 
             # create a meaningful error message for all cases
             model.error_msg = ('The different implementations do not agree for '
-                               ', '.join("%s=%s" % v for v in setting.items()))
+                               + ', '.join("%s=%s" % v for v in setting.items()))
             yield model
 
         # reset numba patcher state
@@ -165,20 +165,20 @@ class TestLibraryBinary(unittest.TestCase):
                                     msg='Receptor activities: ' + error_msg)
                 
                 
-    def test_crosstalk(self):
-        """ test receptor crosstalk calculations """
+    def test_activity_correlations(self):
+        """ test receptor correlation calculations """
         for model in self._create_test_models():
             error_msg = model.error_msg
             
-            # test crosstalk patterns
+            # test activity correlation patterns
             try:
-                q_nm_1 = model.crosstalk_brute_force()
+                r_nm_1 = model.activity_correlations_brute_force()
             except NotImplementedError:
                 pass
             else:
-                q_nm_2 = model.crosstalk_monte_carlo()
-                self.assertAllClose(q_nm_1, q_nm_2, rtol=5e-2, atol=5e-2,
-                                    msg='Receptor crosstalk: ' + error_msg)
+                r_nm_2 = model.activity_correlations_monte_carlo()
+                self.assertAllClose(r_nm_1, r_nm_2, rtol=5e-2, atol=5e-2,
+                                    msg='Receptor correlations: ' + error_msg)
                 
                 
     def test_mututal_information(self):

@@ -550,30 +550,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 
         return q_n
 
-
-    def activity_correlations_brute_force(self):
-        """ calculates the correlations between receptor activities """
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
-        prob_s = self.substrate_probabilities
-
-        prob_Caa = np.zeros((self.Nr, self.Nr))
-        for m in itertools.product((0, 1), repeat=self.Ns):
-            # get the associated output ...
-            a = np.dot(self.int_mat, m).astype(np.bool)
-            Caa = np.outer(a, a)
-
-            # probability of finding this substrate
-            ma = np.array(m, np.bool)
-            pm = np.prod(prob_s[ma]) * np.prod(1 - prob_s[~ma])
-            prob_Caa[Caa] += pm
-        
-        return prob_Caa
     
     
-    def crosstalk(self, method='auto'):
-        """ calculates the crosstalk between receptors
+    def activity_correlations(self, method='auto'):
+        """ calculates the correlation between receptors
         
         `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto']
             If it is 'auto' than the method is chosen automatically based on the
@@ -586,47 +566,47 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 method = 'monte_carlo'
                 
         if method == 'brute_force' or method == 'brute-force':
-            return self.crosstalk_brute_force()
+            return self.activity_correlations_brute_force()
         elif method == 'monte_carlo' or method == 'monte-carlo':
-            return self.crosstalk_monte_carlo()
+            return self.activity_correlations_monte_carlo()
         elif method == 'estimate':
-            return self.crosstalk_estimate()
+            return self.activity_correlations_estimate()
         else:
             raise ValueError('Unknown method `%s`.' % method)
             
-    
-    def crosstalk_brute_force(self):
-        """ calculates the crosstalk between receptors using brute force """
-        q_nm = np.zeros((self.Nr, self.Nr))
+        
+    def activity_correlations_brute_force(self):
+        """ calculates the correlation between receptors using brute force """
+        r_nm = np.zeros((self.Nr, self.Nr))
         Z = 0
         
         # iterate over all mixtures
         for c, prob_c in self._iterate_mixtures():
-            # get the activity vector associated with m
-            a = np.dot(self.int_mat, c).astype(np.bool)
-            q_nm += prob_c * np.outer(a, a)
+            # get the activity vector associated with the mixture
+            a_n = (np.dot(self.int_mat, c) >= 1)
+            r_nm[np.outer(a_n, a_n)] += prob_c
             Z += prob_c
                
         # return the normalized output
-        q_nm /= Z 
-        return q_nm
+        r_nm /= Z
+        return r_nm
     
             
-    def crosstalk_monte_carlo(self):
-        """ calculates the crosstalk between receptors using brute force """
-        q_nm = np.zeros((self.Nr, self.Nr))
+    def activity_correlations_monte_carlo(self):
+        """ calculates the correlation between receptors using brute force """
+        r_nm = np.zeros((self.Nr, self.Nr))
         for c in self._sample_mixtures():
-            # get the output vector
+            # get the activity vector associated with the mixture
             a_n = (np.dot(self.int_mat, c) >= 1)
-            q_nm += np.outer(a_n, a_n)
+            r_nm[np.outer(a_n, a_n)] += 1
         
         # return the normalized output
-        q_nm /= self._sample_steps
-        return q_nm 
+        r_nm /= self._sample_steps
+        return r_nm 
     
             
-    def crosstalk_estimate(self, approx_prob=False):
-        """ calculates the estimated crosstalk between receptors """
+    def activity_correlations_estimate(self, approx_prob=False):
+        """ calculates the estimated correlation between receptors """
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
@@ -635,19 +615,19 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         if approx_prob:
             # approximate calculation for small prob_s
-            q_nm = np.einsum('ai,bi,i->ab', S_ni, S_ni, prob_s)
-            assert np.all(q_nm <= 1)
+            r_nm = np.einsum('ai,bi,i->ab', S_ni, S_ni, prob_s)
+            assert np.all(r_nm <= 1)
             
         else:
             # proper calculation of the probabilities
-            q_nm = np.zeros((self.Nr, self.Nr))
+            r_nm = np.zeros((self.Nr, self.Nr))
             S_ni_mask = S_ni.astype(np.bool)
             for n in range(self.Nr):
                 for m in range(self.Nr):
                     mask = S_ni_mask[n, :] * S_ni_mask[m, :]
-                    q_nm[n, m] = 1 - np.product(1 - prob_s[mask])
+                    r_nm[n, m] = 1 - np.product(1 - prob_s[mask])
             
-        return q_nm
+        return r_nm
 
 
     def mutual_information(self, method='auto', **kwargs):
@@ -818,19 +798,20 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             which should work for small probabilities. """
             
         q_n = self.activity_single_estimate(approx_prob=approx_prob)
-        q_nm = self.crosstalk_estimate(approx_prob=approx_prob)
+        #FIXME: this might be not the right approach
+        r_nm = self.activity_correlations_estimate(approx_prob=approx_prob)
                     
         # set diagonal to zero to simplify subsequent sums
-        np.fill_diagonal(q_nm, 0)
+        np.fill_diagonal(r_nm, 0)
                     
         # calculate the approximate mutual information
         MI = self.Nr
         for n in range(self.Nr):
             MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
             for m in range(self.Nr):
-                MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1)*q_nm[n, m]
+                MI -= 1/LN2 * (0.75*r_nm[n, m] + q_n[n] + q_n[m] - 1)*r_nm[n, m]
                 for l in range(self.Nr):
-                    MI -= 0.5/LN2 * q_nm[n, m]*q_nm[m, l]
+                    MI -= 0.5/LN2 * r_nm[n, m]*r_nm[m, l]
                 
         return MI              
         
