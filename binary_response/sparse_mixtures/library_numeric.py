@@ -229,13 +229,29 @@ class LibrarySparseNumeric(LibrarySparseBase):
         pi = self.substrate_probabilities
         di = self.concentrations
         
-        enum = 1 - np.dot(S_ni, di*pi)
-        deno = np.sqrt(2*np.dot(S_ni**2, di**2 * pi))
+        enum = 1 - np.dot(S_ni, pi/di)
+        deno = np.sqrt(2*np.dot(S_ni**2, pi / di**2))
         
         return 0.5*special.erfc(enum/deno)
     
     
-    def crosstalk(self):
+    def crosstalk(self, method='auto'):
+        """ calculates the crosstalk between receptor
+        
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.crosstalk_monte_carlo()
+        elif method == 'estimate':
+            return self.crosstalk_estimate()
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+                        
+
+    def crosstalk_monte_carlo(self):
         """ calculates the crosstalk between receptors """
         q_nm = np.zeros((self.Nr, self.Nr))
         for c in self._sample_mixtures():
@@ -245,6 +261,29 @@ class LibrarySparseNumeric(LibrarySparseBase):
         
         # normalize the output
         q_nm /= self._sample_steps
+        
+        return q_nm 
+
+
+    def crosstalk_estimate(self):
+        """ estimates the crosstalk between receptors """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+        
+        S_ni = self.int_mat
+        pi = self.substrate_probabilities
+        di = self.concentrations
+
+        b_mean = np.dot(S_ni, pi/di) - 1
+        b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], pi/di ** 2)
+        b_var = np.diagonal(b_covar)
+        
+        delta = b_mean / b_var                  #< normalized difference to 1
+        rho = b_covar / np.outer(b_var, b_var)  #< correlation coefficient
+
+        q_nm = (0.25
+                + np.add.outer(delta, delta) / np.sqrt(2*np.pi)
+                + (np.outer(delta, delta) + rho) / (2*np.pi))
         
         return q_nm 
 
