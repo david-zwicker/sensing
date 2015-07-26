@@ -10,7 +10,7 @@ import numpy as np
 from scipy import stats, special
 from six.moves import range
 
-from .library_base import LibrarySparseBase  # @UnresolvedImport
+from .library_base import LibrarySparseBase
 
 
 
@@ -182,7 +182,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         c_means = self.concentrations
         
         for _ in range(self._sample_steps):
-            # choose a mixture vector according to substrate probabilities
+            # choose ligands that are _not_ in a mixture
             b_not = (np.random.random(self.Ns) >= c_prob)
 
             # choose a mixture vector according to substrate probabilities
@@ -212,15 +212,16 @@ class LibrarySparseNumeric(LibrarySparseBase):
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
+        S_ni = self.int_mat
+
         count_a = np.zeros(self.Nr)
-        for c in self._sample_mixtures():
-            # get the output vector
-            count_a[np.dot(self.int_mat, c) >= 1] += 1
+        for ci in self._sample_mixtures():
+            count_a[np.dot(S_ni, ci) >= 1] += 1
             
         return count_a / self._sample_steps
     
     
-    def activity_single_estimate(self):
+    def activity_single_estimate(self, linearized=False):
         """ estimates the average activity of each receptor """ 
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
@@ -229,10 +230,16 @@ class LibrarySparseNumeric(LibrarySparseBase):
         pi = self.substrate_probabilities
         di = self.concentrations
         
-        enum = 1 - np.dot(S_ni, pi/di)
-        deno = np.sqrt(2*np.dot(S_ni**2, pi / di**2))
+        b_mean = np.dot(S_ni, pi*di)
+        b_var = np.dot(S_ni**2, pi * di**2)
+        b_std = np.sqrt(b_var)
         
-        return 0.5*special.erfc(enum/deno)
+        delta = (b_mean - 1) / b_std  #< deviation from optimum
+
+        if linearized:
+            return np.clip(0.5 + delta / np.sqrt(2*np.pi), 0, 1)
+        else:
+            return 0.5 * special.erfc(-delta / np.sqrt(2))        
     
     
     def crosstalk(self, method='auto'):
@@ -274,16 +281,18 @@ class LibrarySparseNumeric(LibrarySparseBase):
         pi = self.substrate_probabilities
         di = self.concentrations
 
-        b_mean = np.dot(S_ni, pi/di) - 1
-        b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], pi/di ** 2)
+        b_mean = np.dot(S_ni, pi*di)
+        b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], pi * di**2)
         b_var = np.diagonal(b_covar)
+        b_std = np.sqrt(b_var)
         
-        delta = b_mean / b_var                  #< normalized difference to 1
-        rho = b_covar / np.outer(b_var, b_var)  #< correlation coefficient
+        delta = (b_mean - 1)/ b_std             #< deviation from optimum
+        rho = b_covar / np.outer(b_std, b_std)  #< correlation coefficient
 
         q_nm = (0.25
                 + np.add.outer(delta, delta) / np.sqrt(2*np.pi)
-                + (np.outer(delta, delta) + rho) / (2*np.pi))
+                + (np.outer(delta, delta) + rho) / (2*np.pi)
+                )
         
         return q_nm 
 
