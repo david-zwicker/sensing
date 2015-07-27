@@ -26,110 +26,69 @@ numba_patcher = NumbaPatcher(module=library_numeric)
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_activity_single_numba(Ns, Nr, steps, int_mat, c_prob,
-                                               c_means, a, count_a):
+def LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
+        Ns, Nr, steps, S_ni, p_i, d_i, a_n, ret_correlations, r_n, r_nm):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
-    # sample mixtures according to the probabilities of finding
-    # substrates
+    # sample mixtures according to the probabilities of finding ligands
     for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
-        a[:] = 0  #< activity pattern of this mixture
+        a_n[:] = 0  #< activity pattern of this mixture
         for i in range(Ns):
-            if np.random.random() < c_prob[i]:
+            if np.random.random() < p_i[i]:
                 # mixture contains substrate i
-                ci = np.random.exponential() * c_means[i]
+                c_i = np.random.exponential() * d_i[i]
                 for n in range(Nr):
-                    a[n] += int_mat[n, i] * ci
+                    a_n[n] += S_ni[n, i] * c_i
         
-        # calculate the activity pattern id
+        # calculate the activity pattern 
         for n in range(Nr):
-            if a[n] >= 1:
-                count_a[n] += 1
+            if a_n[n] >= 1:
+                r_n[n] += 1
+                
+        if ret_correlations:
+            for n in range(Nr):
+                if a_n[n] >= 1:
+                    r_nm[n, n] += 1
+                    for m in range(n + 1, Nr):
+                        if a_n[m] >= 1:
+                            r_nm[n, m] += 1
+                            r_nm[m, n] += 1
+                
     
 
-def LibrarySparseNumeric_activity_single(self):
+def LibrarySparseNumeric_receptor_activity_monte_carlo(self, ret_correlations=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.has_correlations:
         raise NotImplementedError('Not implemented for correlated mixtures')
 
-    count_a = np.zeros(self.Nr, np.uint32) 
+    r_n = np.zeros(self.Nr) 
+    r_nm = np.zeros((self.Nr, self.Nr)) 
     steps = self.monte_carlo_steps
  
     # call the jitted function
-    LibrarySparseNumeric_activity_single_numba(
+    LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
         self.Ns, self.Nr, steps, self.int_mat,
         self.substrate_probabilities, #< c_prob
         self.concentrations,          #< c_means
         np.empty(self.Nr, np.double), #< a
-        count_a
+        ret_correlations,
+        r_n, r_nm
     )
     
-    return count_a / steps
+    r_n /= steps
+    if ret_correlations:
+        r_nm /= steps
+        return r_n, r_nm
+    else:
+        return r_n
 
 
 numba_patcher.register_method(
-    'LibrarySparseNumeric.activity_single',
-    LibrarySparseNumeric_activity_single,
-    check_return_value_approx
-)
-
-
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_activity_correlations_monte_carlo_numba(
-                            Ns, Nr, steps, int_mat, c_prob, c_means, a, q_nm):
-    """ calculate the mutual information using a monte carlo strategy. The
-    number of steps is given by the model parameter 'monte_carlo_steps' """
-        
-    # sample mixtures according to the probabilities of finding
-    # substrates
-    for _ in range(steps):
-        # choose a mixture vector according to substrate probabilities
-        a[:] = 0  #< activity pattern of this mixture
-        for i in range(Ns):
-            if np.random.random() < c_prob[i]:
-                # mixture contains substrate i
-                ci = np.random.exponential() * c_means[i]
-                for n in range(Nr):
-                    a[n] += int_mat[n, i] * ci
-        
-        # calculate the activity pattern id
-        for n in range(Nr):
-            # apply thresholding function
-            a[n] = (a[n] >= 1)
-            if a[n]:
-                q_nm[n, n] += 1
-                for m in range(n):
-                    q_nm[n, m] += a[m]
-                    q_nm[m, n] += a[m]
-    
-
-def LibrarySparseNumeric_activity_correlations_monte_carlo(self):
-    """ calculate the mutual information by constructing all possible
-    mixtures """
-    if self.has_correlations:
-        raise NotImplementedError('Not implemented for correlated mixtures')
-
-    q_nm = np.zeros((self.Nr, self.Nr), np.uint32) 
-    steps = self.monte_carlo_steps
- 
-    # call the jitted function
-    LibrarySparseNumeric_activity_correlations_monte_carlo_numba(
-        self.Ns, self.Nr, steps, self.int_mat,
-        self.substrate_probabilities, #< c_prob
-        self.concentrations,          #< c_means
-        np.empty(self.Nr, np.double), #< a
-        q_nm
-    )
-    
-    return q_nm / steps
-
-
-numba_patcher.register_method(
-    'LibrarySparseNumeric.activity_correlations_monte_carlo',
-    LibrarySparseNumeric_activity_correlations_monte_carlo,
+    'LibrarySparseNumeric.receptor_activity_monte_carlo',
+    LibrarySparseNumeric_receptor_activity_monte_carlo,
     check_return_value_approx
 )
 

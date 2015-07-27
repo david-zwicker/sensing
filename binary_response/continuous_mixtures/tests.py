@@ -57,8 +57,8 @@ class TestLibraryContinuous(unittest.TestCase):
             obj2.sigma = 1e-13
             
             # test the activity calculation
-            self.assertAlmostEqual(obj1.activity_single_estimate(approx),
-                                   obj2.activity_single_estimate(approx),
+            self.assertAlmostEqual(obj1.receptor_activity_estimate(approx),
+                                   obj2.receptor_activity_estimate(approx),
                                    places=5)
     
             # test the optimal sensitivity calculation
@@ -70,8 +70,8 @@ class TestLibraryContinuous(unittest.TestCase):
                                    obj2.typical_sensitivity,
                                    places=5)
              
-            self.assertAlmostEqual(obj1.activity_single_estimate(approx), 0.5)
-            self.assertAlmostEqual(obj2.activity_single_estimate(approx), 0.5)
+            self.assertAlmostEqual(obj1.receptor_activity_estimate(approx), 0.5)
+            self.assertAlmostEqual(obj2.receptor_activity_estimate(approx), 0.5)
                 
                 
     def test_numba_consistency(self):

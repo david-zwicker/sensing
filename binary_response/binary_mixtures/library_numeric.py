@@ -469,7 +469,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         return -np.sum(counts*(np.log2(counts) - log_steps))/self._sample_steps
     
 
-    def activity_single(self, method='auto'):
+    def receptor_activity(self, method='auto', ret_correlations=False):
         """ calculates the average activity of each receptor
         
         `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto'].
@@ -483,48 +483,68 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 method = 'monte_carlo'
                 
         if method == 'brute_force' or method == 'brute-force':
-            return self.activity_single_brute_force()
+            return self.receptor_activity_brute_force(ret_correlations)
         elif method == 'monte_carlo' or method == 'monte-carlo':
-            return self.activity_single_monte_carlo()
+            return self.receptor_activity_monte_carlo(ret_correlations)
         elif method == 'estimate':
-            return self.activity_single_estimate()
+            return self.receptor_activity_estimate(ret_correlations)
         else:
             raise ValueError('Unknown method `%s`.' % method)
+
         
-        
-    def activity_single_brute_force(self):
+    def receptor_activity_brute_force(self, ret_correlations=False):
         """ calculates the average activity of each receptor """
-        prob_a = np.zeros(self.Nr)
+        S_ni = self.int_mat
         Z = 0
+        r_n = np.zeros(self.Nr)
+        if ret_correlations:
+            r_nm = np.zeros((self.Nr, self.Nr))
         
         # iterate over all mixtures
         for c, prob_c in self._iterate_mixtures():
             # get the activity vector associated with m
-            a = np.dot(self.int_mat, c).astype(np.bool)
-            prob_a[a] += prob_c
+            a_n = (np.dot(S_ni, c) >= 1)
             Z += prob_c
+
+            r_n[a_n] += prob_c
+            if ret_correlations:
+                r_nm[np.outer(a_n, a_n)] += prob_c
                 
         # return the normalized output
-        prob_a /= Z
-        return prob_a
+        r_n /= Z
+        if ret_correlations:
+            r_nm /= Z
+            return r_n, r_nm
+        else:
+            return r_n
 
             
-    def activity_single_monte_carlo(self):
-        """ calculates the average activity of each receptor """ 
-        count_a = np.zeros(self.Nr)
-        for c in self._sample_mixtures():
-            # choose a mixture vector according to substrate probabilities
-            # get the associated output
-            a = np.dot(self.int_mat, c).astype(np.bool)
+    def receptor_activity_monte_carlo(self, ret_correlations=False):
+        """ calculates the average activity of each receptor """
+        S_ni = self.int_mat
+        r_n = np.zeros(self.Nr)
+        if ret_correlations:
+            r_nm = np.zeros((self.Nr, self.Nr))
             
-            count_a[a] += 1
+        for c in self._sample_mixtures():
+            # get the activity vector associated with the mixture
+            a_n = (np.dot(S_ni, c) >= 1)
+            
+            r_n[a_n] += 1
+            if ret_correlations:
+                r_nm[np.outer(a_n, a_n)] += 1
             
         # return the normalized output
-        count_a /= self._sample_steps
-        return count_a
+        r_n /= self._sample_steps
+        if ret_correlations:
+            r_nm /= self._sample_steps
+            return r_n, r_nm
+        else:
+            return r_n
             
     
-    def activity_single_estimate(self, approx_prob=False):
+    def receptor_activity_estimate(self, ret_correlations=False,
+                                   approx_prob=False):
         """ estimates the average activity of each receptor. 
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
@@ -533,102 +553,39 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         S_ni = self.int_mat
-        prob_s = self.substrate_probabilities
-
-        # calculate the probabilities of exciting receptors and pairs
-        if approx_prob:
-            # approximate calculation for small prob_s
-            q_n = np.dot(S_ni, prob_s)
-            assert np.all(q_n <= 1)
-            
-        else:
-            # proper calculation of the cluster probabilities
-            q_n = np.zeros(self.Nr)
-            S_ni_mask = S_ni.astype(np.bool)
-            for a in range(self.Nr):
-                q_n[a] = 1 - np.product(1 - prob_s[S_ni_mask[a, :]])
-                
-        return q_n
-
-    
-    
-    def activity_correlations(self, method='auto'):
-        """ calculates the correlation between receptors
+        pi = self.substrate_probabilities
         
-        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto']
-            If it is 'auto' than the method is chosen automatically based on the
-            problem size.
-        """
-        if method == 'auto':
-            if self.Ns <= self.parameters['brute_force_threshold_Ns']:
-                method = 'brute_force'
+        if approx_prob:
+            # approximate calculation for small pi
+            r_n = np.dot(S_ni, pi)
+            np.clip(r_n, 0, 1, r_n)
+            
+            if ret_correlations:
+                r_nm = np.einsum('ai,bi,i->ab', S_ni, S_ni, pi)
+                np.clip(r_nm, 0, 1, r_nm)
+                return r_n, r_nm
+            
             else:
-                method = 'monte_carlo'
-                
-        if method == 'brute_force' or method == 'brute-force':
-            return self.activity_correlations_brute_force()
-        elif method == 'monte_carlo' or method == 'monte-carlo':
-            return self.activity_correlations_monte_carlo()
-        elif method == 'estimate':
-            return self.activity_correlations_estimate()
-        else:
-            raise ValueError('Unknown method `%s`.' % method)
-            
-        
-    def activity_correlations_brute_force(self):
-        """ calculates the correlation between receptors using brute force """
-        r_nm = np.zeros((self.Nr, self.Nr))
-        Z = 0
-        
-        # iterate over all mixtures
-        for c, prob_c in self._iterate_mixtures():
-            # get the activity vector associated with the mixture
-            a_n = (np.dot(self.int_mat, c) >= 1)
-            r_nm[np.outer(a_n, a_n)] += prob_c
-            Z += prob_c
-               
-        # return the normalized output
-        r_nm /= Z
-        return r_nm
-    
-            
-    def activity_correlations_monte_carlo(self):
-        """ calculates the correlation between receptors using brute force """
-        r_nm = np.zeros((self.Nr, self.Nr))
-        for c in self._sample_mixtures():
-            # get the activity vector associated with the mixture
-            a_n = (np.dot(self.int_mat, c) >= 1)
-            r_nm[np.outer(a_n, a_n)] += 1
-        
-        # return the normalized output
-        r_nm /= self._sample_steps
-        return r_nm 
-    
-            
-    def activity_correlations_estimate(self, approx_prob=False):
-        """ calculates the estimated correlation between receptors """
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
-        S_ni = self.int_mat
-        prob_s = self.substrate_probabilities
-        
-        if approx_prob:
-            # approximate calculation for small prob_s
-            r_nm = np.einsum('ai,bi,i->ab', S_ni, S_ni, prob_s)
-            assert np.all(r_nm <= 1)
+                return r_n
             
         else:
             # proper calculation of the probabilities
-            r_nm = np.zeros((self.Nr, self.Nr))
+            r_n = np.zeros(self.Nr)
             S_ni_mask = S_ni.astype(np.bool)
             for n in range(self.Nr):
-                for m in range(self.Nr):
-                    mask = S_ni_mask[n, :] * S_ni_mask[m, :]
-                    r_nm[n, m] = 1 - np.product(1 - prob_s[mask])
-            
-        return r_nm
+                r_n[n] = 1 - np.product(1 - pi[S_ni_mask[n, :]])
 
+            if ret_correlations:
+                r_nm = np.zeros((self.Nr, self.Nr))
+                for n in range(self.Nr):
+                    for m in range(self.Nr):
+                        mask = S_ni_mask[n, :] * S_ni_mask[m, :]
+                        r_nm[n, m] = 1 - np.product(1 - pi[mask])
+                return r_n, r_nm
+            
+            else:
+                return r_n
+                
 
     def mutual_information(self, method='auto', **kwargs):
         """ calculate the mutual information.
@@ -797,9 +754,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
             
-        q_n = self.activity_single_estimate(approx_prob=approx_prob)
         #FIXME: this might be not the right approach
-        r_nm = self.activity_correlations_estimate(approx_prob=approx_prob)
+        r_n, r_nm = self.receptor_activity_estimate(approx_prob=approx_prob,
+                                                    ret_correlations=True)
                     
         # set diagonal to zero to simplify subsequent sums
         np.fill_diagonal(r_nm, 0)
@@ -807,9 +764,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # calculate the approximate mutual information
         MI = self.Nr
         for n in range(self.Nr):
-            MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
+            MI -= 0.5/LN2 * (1 - 2*r_n[n])**2
             for m in range(self.Nr):
-                MI -= 1/LN2 * (0.75*r_nm[n, m] + q_n[n] + q_n[m] - 1)*r_nm[n, m]
+                MI -= 1/LN2 * (0.75*r_nm[n, m] + r_n[n] + r_n[m] - 1)*r_nm[n, m]
                 for l in range(self.Nr):
                     MI -= 0.5/LN2 * r_nm[n, m]*r_nm[m, l]
                 

@@ -26,8 +26,8 @@ numba_patcher = NumbaPatcher(module=library_numeric)
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibraryContinuousNumeric_activity_single_numba(Ns, Nr, steps, int_mat,
-                                                   c_means, alpha, count_a):
+def LibraryContinuousNumeric_receptor_activity_numba(Ns, Nr, steps, int_mat,
+                                                     c_means, alpha, count_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -47,14 +47,14 @@ def LibraryContinuousNumeric_activity_single_numba(Ns, Nr, steps, int_mat,
                 count_a[a] += 1
     
 
-def LibraryContinuousNumeric_activity_single(self):
+def LibraryContinuousNumeric_receptor_activity(self):
     """ calculate the mutual information by constructing all possible
     mixtures """
     count_a = np.zeros(self.Nr, np.uint32) 
     steps = int(self.parameters['monte_carlo_steps'])
  
     # call the jitted function
-    LibraryContinuousNumeric_activity_single_numba(
+    LibraryContinuousNumeric_receptor_activity_numba(
         self.Ns, self.Nr, steps, self.int_mat,
         self.concentration_means, #< c_means
         np.empty(self.Nr, np.double), #< alpha
@@ -65,8 +65,8 @@ def LibraryContinuousNumeric_activity_single(self):
 
 
 numba_patcher.register_method(
-    'LibraryContinuousNumeric.activity_single',
-    LibraryContinuousNumeric_activity_single,
+    'LibraryContinuousNumeric.receptor_activity',
+    LibraryContinuousNumeric_receptor_activity,
     check_return_value_approx
 )
 

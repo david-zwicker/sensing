@@ -141,7 +141,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         self.parameters['interaction_matrix_params'] = int_mat_params 
 
 
-    def activity_single(self):
+    def receptor_activity(self):
         """ calculates the average activity of each receptor """ 
         steps = int(self.parameters['monte_carlo_steps'])        
     

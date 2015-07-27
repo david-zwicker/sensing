@@ -20,7 +20,7 @@ from .numba_speedup import numba_patcher
       
 
 class TestLibraryBinary(unittest.TestCase):
-    """ unit tests for the continuous library """
+    """ unit tests for the binary library """
     
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
     
@@ -149,34 +149,23 @@ class TestLibraryBinary(unittest.TestCase):
                                 msg='Mixture statistics: ' + error_msg)
                 
                 
-    def test_activity_single(self):
+    def test_receptor_activity(self):
         """ test receptor activity calculations """
         for model in self._create_test_models():
             error_msg = model.error_msg
             
-            # test activity patterns
-            try:
-                prob_a_1 = model.activity_single_brute_force()
-            except NotImplementedError:
-                pass
+            # check for known exception where the method are not implemented 
+            fixed_mixture = model.parameters['fixed_mixture_size'] is not None
+            if fixed_mixture and numba_patcher.enabled:
+                self.assertRaises(NotImplementedError,
+                                  model.receptor_activity_brute_force)
+                
             else:
-                prob_a_2 = model.activity_single_monte_carlo()
-                self.assertAllClose(prob_a_1, prob_a_2, rtol=5e-2, atol=5e-2,
+                r_n_1, r_nm_1 = model.receptor_activity_brute_force(ret_correlations=True)
+                r_n_2, r_nm_2 = model.receptor_activity_monte_carlo(ret_correlations=True)
+    
+                self.assertAllClose(r_n_1, r_n_2, rtol=5e-2, atol=5e-2,
                                     msg='Receptor activities: ' + error_msg)
-                
-                
-    def test_activity_correlations(self):
-        """ test receptor correlation calculations """
-        for model in self._create_test_models():
-            error_msg = model.error_msg
-            
-            # test activity correlation patterns
-            try:
-                r_nm_1 = model.activity_correlations_brute_force()
-            except NotImplementedError:
-                pass
-            else:
-                r_nm_2 = model.activity_correlations_monte_carlo()
                 self.assertAllClose(r_nm_1, r_nm_2, rtol=5e-2, atol=5e-2,
                                     msg='Receptor correlations: ' + error_msg)
                 
@@ -187,14 +176,11 @@ class TestLibraryBinary(unittest.TestCase):
             error_msg = model.error_msg
             
             # test calculation of mutual information
-            try:
-                MI_1 = model.mutual_information_brute_force()
-            except NotImplementedError:
-                pass
-            else:
-                MI_2 = model.mutual_information_monte_carlo()
-                self.assertAllClose(MI_1, MI_2, rtol=5e-2, atol=5e-2,
-                                    msg='Mutual information: ' + error_msg)
+            MI_1 = model.mutual_information_brute_force()
+            MI_2 = model.mutual_information_monte_carlo()
+
+            self.assertAllClose(MI_1, MI_2, rtol=5e-2, atol=5e-2,
+                                msg='Mutual information: ' + error_msg)
     
     
     def test_numba_consistency(self):

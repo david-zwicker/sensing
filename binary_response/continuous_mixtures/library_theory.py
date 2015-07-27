@@ -87,7 +87,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         return obj
 
 
-    def activity_single(self):
+    def receptor_activity(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
         hs = self.commonness
@@ -133,7 +133,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         return 1 - prob_a0
     
     
-    def activity_single_estimate(self, method='normal'):
+    def receptor_activity_estimate(self, method='normal'):
         """ return the probability with which a single receptor is activated 
         by typical mixtures using an gaussian approximation """
         hs = self.commonness
@@ -284,7 +284,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
                 obj.typical_sensitivity = I0
-                return 0.5 - obj.activity_single()
+                return 0.5 - obj.receptor_activity()
             
         elif approximation == 'estimate':
             # do not do any numerical optimization
@@ -296,7 +296,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
                 obj.typical_sensitivity = I0
-                return 0.5 - obj.activity_single_estimate(approximation)
+                return 0.5 - obj.receptor_activity_estimate(approximation)
 
         if result is None:        
             try:
@@ -311,9 +311,9 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         """ return a theoretical estimate of the mutual information between
         input and output """
         if approximation is None or approximation == 'none':
-            p_r = self.activity_single()
+            p_r = self.receptor_activity()
         else:
-            p_r = self.activity_single_estimate(approximation)
+            p_r = self.receptor_activity_estimate(approximation)
             
         if p_r == 0 or p_r == 1:
             # receptors are never or always activated

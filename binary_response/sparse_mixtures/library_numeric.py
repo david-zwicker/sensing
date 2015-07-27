@@ -178,20 +178,20 @@ class LibrarySparseNumeric(LibrarySparseBase):
     def _sample_mixtures(self):
         """ sample mixtures with uniform probability yielding single mixtures """
         # use simple monte carlo algorithm
-        c_prob = self.substrate_probabilities
-        c_means = self.concentrations
+        p_i = self.substrate_probabilities
+        d_i = self.concentrations
         
         for _ in range(self._sample_steps):
             # choose ligands that are _not_ in a mixture
-            b_not = (np.random.random(self.Ns) >= c_prob)
+            b_not = (np.random.random(self.Ns) >= p_i)
 
             # choose a mixture vector according to substrate probabilities
-            c = np.random.exponential(size=self.Ns) * c_means
+            c = np.random.exponential(size=self.Ns) * d_i
             c[b_not] = 0
             yield c
 
 
-    def activity_single(self, method='auto'):
+    def receptro_activity(self, method='auto', ret_correlations=False):
         """ calculates the average activity of each receptor
         
         `method` can be one of [monte_carlo', 'estimate'].
@@ -200,103 +200,77 @@ class LibrarySparseNumeric(LibrarySparseBase):
             method = 'monte_carlo'
                 
         if method == 'monte_carlo' or method == 'monte-carlo':
-            return self.activity_single_monte_carlo()
+            return self.receptor_activity_monte_carlo(ret_correlations)
+        
         elif method == 'estimate':
-            return self.activity_single_estimate()
+            return self.receptor_activity_estimate(ret_correlations)
+        
         else:
             raise ValueError('Unknown method `%s`.' % method)
                         
 
-    def activity_single_monte_carlo(self):
+    def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """ 
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         S_ni = self.int_mat
 
-        count_a = np.zeros(self.Nr)
-        for ci in self._sample_mixtures():
-            count_a[np.dot(S_ni, ci) >= 1] += 1
+        r_n = np.zeros(self.Nr)
+        if ret_correlations:
+            r_nm = np.zeros((self.Nr, self.Nr))
+        
+        for c_i in self._sample_mixtures():
+            a_n = (np.dot(S_ni, c_i) >= 1)
+            r_n[a_n] += 1
+            if ret_correlations:
+                r_nm[np.outer(a_n, a_n)] += 1
             
-        return count_a / self._sample_steps
+        r_n /= self._sample_steps
+        if ret_correlations:
+            r_nm /= self._sample_steps
+            return r_n, r_nm
+        else:
+            return r_n
     
     
-    def activity_single_estimate(self, linearized=False):
+    def receptor_activity_estimate(self, ret_correlations=False, linearized=False):
         """ estimates the average activity of each receptor """ 
         if self.has_correlations:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
         S_ni = self.int_mat
-        pi = self.substrate_probabilities
-        di = self.concentrations
+        p_i = self.substrate_probabilities
+        d_i = self.concentrations
         
-        b_mean = np.dot(S_ni, pi*di)
-        b_var = np.dot(S_ni**2, pi * di**2)
+        b_mean = np.dot(S_ni, p_i*d_i)
+        b_var = np.dot(S_ni**2, p_i * d_i**2)
         b_std = np.sqrt(b_var)
         
         delta = (b_mean - 1) / b_std  #< deviation from optimum
 
         if linearized:
-            return np.clip(0.5 + delta / np.sqrt(2*np.pi), 0, 1)
+            r_n = 0.5 + delta / np.sqrt(2*np.pi)
+            np.clip(r_n, 0, 1, r_n)
         else:
-            return 0.5 * special.erfc(-delta / np.sqrt(2))        
+            r_n = 0.5 * special.erfc(-delta / np.sqrt(2))
+            
+        if ret_correlations:
+            b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], p_i * d_i**2)
+            rho = b_covar / np.outer(b_std, b_std)  #< correlation coefficient
     
-    
-    def activity_correlations(self, method='auto'):
-        """ calculates the correlations between receptor
+            r_nm = (0.25
+                    + np.add.outer(delta, delta) / np.sqrt(8*np.pi)
+                    + (np.outer(delta, delta) + rho) / (2*np.pi)
+                    )
+
+            np.clip(r_nm, 0, 1, r_nm)
+            return r_n, r_nm
         
-        `method` can be one of [monte_carlo', 'estimate'].
-        """
-        if method == 'auto':
-            method = 'monte_carlo'
-                
-        if method == 'monte_carlo' or method == 'monte-carlo':
-            return self.crosstalk_monte_carlo()
-        elif method == 'estimate':
-            return self.crosstalk_estimate()
         else:
-            raise ValueError('Unknown method `%s`.' % method)
-                        
-
-    def activity_correlations_monte_carlo(self):
-        """ calculates the correlations between receptors """
-        r_nm = np.zeros((self.Nr, self.Nr))
-        for c in self._sample_mixtures():
-            # get the output vector
-            a_n = (np.dot(self.int_mat, c) >= 1)
-            r_nm += np.outer(a_n, a_n)
-        
-        # normalize the output
-        r_nm /= self._sample_steps
-        
-        return r_nm 
-
-
-    def activity_correlations_estimate(self):
-        """ estimates the correlations between receptors """
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-        
-        S_ni = self.int_mat
-        pi = self.substrate_probabilities
-        di = self.concentrations
-
-        b_mean = np.dot(S_ni, pi*di)
-        b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], pi * di**2)
-        b_var = np.diagonal(b_covar)
-        b_std = np.sqrt(b_var)
-        
-        delta = (b_mean - 1)/ b_std             #< deviation from optimum
-        rho = b_covar / np.outer(b_std, b_std)  #< correlation coefficient
-
-        r_nm = (0.25
-                + np.add.outer(delta, delta) / np.sqrt(8*np.pi)
-                + (np.outer(delta, delta) + rho) / (2*np.pi)
-                )
-        
-        return r_nm 
-
-    
+            return r_n
+               
+                   
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """

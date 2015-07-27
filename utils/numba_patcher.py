@@ -17,17 +17,20 @@ from .misc import estimate_computation_speed
 
 def check_return_value(obj, funcs):
     """ checks the numba method versus the original one """
-    return np.allclose(funcs[0](obj), funcs[1](obj))
+    val1, val2 = funcs[0](obj), funcs[1](obj)
+    return np.allclose(val1, val2)
 
 
 def check_return_value_approx(obj, funcs):
     """ checks the numba method versus the original one """
-    return np.allclose(funcs[0](obj), funcs[1](obj), rtol=5e-2, atol=5e-2)
+    val1, val2 = funcs[0](obj), funcs[1](obj)
+    return np.allclose(val1, val2, rtol=5e-2, atol=5e-2)
 
 
 def check_return_value_exact(obj, funcs):
     """ checks the numba method versus the original one """
-    return np.allclose(funcs[0](obj), funcs[1](obj), rtol=1e-10, atol=1e-14)
+    val1, val2 = funcs[0](obj), funcs[1](obj)
+    return np.allclose(val1, val2, rtol=1e-10, atol=1e-14)
 
 
 
@@ -41,6 +44,11 @@ class NumbaPatcher(object):
         self.saved_original_functions = False
         self.enabled = False #< whether numba speed-up is enabled or not
     
+
+    @property
+    def disabled(self):
+        return not self.enabled
+
 
     def register_method(self, name, numba_function,
                         test_function=check_return_value, test_arguments=None):
