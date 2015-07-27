@@ -468,6 +468,59 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         log_steps = np.log2(self._sample_steps)
         return -np.sum(counts*(np.log2(counts) - log_steps))/self._sample_steps
     
+    
+    def receptor_crosstalk(self, method='auto'):
+        """ calculates the average activity of the receptor as a response to 
+        single ligands.
+        
+        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto'].
+            If it is 'auto' than the method is chosen automatically based on the
+            problem size.
+        """
+        if method == 'auto':
+            if self.Ns <= self.parameters['brute_force_threshold_Ns']:
+                method = 'brute_force'
+            else:
+                method = 'monte_carlo'
+                
+        if method == 'estimate':
+            # estimate receptor crosstalk directly
+            return self.receptor_activity_estimate()
+        
+        else:
+            # calculate receptor crosstalk from the observed probabilities
+            r_n, r_nm = self.receptor_activity(method, ret_correlations=True)
+            return r_nm - np.outer(r_n, r_n)
+    
+    
+    def receptor_crosstalk_estimate(self, approx_prob=False):
+        """ estimates the average activity of the receptor as a response to 
+        single ligands. 
+        `approx_prob` determines whether the probabilities of encountering
+            ligands in mixtures are calculated exactly or only approximative,
+            which should work for small probabilities. """
+        if self.has_correlations:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
+        S_ni = self.int_mat
+        p_i = self.substrate_probabilities
+        
+        if approx_prob:
+            # approximate calculation for small p_i
+            q_nm = np.einsum('ai,bi,i->ab', S_ni, S_ni, p_i)
+            np.clip(q_nm, 0, 1, q_nm)
+            
+        else:
+            # proper calculation of the probabilities
+            S_ni_mask = S_ni.astype(np.bool)
+            q_nm = np.zeros((self.Nr, self.Nr))
+            for n in range(self.Nr):
+                for m in range(self.Nr):
+                    mask = S_ni_mask[n, :] * S_ni_mask[m, :]
+                    q_nm[n, m] = 1 - np.product(1 - p_i[mask])
+                    
+        return q_nm
+                
 
     def receptor_activity(self, method='auto', ret_correlations=False):
         """ calculates the average activity of each receptor
@@ -541,8 +594,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return r_n, r_nm
         else:
             return r_n
-            
-    
+ 
+ 
     def receptor_activity_estimate(self, ret_correlations=False,
                                    approx_prob=False):
         """ estimates the average activity of each receptor. 
@@ -553,39 +606,34 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         S_ni = self.int_mat
-        pi = self.substrate_probabilities
+        p_i = self.substrate_probabilities
         
         if approx_prob:
-            # approximate calculation for small pi
-            r_n = np.dot(S_ni, pi)
+            # approximate calculation for small p_i
+            r_n = np.dot(S_ni, p_i)
             np.clip(r_n, 0, 1, r_n)
-            
-            if ret_correlations:
-                r_nm = np.einsum('ai,bi,i->ab', S_ni, S_ni, pi)
-                np.clip(r_nm, 0, 1, r_nm)
-                return r_n, r_nm
-            
-            else:
-                return r_n
             
         else:
             # proper calculation of the probabilities
             r_n = np.zeros(self.Nr)
             S_ni_mask = S_ni.astype(np.bool)
             for n in range(self.Nr):
-                r_n[n] = 1 - np.product(1 - pi[S_ni_mask[n, :]])
-
-            if ret_correlations:
-                r_nm = np.zeros((self.Nr, self.Nr))
-                for n in range(self.Nr):
-                    for m in range(self.Nr):
-                        mask = S_ni_mask[n, :] * S_ni_mask[m, :]
-                        r_nm[n, m] = 1 - np.product(1 - pi[mask])
-                return r_n, r_nm
+                r_n[n] = 1 - np.product(1 - p_i[S_ni_mask[n, :]])
+        
+        if ret_correlations:
+            # estimate the correlations from the estimated crosstalk
+            q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
             
+            if approx_prob:
+                r_nm = np.outer(r_n, r_n) + q_nm
             else:
-                return r_n
-                
+                r_nm = 1 - (1 - q_nm)*(1 - np.outer(r_n, r_n))
+
+            return r_n, r_nm
+        
+        else:
+            return r_n
+
 
     def mutual_information(self, method='auto', **kwargs):
         """ calculate the mutual information.
@@ -755,20 +803,20 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             which should work for small probabilities. """
             
         #FIXME: this might be not the right approach
-        r_n, r_nm = self.receptor_activity_estimate(approx_prob=approx_prob,
-                                                    ret_correlations=True)
+        q_n = self.receptor_activity_estimate(approx_prob=approx_prob)
+        q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
                     
         # set diagonal to zero to simplify subsequent sums
-        np.fill_diagonal(r_nm, 0)
+        np.fill_diagonal(q_nm, 0)
                     
         # calculate the approximate mutual information
         MI = self.Nr
         for n in range(self.Nr):
-            MI -= 0.5/LN2 * (1 - 2*r_n[n])**2
+            MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
             for m in range(self.Nr):
-                MI -= 1/LN2 * (0.75*r_nm[n, m] + r_n[n] + r_n[m] - 1)*r_nm[n, m]
+                MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1)*q_nm[n, m]
                 for l in range(self.Nr):
-                    MI -= 0.5/LN2 * r_nm[n, m]*r_nm[m, l]
+                    MI -= 0.5/LN2 * q_nm[n, m]*q_nm[m, l]
                 
         return MI              
         

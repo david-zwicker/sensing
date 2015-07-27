@@ -130,7 +130,7 @@ def _get_entropy_normalize(data):
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_receptor_activity_brute_force_corr_numba(
-        S_ni, hi, Jij, ci, a_n, ret_correlations, r_n, r_nm):
+        S_ni, hi, Jij, ci, a_n, ret_correlations, q_n, q_nm):
     """ calculates the average activity of each receptor """
     Nr, Ns = S_ni.shape
     
@@ -156,31 +156,31 @@ def LibraryBinaryNumeric_receptor_activity_brute_force_corr_numba(
         # add probability to the active receptors
         for n in range(Nr):
             if a_n[n] >= 1:
-                r_n[n] += pm
+                q_n[n] += pm
                 
         if ret_correlations:
             for n in range(Nr):
                 if a_n[n] >= 1:
-                    r_nm[n, n] += pm
+                    q_nm[n, n] += pm
                     for m in range(n + 1, Nr):
                         if a_n[m] >= 1:
-                            r_nm[n, m] += pm
-                            r_nm[m, n] += pm
+                            q_nm[n, m] += pm
+                            q_nm[m, n] += pm
                 
         
     # normalize by partition sum
     for n in range(Nr):        
-        r_n[n] /= Z
+        q_n[n] /= Z
     if ret_correlations:
         for n in range(Nr):        
             for m in range(Nr):        
-                r_nm[n, m] /= Z
+                q_nm[n, m] /= Z
 
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_receptor_activity_brute_force_numba(
-        S_ni, p_i, a_n, ret_correlations, r_n, r_nm):
+        S_ni, p_i, a_n, ret_correlations, q_n, q_nm):
     """ calculates the average activity of each receptor """
     Nr, Ns = S_ni.shape
     
@@ -206,16 +206,16 @@ def LibraryBinaryNumeric_receptor_activity_brute_force_numba(
         # add probability to the active receptors
         for n in range(Nr):
             if a_n[n] >= 1:
-                r_n[n] += pm
+                q_n[n] += pm
                 
         if ret_correlations:
             for n in range(Nr):
                 if a_n[n] >= 1:
-                    r_nm[n, n] += pm
+                    q_nm[n, n] += pm
                     for m in range(n + 1, Nr):
                         if a_n[m] >= 1:
-                            r_nm[n, m] += pm
-                            r_nm[m, n] += pm
+                            q_nm[n, m] += pm
+                            q_nm[m, n] += pm
 
 
 
@@ -225,8 +225,8 @@ def LibraryBinaryNumeric_receptor_activity_brute_force(self,
     if self.parameters['fixed_mixture_size'] is not None:
         raise NotImplementedError
 
-    r_n = np.zeros(self.Nr)
-    r_nm = np.zeros((self.Nr, self.Nr))    
+    q_n = np.zeros(self.Nr)
+    q_nm = np.zeros((self.Nr, self.Nr))    
     
     if self.has_correlations:
         # call the jitted function for correlated mixtures
@@ -236,7 +236,7 @@ def LibraryBinaryNumeric_receptor_activity_brute_force(self,
             np.empty(self.Ns, np.uint), #< c_i
             np.empty(self.Nr, np.uint), #< a_n
             ret_correlations,
-            r_n, r_nm
+            q_n, q_nm
         )
         
     else:
@@ -246,13 +246,13 @@ def LibraryBinaryNumeric_receptor_activity_brute_force(self,
             self.substrate_probabilities, #< p_i
             np.empty(self.Nr, np.uint), #< c_i
             ret_correlations,
-            r_n, r_nm
+            q_n, q_nm
         )
         
     if ret_correlations:
-        return r_n, r_nm
+        return q_n, q_nm
     else:
-        return r_n
+        return q_n
 
 
 

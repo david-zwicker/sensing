@@ -149,6 +149,25 @@ class TestLibraryBinary(unittest.TestCase):
                                 msg='Mixture statistics: ' + error_msg)
                 
                 
+    def test_receptor_crosstalk(self):
+        """ test receptor activity calculations """
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
+            # check for known exception where the method are not implemented 
+            fixed_mixture = model.parameters['fixed_mixture_size'] is not None
+            if fixed_mixture and numba_patcher.enabled:
+                self.assertRaises(NotImplementedError,
+                                  model.receptor_crosstalk, "brute-force")
+                
+            else:
+                q_nm_1 = model.receptor_crosstalk("brute-force")
+                q_nm_2 = model.receptor_crosstalk("monte-carlo")
+    
+                self.assertAllClose(q_nm_1, q_nm_2, rtol=5e-2, atol=5e-2,
+                                    msg='Receptor crosstalk: ' + error_msg)
+    
+                
     def test_receptor_activity(self):
         """ test receptor activity calculations """
         for model in self._create_test_models():
