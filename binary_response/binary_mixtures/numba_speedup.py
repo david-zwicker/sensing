@@ -808,11 +808,12 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
 
 
 
-numba_patcher.register_method(
-    'LibraryBinaryNumeric.mutual_information_estimate',
-    LibraryBinaryNumeric_mutual_information_estimate,
-    test_function=check_return_value_exact
-)
+# Temporarily disable the numba method since we change it frequently
+# numba_patcher.register_method(
+#     'LibraryBinaryNumeric.mutual_information_estimate',
+#     LibraryBinaryNumeric_mutual_information_estimate,
+#     test_function=check_return_value_exact
+# )
 
 
 

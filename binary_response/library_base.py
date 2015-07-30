@@ -6,6 +6,7 @@ Created on Apr 1, 2015
 
 from __future__ import division
 
+import itertools
 import multiprocessing as mp
 
 import numpy as np
@@ -116,7 +117,61 @@ class LibraryBase(object):
             return result
         else:
             return result.mean(axis=0), result.std(axis=0)
-
+        
+        
+    def _estimate_mutual_information_from_q(self, q_n, q_nm):
+        """ estimate the mutual information from given probabilities """
+        # calculate the approximate mutual information
+        MI = self.Nr
+        MI -= 0.5/np.log(2) * np.sum((2*q_n - 1)**2)
+        MI -= 8/np.log(2) * np.sum(np.triu(q_nm, -1)**2)
+        return MI
+    
+        
+    def _estimate_mutual_information_from_r(self, r_n, r_nm,
+                                            ret_probabilities=False):
+        """ estimate the mutual information from given probabilities """
+        # calculate the probabilities of receptors getting activated
+        rs = {(): 1}
+        for n in range(self.Nr):
+            rs[(n,)] = r_n[n]
+            for m in range(n):
+                rs[(m, n)] = r_nm[m, n]
+                
+        # iterate over all mixture sizes
+        for l in range(3, self.Nr + 1):
+            # iterate over all mixture combinations
+            for a in itertools.combinations(range(self.Nr), l):
+                r = 1
+                for j in range(len(a)):
+                    for i in range(j):
+                        r *= r_nm[a[i], a[j]]
+                rs[a] = r ** (1/(l - 1))  
+                             
+        # calculate the probabilities of activity patterns
+        ws = {}
+        receptors = set(range(self.Nr))
+        # iterate over all mixture sizes
+        for al in range(self.Nr, -1, -1):
+            # iterate over all mixture combinations
+            for a in itertools.combinations(range(self.Nr), al):
+                w = rs[a]
+                not_excited = sorted(receptors - set(a))
+                # iterate over all mixtures sizes that are larger than al
+                for bl in range(1, self.Nr - al + 1):
+                    # iterate over all mixtures with size al + bl
+                    for b in itertools.combinations(not_excited, bl):
+                        w -= ws[tuple(sorted(a + b))]
+                ws[a] = np.clip(w, 0, 1)
+            
+        # calculate the entropy of the output distribution
+        MI = sum(-w*np.log2(w) for w in ws.values() if w != 0)
+        
+        if ret_probabilities:
+            return MI, rs, ws
+        else:
+            return MI
+      
     
 
 def _ensemble_average_job(args):

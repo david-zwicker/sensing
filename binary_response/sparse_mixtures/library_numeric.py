@@ -270,7 +270,20 @@ class LibrarySparseNumeric(LibrarySparseBase):
         else:
             return r_n
                
-                   
+ 
+    def receptor_crosstalk(self, method='auto'):
+        """ calculates the average activity of the receptor as a response to 
+        single ligands.
+        
+        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto'].
+            If it is 'auto' than the method is chosen automatically based on the
+            problem size.
+        """
+        # calculate receptor crosstalk from the observed probabilities
+        r_n, r_nm = self.receptor_activity(method, ret_correlations=True)
+        return r_nm - np.outer(r_n, r_n)
+        
+                           
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """

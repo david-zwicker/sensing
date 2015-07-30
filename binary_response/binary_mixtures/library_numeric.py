@@ -801,24 +801,17 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
-            
-        #FIXME: this might be not the right approach
+
+        # this might be not the right approach
         q_n = self.receptor_activity_estimate(approx_prob=approx_prob)
         q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
                     
-        # set diagonal to zero to simplify subsequent sums
-        np.fill_diagonal(q_nm, 0)
-                    
         # calculate the approximate mutual information
         MI = self.Nr
-        for n in range(self.Nr):
-            MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
-            for m in range(self.Nr):
-                MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1)*q_nm[n, m]
-                for l in range(self.Nr):
-                    MI -= 0.5/LN2 * q_nm[n, m]*q_nm[m, l]
-                
-        return MI              
+        MI -= 0.5/LN2 * np.sum((2*q_n - 1)**2)
+        MI -= 8/LN2 * np.sum(np.triu(q_nm, -1)**2)
+        
+        return max(0, MI)
         
         
     def inefficiency_estimate(self):
