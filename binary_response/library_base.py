@@ -24,8 +24,9 @@ class LibraryBase(object):
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
-        'initialize_state': 'auto',     #< how to initialize the state
-        'ensemble_average_num': 32,    #< repetitions for ensemble average
+        'initialize_state': 'auto',      #< how to initialize the state
+        'ensemble_average_num': 32,      #< repetitions for ensemble average
+        'multiprocessing_cores': 'auto', #< number of cores to use
     }
 
 
@@ -83,6 +84,15 @@ class LibraryBase(object):
         return cls(**cls.get_random_arguments(**kwargs))
   
             
+    def get_number_of_cores(self):
+        """ returns the number of cores to use in multiprocessing """
+        multiprocessing_cores = self.parameters['multiprocessing_cores']
+        if multiprocessing_cores == 'auto':
+            return mp.cpu_count()
+        else:
+            return multiprocessing_cores
+            
+            
     def ensemble_average(self, method, avg_num=None, multiprocessing=False, 
                          ret_all=False):
         """ calculate an ensemble average of the result of the `method` of
@@ -98,7 +108,7 @@ class LibraryBase(object):
             
             # run the calculations in multiple processes
             arguments = (self.__class__, init_arguments, method)
-            pool = mp.Pool()
+            pool = mp.Pool(processes=self.get_number_of_cores())
             result = pool.map(_ensemble_average_job, [arguments] * avg_num)
             
             # Apparently, multiprocessing sometimes opens too many files if

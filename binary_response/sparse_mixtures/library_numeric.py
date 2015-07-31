@@ -10,7 +10,7 @@ import numpy as np
 from scipy import stats, special
 from six.moves import range
 
-from .library_base import LibrarySparseBase
+from .library_base import LibrarySparseBase  # @UnresolvedImport
 
 
 
@@ -106,7 +106,15 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
     def choose_interaction_matrix(self, distribution, typical_sensitivity=1,
                                   **kwargs):
-        """ creates a interaction matrix with the given properties """
+        """ creates a interaction matrix with the given properties
+            `distribution` determines the distribution from which we choose the
+                entries of the sensitivity matrix
+            `typical_sensitivity` should in principle set the mean sensitivity,
+                although there are some exceptional distributions. For instance,
+                for binary distributions `typical_sensitivity` sets the
+                magnitude of the entries that are non-zero.
+            Some distributions might accept additional parameters.
+        """
         shape = (self.Nr, self.Ns)
 
         assert typical_sensitivity > 0 
@@ -132,12 +140,13 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
         elif distribution == 'log_normal':
             # log normal distribution
-            kwargs.setdefault('sigma', 0.1)
+            kwargs.setdefault('sigma', 1)
             if kwargs['sigma'] == 0:
                 self.int_mat = np.full(shape, typical_sensitivity)
             else:
-                dist = stats.lognorm(scale=typical_sensitivity,
-                                     s=kwargs['sigma'])
+                sigma = kwargs['sigma']
+                mu = typical_sensitivity * np.exp(0.5*sigma**2)
+                dist = stats.lognorm(scale=mu, s=sigma)
                 self.int_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
@@ -148,7 +157,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
         elif distribution == 'normal':
             # normal distribution
-            kwargs.setdefault('sigma', 0.1)
+            kwargs.setdefault('sigma', 1)
             if kwargs['sigma'] == 0:
                 self.int_mat = np.full(shape, typical_sensitivity)
             else:

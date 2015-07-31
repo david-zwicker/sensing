@@ -843,7 +843,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 
         if multiprocessing:
             # calculate all results in parallel
-            pool = mp.Pool()
+            pool = mp.Pool(processes=self.get_number_of_cores())
             results = pool.map(_run_job, joblist)
         
         else:
@@ -923,8 +923,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         if multiprocessing:
             # run the calculations in multiple processes
-            pool = mp.Pool()
-            pool_size = len(pool._pool)
+            pool_size = self.get_number_of_cores()
+            pool = mp.Pool(processes=pool_size)
             if ret_info:
                 values_step = max(1, values_step // pool_size)
             
@@ -1039,7 +1039,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         if multiprocessing:
             # calculate all results in parallel
-            pool = mp.Pool()
+            pool = mp.Pool(processes=self.get_number_of_cores())
             result_iter = pool.imap_unordered(_run_job, joblist)
         
         else:
