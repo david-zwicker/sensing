@@ -94,12 +94,14 @@ class LibraryBase(object):
             
             
     def ensemble_average(self, method, avg_num=None, multiprocessing=False, 
-                         ret_all=False):
+                         ret_all=False, args=None):
         """ calculate an ensemble average of the result of the `method` of
         multiple different receptor libraries """
         
         if avg_num is None:
             avg_num = self.parameters['ensemble_average_num']
+        if args is None:
+            args = {}
         
         if multiprocessing and avg_num > 1:
             
@@ -107,7 +109,7 @@ class LibraryBase(object):
             init_arguments['parameters']['initialize_state'] = 'ensemble'
             
             # run the calculations in multiple processes
-            arguments = (self.__class__, init_arguments, method)
+            arguments = (self.__class__, init_arguments, method, args)
             pool = mp.Pool(processes=self.get_number_of_cores())
             result = pool.map(_ensemble_average_job, [arguments] * avg_num)
             
@@ -118,7 +120,7 @@ class LibraryBase(object):
             
         else:
             # run the calculations in this process
-            result = [getattr(self.__class__(**self.init_arguments), method)()
+            result = [getattr(self.__class__(**self.init_arguments), method)(**args)
                       for _ in range(avg_num)]
     
         # collect the results and calculate the statistics
@@ -194,8 +196,11 @@ def _ensemble_average_job(args):
     
     # create the object ...
     obj = args[0](**args[1])
-    # ... and evaluate the requested method 
-    return getattr(obj, args[2])()
+    # ... and evaluate the requested method
+    if len(args) > 2: 
+        return getattr(obj, args[2])(**args[3])
+    else:
+        return getattr(obj, args[2])()
 
     
     
