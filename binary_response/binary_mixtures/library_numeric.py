@@ -814,26 +814,46 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         return MI
         
         
-    def inefficiency_estimate(self):
-        """ returns the estimated performance of the system, which acts as a
-        proxy for the mutual information between input and output """
-        if self.has_correlations:
-            raise NotImplementedError('Not implemented for correlated mixtures')
+    def receptor_score(self, method='auto', multiprocessing=False):
+        """ calculates the usefulness of each receptor, measured by how much
+        information it adds to the total mutual information.
+            `method` determines which method is used to determine the mutual
+                information.
+            `multiprocessing` determines whether multiprocessing is used for
+                determining the mutual informations of all subsystems.
+        """
+        init_arguments = self.init_arguments
+        init_arguments['parameters']['initialize_state'] = 'exact'
+        init_arguments['parameters']['interaction_matrix'] = self.int_mat
+        joblist = [(copy.deepcopy(self.init_arguments), 'mutual_information',
+                    {'method': method})]
+    
+        # add one job for each receptor
+        for n in range(self.Nr):
+            init_arguments = self.init_arguments
+            init_arguments['num_receptors'] -= 1
+            
+            # modify the current state and add it to the job list
+            init_arguments['parameters'].update({
+                    'initialize_state': 'exact',
+                    'interaction_matrix': np.delete(self.int_mat, n, axis=0)
+                })
+            joblist.append((copy.deepcopy(init_arguments), 'mutual_information',
+                            {'method': method}))
+                
+        if multiprocessing:
+            # calculate all results in parallel
+            pool = mp.Pool()
+            results = pool.map(_run_job, joblist)
+        
+        else:
+            # create a generator over which we iterate later
+            results = [_run_job(job) for job in joblist]
+        
+        # find the scores of all receptors
+        scores = results[0] - np.array(results[1:])
+        return scores
 
-        S_ni = self.int_mat
-        prob_s = self.substrate_probabilities
-        
-        # collect the terms describing the activity entropy
-        term_entropy = np.sum((0.5 - np.prod(1 - S_ni*prob_s, axis=1)) ** 2)
-        
-        # collect the terms describing the crosstalk
-        mat_ab = np.einsum('ij,kj,j->ik', S_ni, S_ni, prob_s)
-        term_crosstalk = 2*np.sum(mat_ab[np.triu_indices(self.Nr, 1)]) 
-        
-        # add up the terms to produce the inefficiency parameter
-        crosstalk_weight = self.parameters['inefficiency_weight']
-        return term_entropy + crosstalk_weight*term_crosstalk
-        
         
     def optimize_library(self, target, method='descent', direction='max',
                          **kwargs):
@@ -924,7 +944,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                     self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
                     
                 # run all the jobs
-                results = pool.map(_optimize_library_job, joblist)
+                results = pool.map(_run_job, joblist)
                 
                 # find the best result  
                 if direction == 'max':
@@ -1020,11 +1040,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if multiprocessing:
             # calculate all results in parallel
             pool = mp.Pool()
-            result_iter = pool.imap_unordered(_optimize_library_job, joblist)
+            result_iter = pool.imap_unordered(_run_job, joblist)
         
         else:
             # create a generator over which we iterate later
-            result_iter = (_optimize_library_job(job) for job in joblist)
+            result_iter = (_run_job(job) for job in joblist)
         
         # find the best result by iterating over all results
         result_best = None
@@ -1083,7 +1103,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
 
 
 
-def _optimize_library_job(args):
+def _run_job(args):
     """ helper function for optimizing the receptor library using
     multiprocessing """
     # Note that we do not set the seed of the random number generator because
@@ -1095,7 +1115,7 @@ def _optimize_library_job(args):
     obj = LibraryBinaryNumeric(**args[0])
     # ... get the method to evaluate ...
     method = getattr(obj, args[1])
-    # ... and evaluate it  
+    # ... and evaluate it
     if len(args) > 2:
         return method(**args[2])
     else:
