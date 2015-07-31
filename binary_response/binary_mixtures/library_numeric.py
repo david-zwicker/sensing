@@ -507,7 +507,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         if approx_prob:
             # approximate calculation for small p_i
-            q_nm = np.einsum('ai,bi,i->ab', S_ni, S_ni, p_i)
+            q_nm = np.einsum('ni,mi,i->nm', S_ni, S_ni, p_i)
             np.clip(q_nm, 0, 1, q_nm)
             
         else:
@@ -809,9 +809,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # calculate the approximate mutual information
         MI = self.Nr
         MI -= 0.5/LN2 * np.sum((2*q_n - 1)**2)
-        MI -= 8/LN2 * np.sum(np.triu(q_nm, -1)**2)
+        MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
         
-        return max(0, MI)
+        return MI
         
         
     def inefficiency_estimate(self):
