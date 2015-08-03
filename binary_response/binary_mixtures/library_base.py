@@ -174,7 +174,7 @@ class LibraryBinaryBase(LibraryBase):
     
     
     @property 
-    def has_correlations(self):
+    def correlated_mixture(self):
         """ returns True if the mixture has correlations """
         return np.count_nonzero(self.correlations) > 0
     
@@ -184,7 +184,7 @@ class LibraryBinaryBase(LibraryBase):
         number of components. Returns an array of length Ns + 1 of probabilities
         for finding mixtures with the number of components given by the index
         into the array """
-        if self.has_correlations:
+        if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
         res = np.zeros(self.Ns + 1)
@@ -201,7 +201,7 @@ class LibraryBinaryBase(LibraryBase):
     def mixture_size_statistics(self):
         """ calculates the mean and the standard deviation of the number of
         components in mixtures """
-        if self.has_correlations:
+        if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         # calculate basic statistics
@@ -215,7 +215,7 @@ class LibraryBinaryBase(LibraryBase):
 
     def mixture_entropy(self):
         """ return the entropy in the mixture distribution """
-        if self.has_correlations:
+        if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         return -sum(ps*np.log2(ps) + (1 - ps)*np.log2(1 - ps)

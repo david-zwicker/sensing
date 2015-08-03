@@ -61,7 +61,7 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
 def LibrarySparseNumeric_receptor_activity_monte_carlo(self, ret_correlations=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    if self.has_correlations:
+    if self.correlated_mixture:
         raise NotImplementedError('Not implemented for correlated mixtures')
 
     r_n = np.zeros(self.Nr) 
@@ -139,7 +139,7 @@ def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
 def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    if self.has_correlations:
+    if self.correlated_mixture:
         raise NotImplementedError('Not implemented for correlated mixtures')
 
     prob_a = np.zeros(2**self.Nr)

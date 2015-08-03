@@ -228,7 +228,7 @@ def LibraryBinaryNumeric_receptor_activity_brute_force(self,
     q_n = np.zeros(self.Nr)
     q_nm = np.zeros((self.Nr, self.Nr))    
     
-    if self.has_correlations:
+    if self.correlated_mixture:
         # call the jitted function for correlated mixtures
         LibraryBinaryNumeric_receptor_activity_brute_force_corr_numba(
             self.int_mat,
@@ -303,7 +303,7 @@ numba_patcher.register_method(
 #     
 # def LibraryBinaryNumeric_activity_correlations_brute_force(self):
 #     """ calculates the correlations between receptor activities """
-#     if self.has_correlations:
+#     if self.correlated_mixture:
 #         raise NotImplementedError('Not implemented for correlated mixtures')
 # 
 #     if self.parameters['fixed_mixture_size'] is not None:
@@ -452,7 +452,7 @@ def LibraryBinaryNumeric_mutual_information_brute_force(self, ret_prob_activity=
             prob_a
         )
     
-    elif self.has_correlations:
+    elif self.correlated_mixture:
         # call the jitted function for correlated mixtures
         MI = LibraryBinaryNumeric_mutual_information_brute_force_corr_numba(
             self.Ns, self.Nr, self.int_mat,
@@ -640,7 +640,7 @@ def LibraryBinaryNumeric_mutual_information_monte_carlo(self, ret_error=False,
             mixture_size, ind_0, ind_1, prob_a
         )
     
-    elif self.has_correlations:
+    elif self.correlated_mixture:
         # mixture has correlations and we thus use a metropolis algorithm
         steps = self.get_steps('metropolis')
         
@@ -781,7 +781,7 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
 def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    if self.has_correlations:
+    if self.correlated_mixture:
         raise NotImplementedError('Not implemented for correlated mixtures')
 
     if approx_prob:

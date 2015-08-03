@@ -6,12 +6,15 @@ Created on May 1, 2015
 
 from __future__ import division
 
+import collections
+import itertools
 import unittest
 
 import numpy as np
 import scipy.misc
 
 from .library_base import LibrarySparseBase  # @UnresolvedImport
+from .library_numeric import LibrarySparseNumeric
 from .numba_speedup import numba_patcher  # @UnresolvedImport
 
       
@@ -26,6 +29,36 @@ class TestLibrarySparse(unittest.TestCase):
         """ compares all the entries of the arrays a and b """
         self.assertTrue(np.allclose(a, b, rtol, atol), msg)
 
+
+    def _create_test_models(self):
+        """ helper method for creating test models """
+        # save numba patcher state
+        numba_patcher_enabled = numba_patcher.enabled
+        
+        # collect all settings that we want to test
+        settings = collections.OrderedDict()
+        settings['numba_enabled'] = (True, False)
+        
+        # create all combinations of all settings
+        setting_comb = [dict(zip(settings.keys(), items))
+                        for items in itertools.product(*settings.values())]
+        
+        # try all these settings 
+        for setting in setting_comb:
+            # set the respective state of the numba patcher
+            numba_patcher.set_state(setting['numba_enabled'])
+            
+            # create test object
+            model = LibrarySparseNumeric.create_test_instance()
+
+            # create a meaningful error message for all cases
+            model.error_msg = ('The different implementations do not agree for '
+                               + ', '.join("%s=%s" % v for v in setting.items()))
+            yield model
+
+        # reset numba patcher state
+        numba_patcher.set_state(numba_patcher_enabled)
+        
 
     def test_base(self):
         """ consistency tests on the base class """
@@ -79,7 +112,24 @@ class TestLibrarySparse(unittest.TestCase):
                 self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
                 
+
+    def test_correlations_and_crosstalk(self):
+        """ tests the correlations and crosstalk """
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
+            # check for known exception where the method are not implemented 
+            for method in ('auto', 'estimate'):
+                r_n, r_nm = model.receptor_activity(method, ret_correlations=True) 
+                q_n, q_nm = model.receptor_crosstalk(method, ret_receptor_activity=True)
                 
+                self.assertAllClose(r_n, q_n, rtol=5e-2, atol=5e-2,
+                                    msg='Receptor activities: ' + error_msg)
+                r_nm_calc = np.clip(np.outer(q_n, q_n) + q_nm, 0, 1)
+                self.assertAllClose(r_nm, r_nm_calc, rtol=0, atol=0.5,
+                                    msg='Receptor correlations: ' + error_msg)
+                
+                                
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """
         self.assertTrue(numba_patcher.test_consistency(repeat=3, verbosity=1),

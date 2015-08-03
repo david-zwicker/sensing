@@ -136,7 +136,7 @@ class TestLibraryBinary(unittest.TestCase):
             
             # check the mixture statistics
             ci_1, cij_1 = model.mixture_statistics_brute_force()
-            if not model.has_correlations:
+            if not model.correlated_mixture:
                 ci_2, cij_2 = model.mixture_statistics()
                 self.assertAllClose(ci_1, ci_2, rtol=5e-2, atol=5e-2,
                                     msg='Mixture statistics: ' + error_msg)
@@ -187,6 +187,33 @@ class TestLibraryBinary(unittest.TestCase):
                                     msg='Receptor activities: ' + error_msg)
                 self.assertAllClose(r_nm_1, r_nm_2, rtol=5e-2, atol=5e-2,
                                     msg='Receptor correlations: ' + error_msg)
+                
+                
+    def test_correlations_and_crosstalk(self):
+        """ tests the correlations and crosstalk """
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
+            # check for known exception where the method are not implemented 
+            fixed_mixture = model.parameters['fixed_mixture_size'] is not None
+            if model.correlated_mixture:
+                self.assertRaises(NotImplementedError,
+                                  model.receptor_activity_estimate)
+                
+            elif fixed_mixture and numba_patcher.enabled:
+                self.assertRaises(NotImplementedError,
+                                  model.receptor_activity_brute_force)
+            
+            else:
+                for method in ('auto', 'estimate'):
+                    r_n, r_nm = model.receptor_activity(method, ret_correlations=True) 
+                    q_n, q_nm = model.receptor_crosstalk(method, ret_receptor_activity=True)
+                    
+                    self.assertAllClose(r_n, q_n, rtol=5e-2, atol=5e-2,
+                                        msg='Receptor activities: ' + error_msg)
+                    r_nm_calc = np.clip(np.outer(q_n, q_n) + q_nm, 0, 1)
+                    self.assertAllClose(r_nm, r_nm_calc, rtol=0, atol=0.5,
+                                        msg='Receptor correlations: ' + error_msg)
                 
                 
     def test_mututal_information(self):

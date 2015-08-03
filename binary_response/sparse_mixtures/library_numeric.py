@@ -13,6 +13,8 @@ from six.moves import range
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 
 
+LN2 = np.log(2)
+
 
 class LibrarySparseNumeric(LibrarySparseBase):
     """ represents a single receptor library that handles sparse mixtures """
@@ -200,7 +202,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             yield c
 
 
-    def receptro_activity(self, method='auto', ret_correlations=False):
+    def receptor_activity(self, method='auto', ret_correlations=False):
         """ calculates the average activity of each receptor
         
         `method` can be one of [monte_carlo', 'estimate'].
@@ -220,7 +222,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
     def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """ 
-        if self.has_correlations:
+        if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         S_ni = self.int_mat
@@ -243,9 +245,10 @@ class LibrarySparseNumeric(LibrarySparseBase):
             return r_n
     
     
-    def receptor_activity_estimate(self, ret_correlations=False, linearized=False):
+    def receptor_activity_estimate(self, ret_correlations=False,
+                                   approx_prob=False):
         """ estimates the average activity of each receptor """ 
-        if self.has_correlations:
+        if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
         S_ni = self.int_mat
@@ -255,10 +258,13 @@ class LibrarySparseNumeric(LibrarySparseBase):
         b_mean = np.dot(S_ni, p_i*d_i)
         b_var = np.dot(S_ni**2, p_i * d_i**2)
         b_std = np.sqrt(b_var)
-        
-        delta = (b_mean - 1) / b_std  #< deviation from optimum
 
-        if linearized:
+        # handle division by zero correctly
+        with np.errstate(divide='ignore'):
+            delta = np.divide(b_mean - 1, b_std)  #< deviation from optimum
+            # delta will be +- infinity if b_std is zero
+
+        if approx_prob:
             r_n = 0.5 + delta / np.sqrt(2*np.pi)
             np.clip(r_n, 0, 1, r_n)
         else:
@@ -266,12 +272,15 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
         if ret_correlations:
             b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], p_i * d_i**2)
-            rho = b_covar / np.outer(b_std, b_std)  #< correlation coefficient
-    
+            with np.errstate(divide='ignore', invalid='ignore'):
+                rho = np.divide(b_covar, np.outer(b_std, b_std))  #< correlation coefficient
             r_nm = (0.25
                     + np.add.outer(delta, delta) / np.sqrt(8*np.pi)
                     + (np.outer(delta, delta) + rho) / (2*np.pi)
                     )
+            # Replace values that are nan with zero. This might not be exact,
+            # but only occurs in corner cases that are not interesting to us  
+            r_nm[np.isnan(r_nm)] = 0
 
             np.clip(r_nm, 0, 1, r_nm)
             return r_n, r_nm
@@ -280,7 +289,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             return r_n
                
  
-    def receptor_crosstalk(self, method='auto'):
+    def receptor_crosstalk(self, method='auto', ret_receptor_activity=False):
         """ calculates the average activity of the receptor as a response to 
         single ligands.
         
@@ -290,13 +299,18 @@ class LibrarySparseNumeric(LibrarySparseBase):
         """
         # calculate receptor crosstalk from the observed probabilities
         r_n, r_nm = self.receptor_activity(method, ret_correlations=True)
-        return r_nm - np.outer(r_n, r_n)
+        q_nm = r_nm - np.outer(r_n, r_n)
+        
+        if ret_receptor_activity:
+            return r_n, q_nm # q_n = r_n
+        else:
+            return q_nm 
         
                            
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
-        if self.has_correlations:
+        if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         base = 2 ** np.arange(0, self.Nr)
@@ -325,4 +339,21 @@ class LibrarySparseNumeric(LibrarySparseBase):
         else:
             return MI
 
+                    
+    def mutual_information_estimate(self, approx_prob=False):
+        """ returns a simple estimate of the mutual information.
+        `approx_prob` determines whether the probabilities of encountering
+            substrates in mixtures are calculated exactly or only approximative,
+            which should work for small probabilities. """
+
+        # this might be not the right approach
+        q_n = self.receptor_activity_estimate(approx_prob=approx_prob)
+        q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
+                    
+        # calculate the approximate mutual information
+        MI = self.Nr
+        MI -= 0.5/LN2 * np.sum((2*q_n - 1)**2)
+        MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
+        
+        return MI
             

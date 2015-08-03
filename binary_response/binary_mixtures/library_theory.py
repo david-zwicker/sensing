@@ -60,7 +60,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     def activity_single(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        if self.has_correlations:
+        if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         return 1 - np.prod(1 - self.density * self.substrate_probabilities)
@@ -79,7 +79,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
                 approximated by a polynomial expression independent of the
                 `use_polynom` argument.
         """
-        if self.has_correlations:
+        if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         p_i = self.substrate_probabilities
