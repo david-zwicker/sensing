@@ -124,10 +124,10 @@ class LibraryBase(object):
                       for _ in range(avg_num)]
     
         # collect the results and calculate the statistics
-        result = np.array(result)
         if ret_all:
             return result
         else:
+            result = np.array(result)
             return result.mean(axis=0), result.std(axis=0)
         
         
