@@ -147,7 +147,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 self.int_mat = np.full(shape, typical_sensitivity)
             else:
                 sigma = kwargs['sigma']
-                mu = typical_sensitivity * np.exp(0.5*sigma**2)
+                mu = typical_sensitivity * np.exp(-0.5*sigma**2)
                 dist = stats.lognorm(scale=mu, s=sigma)
                 self.int_mat = dist.rvs(shape)
                 
