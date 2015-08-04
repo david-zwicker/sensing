@@ -10,6 +10,13 @@ import numpy as np
 from scipy import stats, special, linalg
 
 
+def lognorm_mean(mean, sigma):
+    """ returns a lognormal distribution parameterized by its mean and a spread
+    parameter `sigma` """
+    mu = mean * np.exp(-0.5 * sigma**2)
+    return stats.lognorm(scale=mu, s=sigma)
+
+
 
 def random_log_uniform(v_min, v_max, size):
     """ returns random variables that a distributed uniformly in log space """

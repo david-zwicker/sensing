@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 from scipy import stats, integrate, optimize, special
 
-from utils.math_distributions import (DeterministicDistribution,
+from utils.math_distributions import (lognorm_mean, DeterministicDistribution,
                                       HypoExponentialDistribution) 
 from .library_base import LibraryContinuousBase
 
@@ -41,7 +41,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         if self.sigma == 0:
             return DeterministicDistribution(loc=self.typical_sensitivity)
         else:
-            return stats.lognorm(scale=self.typical_sensitivity, s=self.sigma)
+            return lognorm_mean(self.typical_sensitivity, self.sigma)
 
 
     @property

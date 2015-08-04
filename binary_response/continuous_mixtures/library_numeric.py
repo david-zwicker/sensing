@@ -7,9 +7,9 @@ Created on May 1, 2015
 from __future__ import division
 
 import numpy as np
-from scipy import stats
 from six.moves import range
 
+from utils.math_distributions import lognorm_mean
 from .library_base import LibraryContinuousBase
 
 
@@ -126,9 +126,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             if kwargs['sigma'] == 0:
                 self.int_mat = np.full(shape, typical_sensitivity)
             else:
-                sigma = kwargs['sigma']
-                mu = typical_sensitivity * np.exp(-0.5*sigma**2)
-                dist = stats.lognorm(scale=mu, s=sigma)
+                dist = lognorm_mean(typical_sensitivity, kwargs['sigma'])
                 self.int_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
