@@ -11,9 +11,8 @@ import itertools
 import unittest
 
 import numpy as np
-from scipy import misc, stats
+from scipy import misc
 
-from utils.math_distributions import lognorm_mean
 from .library_base import LibraryBinaryBase
 from .library_numeric import LibraryBinaryNumeric
 from .numba_speedup import numba_patcher
@@ -112,24 +111,6 @@ class TestLibraryBinary(unittest.TestCase):
                 model.set_commonness(scheme, mean_mixture_size, **params)
                 self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
-                
-                
-    def test_distributions(self):
-        """ test the definiton of parameters of probability distributions """
-        S0, sigma = np.random.random(2) + 0.1
-        mu = S0 * np.exp(-0.5*sigma**2)
-        var = S0**2 * (np.exp(sigma**2) - 1)
-        
-        # test our distribution and the scipy distribution
-        dists = (lognorm_mean(S0, sigma),  stats.lognorm(scale=mu, s=sigma))
-        for dist in dists:
-            self.assertAlmostEqual(dist.mean(), S0)
-            self.assertAlmostEqual(dist.var(), var)
-        
-        # test the numpy distribution
-        rvs = np.random.lognormal(np.log(mu), sigma, size=1000000)
-        self.assertAlmostEqual(rvs.mean(), S0, places=3)
-        self.assertAlmostEqual(rvs.var(), var, places=3)
                 
                 
     def test_mixture_entropy(self):

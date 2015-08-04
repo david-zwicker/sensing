@@ -11,8 +11,9 @@ import itertools
 import unittest
 
 import numpy as np
-import scipy.misc
+from scipy import misc, stats
 
+from utils.math_distributions import lognorm_mean
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 from .library_numeric import LibrarySparseNumeric
 from .numba_speedup import numba_patcher  # @UnresolvedImport
@@ -30,6 +31,24 @@ class TestLibrarySparse(unittest.TestCase):
         self.assertTrue(np.allclose(a, b, rtol, atol), msg)
 
 
+    def test_distributions(self):
+        """ test the definiton of parameters of probability distributions """
+        S0, sigma = np.random.random(2) + 0.1
+        mu = S0 * np.exp(-0.5*sigma**2)
+        var = S0**2 * (np.exp(sigma**2) - 1)
+        
+        # test our distribution and the scipy distribution
+        dists = (lognorm_mean(S0, sigma),  stats.lognorm(scale=mu, s=sigma))
+        for dist in dists:
+            self.assertAlmostEqual(dist.mean(), S0)
+            self.assertAlmostEqual(dist.var(), var)
+        
+        # test the numpy distribution
+        rvs = np.random.lognormal(np.log(mu), sigma, size=1000000)
+        self.assertAlmostEqual(rvs.mean(), S0, places=3)
+        self.assertAlmostEqual(rvs.var(), var, places=3)
+        
+        
     def _create_test_models(self):
         """ helper method for creating test models """
         # save numba patcher state
@@ -69,7 +88,7 @@ class TestLibrarySparse(unittest.TestCase):
         hval = np.random.random() - 0.5
         model.commonness = [hval] * model.Ns
         m_s = np.arange(0, model.Ns + 1)
-        p_m = (scipy.misc.comb(model.Ns, m_s)
+        p_m = (misc.comb(model.Ns, m_s)
                * np.exp(hval*m_s)/(1 + np.exp(hval))**model.Ns)
         
         self.assertAllClose(p_m, model.mixture_size_distribution())
