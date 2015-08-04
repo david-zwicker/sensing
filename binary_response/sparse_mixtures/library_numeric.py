@@ -272,12 +272,15 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
         if ret_correlations:
             b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], p_i * d_i**2)
+            
+            # calculate the correlation coefficient 
             with np.errstate(divide='ignore', invalid='ignore'):
-                rho = np.divide(b_covar, np.outer(b_std, b_std))  #< correlation coefficient
+                rho = np.divide(b_covar, np.outer(b_std, b_std))
+                
+            # estimate the activity correlation
             r_nm = (0.25
                     + np.add.outer(delta, delta) / np.sqrt(8*np.pi)
-                    + (np.outer(delta, delta) + rho) / (2*np.pi)
-                    )
+                    + (np.outer(delta, delta) + rho) / (2*np.pi))
             # Replace values that are nan with zero. This might not be exact,
             # but only occurs in corner cases that are not interesting to us  
             r_nm[np.isnan(r_nm)] = 0
