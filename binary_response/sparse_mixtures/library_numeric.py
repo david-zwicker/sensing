@@ -348,15 +348,11 @@ class LibrarySparseNumeric(LibrarySparseBase):
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
-
-        # this might be not the right approach
-        q_n = self.receptor_activity_estimate(approx_prob=approx_prob)
-        q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
+        r_n, r_nm = self.receptor_activity_estimate(ret_correlations=True,
+                                                    approx_prob=approx_prob)
+        q_n = r_n
+        q_nm = r_nm - np.outer(r_n, r_n)
                     
         # calculate the approximate mutual information
-        MI = self.Nr
-        MI -= 0.5/LN2 * np.sum((2*q_n - 1)**2)
-        MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
-        
-        return MI
+        return self._estimate_mutual_information_from_q(q_n, q_nm)
             
