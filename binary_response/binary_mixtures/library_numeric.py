@@ -815,11 +815,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
                     
         # calculate the approximate mutual information
-        MI = self.Nr
-        MI -= 0.5/LN2 * np.sum((2*q_n - 1)**2)
-        MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
-        
-        return MI
+        return self._estimate_mutual_information_from_q(q_n, q_nm)
         
         
     def receptor_score(self, method='auto', multiprocessing=False):

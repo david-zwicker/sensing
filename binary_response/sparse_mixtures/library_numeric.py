@@ -350,9 +350,6 @@ class LibrarySparseNumeric(LibrarySparseBase):
             which should work for small probabilities. """
         r_n, r_nm = self.receptor_activity_estimate(ret_correlations=True,
                                                     approx_prob=approx_prob)
-        q_n = r_n
-        q_nm = r_nm - np.outer(r_n, r_n)
-                    
         # calculate the approximate mutual information
-        return self._estimate_mutual_information_from_q(q_n, q_nm)
+        return self._estimate_mutual_information_from_r(r_n, r_nm)
             
