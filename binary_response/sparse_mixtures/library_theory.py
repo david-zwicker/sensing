@@ -8,6 +8,7 @@ from __future__ import division
 
 import numpy as np
 
+from utils.math_distributions import lognorm_mean, DeterministicDistribution
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 
 
@@ -140,6 +141,15 @@ class LibrarySparseLogNormal(LibrarySparseBase):
         S0 = np.random.random() + 0.5
         args['typical_sensitivity'] = kwargs.get('typical_sensitivity', S0)
         return args
+
+
+    @property
+    def sensitivity_distribution(self):
+        """ returns the sensitivity distribution """
+        if self.sigma == 0:
+            return DeterministicDistribution(self.typical_sensitivity)
+        else:
+            return lognorm_mean(self.typical_sensitivity, self.sigma)
 
 
     def receptor_activity(self, ret_correlations=False):

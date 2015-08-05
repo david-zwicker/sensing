@@ -1,7 +1,8 @@
 from .library_numeric import LibrarySparseNumeric
-from .library_theory import LibrarySparseBinary
+from .library_theory import LibrarySparseBinary, LibrarySparseLogNormal
 
-__all__ = ['LibrarySparseNumeric', 'LibrarySparseBinary']
+__all__ = ['LibrarySparseNumeric', 'LibrarySparseBinary',
+           'LibrarySparseLogNormal']
 
 # try importing numba for speeding up calculations
 try:

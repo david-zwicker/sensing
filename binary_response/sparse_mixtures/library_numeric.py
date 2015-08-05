@@ -108,7 +108,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
     
 
     def choose_interaction_matrix(self, distribution, typical_sensitivity=1,
-                                  **kwargs):
+                                  ensure_mean=False, **kwargs):
         """ creates a interaction matrix with the given properties
             `distribution` determines the distribution from which we choose the
                 entries of the sensitivity matrix
@@ -172,9 +172,13 @@ class LibrarySparseNumeric(LibrarySparseBase):
         else:
             raise ValueError('Unknown distribution `%s`' % distribution)
             
+        if ensure_mean:
+            self.int_mat *= typical_sensitivity / self.int_mat.mean()
+            
         # save the parameters determining this matrix
         int_mat_params = {'distribution': distribution,
-                          'typical_sensitivity': typical_sensitivity}
+                          'typical_sensitivity': typical_sensitivity,
+                          'ensure_mean': ensure_mean}
         int_mat_params.update(kwargs)
         self.parameters['interaction_matrix_params'] = int_mat_params 
 
@@ -199,8 +203,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
             c = np.random.exponential(size=self.Ns) * d_i
             c[b_not] = 0
             yield c
-
-
+            
+        
     def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
         """ calculates the average activity of each receptor
         
@@ -254,7 +258,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         p_i = self.substrate_probabilities
         d_i = self.concentrations
         
-        b_mean = np.dot(S_ni, p_i*d_i)
+        b_mean = np.dot(S_ni, p_i * d_i)
         b_var = np.dot(S_ni**2, p_i * d_i**2)
         b_std = np.sqrt(b_var)
 
