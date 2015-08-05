@@ -469,7 +469,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         return -np.sum(counts*(np.log2(counts) - log_steps))/self._sample_steps
     
     
-    def receptor_crosstalk(self, method='auto', ret_receptor_activity=False):
+    def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
+                           **kwargs):
         """ calculates the average activity of the receptor as a response to 
         single ligands.
         
@@ -485,15 +486,18 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 
         if method == 'estimate':
             # estimate receptor crosstalk directly
-            q_nm = self.receptor_crosstalk_estimate()
+            q_nm = self.receptor_crosstalk_estimate(**kwargs)
             if ret_receptor_activity:
-                q_n = self.receptor_activity_estimate()
+                q_n = self.receptor_activity_estimate(**kwargs)
         
         else:
             # calculate receptor crosstalk from the observed probabilities
-            r_n, r_nm = self.receptor_activity(method, ret_correlations=True)
+            r_n, r_nm = self.receptor_activity(method, ret_correlations=True,
+                                               **kwargs)
             q_n = r_n
             q_nm = r_nm - np.outer(r_n, r_n)
+            if kwargs.get('clip', False):
+                np.clip(q_nm, 0, 1, q_nm)
             
         if ret_receptor_activity:
             return q_n, q_nm
@@ -501,7 +505,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return q_nm 
     
     
-    def receptor_crosstalk_estimate(self, approx_prob=False):
+    def receptor_crosstalk_estimate(self, approx_prob=False, clip=False):
         """ estimates the average activity of the receptor as a response to 
         single ligands. 
         `approx_prob` determines whether the probabilities of encountering
@@ -516,7 +520,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if approx_prob:
             # approximate calculation for small p_i
             q_nm = np.einsum('ni,mi,i->nm', S_ni, S_ni, p_i)
-            # np.clip(q_nm, 0, 1, q_nm)
+            if clip:
+                np.clip(q_nm, 0, 1, q_nm)
             
         else:
             # proper calculation of the probabilities
@@ -530,7 +535,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         return q_nm
                 
 
-    def receptor_activity(self, method='auto', ret_correlations=False):
+    def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
         """ calculates the average activity of each receptor
         
         `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto'].
@@ -544,11 +549,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 method = 'monte_carlo'
                 
         if method == 'brute_force' or method == 'brute-force':
-            return self.receptor_activity_brute_force(ret_correlations)
+            return self.receptor_activity_brute_force(ret_correlations, **kwargs)
         elif method == 'monte_carlo' or method == 'monte-carlo':
-            return self.receptor_activity_monte_carlo(ret_correlations)
+            return self.receptor_activity_monte_carlo(ret_correlations, **kwargs)
         elif method == 'estimate':
-            return self.receptor_activity_estimate(ret_correlations)
+            return self.receptor_activity_estimate(ret_correlations, **kwargs)
         else:
             raise ValueError('Unknown method `%s`.' % method)
 
@@ -605,7 +610,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
  
  
     def receptor_activity_estimate(self, ret_correlations=False,
-                                   approx_prob=False):
+                                   approx_prob=False, clip=False):
         """ estimates the average activity of each receptor. 
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
@@ -619,7 +624,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if approx_prob:
             # approximate calculation for small p_i
             r_n = np.dot(S_ni, p_i)
-            # np.clip(r_n, 0, 1, r_n)
+            if clip:
+                np.clip(r_n, 0, 1, r_n)
             
         else:
             # proper calculation of the probabilities
@@ -636,6 +642,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 r_nm = np.outer(r_n, r_n) + q_nm
             else:
                 r_nm = 1 - (1 - q_nm)*(1 - np.outer(r_n, r_n))
+                
+            if clip:
+                np.clip(r_nm, 0, 1, r_nm)
 
             return r_n, r_nm
         

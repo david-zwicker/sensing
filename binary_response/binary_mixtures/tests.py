@@ -206,8 +206,14 @@ class TestLibraryBinary(unittest.TestCase):
             
             else:
                 for method in ('auto', 'estimate'):
-                    r_n, r_nm = model.receptor_activity(method, ret_correlations=True) 
-                    q_n, q_nm = model.receptor_crosstalk(method, ret_receptor_activity=True)
+                    if method == 'estimate':
+                        kwargs = {'approx_prob': True}
+                    else:
+                        kwargs = {}
+                    r_n, r_nm = model.receptor_activity(
+                                        method, ret_correlations=True, **kwargs) 
+                    q_n, q_nm = model.receptor_crosstalk(
+                                   method, ret_receptor_activity=True, **kwargs)
                     
                     self.assertAllClose(r_n, q_n, rtol=5e-2, atol=5e-2,
                                         msg='Receptor activities: ' + error_msg)

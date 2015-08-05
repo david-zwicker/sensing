@@ -201,7 +201,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             yield c
 
 
-    def receptor_activity(self, method='auto', ret_correlations=False):
+    def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
         """ calculates the average activity of each receptor
         
         `method` can be one of [monte_carlo', 'estimate'].
@@ -210,10 +210,10 @@ class LibrarySparseNumeric(LibrarySparseBase):
             method = 'monte_carlo'
                 
         if method == 'monte_carlo' or method == 'monte-carlo':
-            return self.receptor_activity_monte_carlo(ret_correlations)
+            return self.receptor_activity_monte_carlo(ret_correlations, **kwargs)
         
         elif method == 'estimate':
-            return self.receptor_activity_estimate(ret_correlations)
+            return self.receptor_activity_estimate(ret_correlations, **kwargs)
         
         else:
             raise ValueError('Unknown method `%s`.' % method)
@@ -245,8 +245,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
     
     
     def receptor_activity_estimate(self, ret_correlations=False,
-                                   approx_prob=False):
-        """ estimates the average activity of each receptor """ 
+                                   approx_prob=False, clip=False):
+        """ estimates the average activity of each receptor """
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
@@ -265,7 +265,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
         if approx_prob:
             r_n = 0.5 + delta / np.sqrt(2*np.pi)
-            #np.clip(r_n, 0, 1, r_n)
+            if clip:
+                np.clip(r_n, 0, 1, r_n)
         else:
             r_n = 0.5 * special.erfc(-delta / np.sqrt(2))
             
@@ -284,7 +285,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
             # but only occurs in corner cases that are not interesting to us  
             r_nm[np.isnan(r_nm)] = 0
 
-            #np.clip(r_nm, 0, 1, r_nm)
+            if clip:
+                np.clip(r_nm, 0, 1, r_nm)
             return r_n, r_nm
         
         else:
@@ -292,7 +294,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
                
  
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
-                           **kwargs):
+                           clip=False, **kwargs):
         """ calculates the average activity of the receptor as a response to 
         single ligands.
         
@@ -300,10 +302,17 @@ class LibrarySparseNumeric(LibrarySparseBase):
             If it is 'auto' than the method is chosen automatically based on the
             problem size.
         """
-        # calculate receptor crosstalk from the observed probabilities
+        if method == 'estimate':
+            kwargs['clip'] = False
+
+        # calculate receptor activities with the requested `method`            
         r_n, r_nm = self.receptor_activity(method, ret_correlations=True,
                                            **kwargs)
+        
+        # calculate receptor crosstalk from the observed probabilities
         q_nm = r_nm - np.outer(r_n, r_n)
+        if clip:
+            np.clip(q_nm, 0, 1, q_nm)
         
         if ret_receptor_activity:
             return r_n, q_nm # q_n = r_n
@@ -312,7 +321,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
         
     def receptor_crosstalk_estimate(self, ret_receptor_activity=False,
-                                    approx_prob=False):
+                                    approx_prob=False, clip=False):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
         if self.correlated_mixture:
@@ -344,12 +353,14 @@ class LibrarySparseNumeric(LibrarySparseBase):
         # but only occurs in corner cases that are not interesting to us  
         q_nm[np.isnan(q_nm)] = 0
 
-#         np.clip(q_nm, 0, 1, q_nm)
+        if clip:
+            np.clip(q_nm, 0, 1, q_nm)
 
         if ret_receptor_activity:
             if approx_prob:
                 q_n = 0.5 + delta / np.sqrt(2*np.pi)
-                # np.clip(q_n, 0, 1, q_n)
+                if clip:
+                    np.clip(q_n, 0, 1, q_n)
             else:
                 q_n = 0.5 * special.erfc(-delta / np.sqrt(2))
             return q_n, q_nm
