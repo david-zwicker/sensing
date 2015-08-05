@@ -516,7 +516,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if approx_prob:
             # approximate calculation for small p_i
             q_nm = np.einsum('ni,mi,i->nm', S_ni, S_ni, p_i)
-            np.clip(q_nm, 0, 1, q_nm)
+            # np.clip(q_nm, 0, 1, q_nm)
             
         else:
             # proper calculation of the probabilities
@@ -619,7 +619,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if approx_prob:
             # approximate calculation for small p_i
             r_n = np.dot(S_ni, p_i)
-            np.clip(r_n, 0, 1, r_n)
+            # np.clip(r_n, 0, 1, r_n)
             
         else:
             # proper calculation of the probabilities

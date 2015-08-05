@@ -265,7 +265,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
         if approx_prob:
             r_n = 0.5 + delta / np.sqrt(2*np.pi)
-            np.clip(r_n, 0, 1, r_n)
+            #np.clip(r_n, 0, 1, r_n)
         else:
             r_n = 0.5 * special.erfc(-delta / np.sqrt(2))
             
@@ -284,14 +284,15 @@ class LibrarySparseNumeric(LibrarySparseBase):
             # but only occurs in corner cases that are not interesting to us  
             r_nm[np.isnan(r_nm)] = 0
 
-            np.clip(r_nm, 0, 1, r_nm)
+            #np.clip(r_nm, 0, 1, r_nm)
             return r_n, r_nm
         
         else:
             return r_n
                
  
-    def receptor_crosstalk(self, method='auto', ret_receptor_activity=False):
+    def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
+                           **kwargs):
         """ calculates the average activity of the receptor as a response to 
         single ligands.
         
@@ -300,13 +301,60 @@ class LibrarySparseNumeric(LibrarySparseBase):
             problem size.
         """
         # calculate receptor crosstalk from the observed probabilities
-        r_n, r_nm = self.receptor_activity(method, ret_correlations=True)
+        r_n, r_nm = self.receptor_activity(method, ret_correlations=True,
+                                           **kwargs)
         q_nm = r_nm - np.outer(r_n, r_n)
         
         if ret_receptor_activity:
             return r_n, q_nm # q_n = r_n
         else:
-            return q_nm 
+            return q_nm
+
+        
+    def receptor_crosstalk_estimate(self, ret_receptor_activity=False,
+                                    approx_prob=False):
+        """ calculates the average activity of the receptor as a response to 
+        single ligands. """
+        if self.correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+        
+        S_ni = self.int_mat
+        p_i = self.substrate_probabilities
+        d_i = self.concentrations
+        
+        b_mean = np.dot(S_ni, p_i*d_i)
+        b_var = np.dot(S_ni**2, p_i * d_i**2)
+        b_std = np.sqrt(b_var)
+
+        # handle division by zero correctly
+        with np.errstate(divide='ignore'):
+            delta = np.divide(b_mean - 1, b_std)  #< deviation from optimum
+            # delta will be +- infinity if b_std is zero
+
+            b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], p_i * d_i**2)
+            
+            # calculate the correlation coefficient 
+            with np.errstate(divide='ignore', invalid='ignore'):
+                rho = np.divide(b_covar, np.outer(b_std, b_std))
+                
+            # estimate the activity correlation
+            q_nm = rho / (2*np.pi)
+            
+        # Replace values that are nan with zero. This might not be exact,
+        # but only occurs in corner cases that are not interesting to us  
+        q_nm[np.isnan(q_nm)] = 0
+
+#         np.clip(q_nm, 0, 1, q_nm)
+
+        if ret_receptor_activity:
+            if approx_prob:
+                q_n = 0.5 + delta / np.sqrt(2*np.pi)
+                # np.clip(q_n, 0, 1, q_n)
+            else:
+                q_n = 0.5 * special.erfc(-delta / np.sqrt(2))
+            return q_n, q_nm
+        else:
+            return q_nm        
         
                            
     def mutual_information(self, ret_prob_activity=False):

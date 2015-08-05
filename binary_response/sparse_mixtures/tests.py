@@ -144,7 +144,8 @@ class TestLibrarySparse(unittest.TestCase):
                 
                 self.assertAllClose(r_n, q_n, rtol=5e-2, atol=5e-2,
                                     msg='Receptor activities: ' + error_msg)
-                r_nm_calc = np.clip(np.outer(q_n, q_n) + q_nm, 0, 1)
+                # r_nm_calc = np.clip(np.outer(q_n, q_n) + q_nm, 0, 1)
+                r_nm_calc = np.outer(q_n, q_n) + q_nm
                 self.assertAllClose(r_nm, r_nm_calc, rtol=0, atol=0.5,
                                     msg='Receptor correlations: ' + error_msg)
                 
