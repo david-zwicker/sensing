@@ -69,6 +69,13 @@ class LibraryBinaryBase(LibraryBase):
             raise ValueError('Unknown initialization protocol `%s`' % 
                              initialize_state)
 
+    @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        params = super(LibraryBinaryBase, self).repr_params
+        params.append('m=%g' % self.mixture_size_statistics()['mean'])
+        return params
+
 
     @classmethod
     def get_random_arguments(cls, **kwargs):

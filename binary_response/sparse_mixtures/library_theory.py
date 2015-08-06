@@ -35,6 +35,15 @@ class LibrarySparseBinary(LibrarySparseBase):
 
 
     @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        params = super(LibrarySparseBinary, self).repr_params
+        params.append('xi=%g' % self.density)
+        params.append('S0=%g' % self.typical_sensitivity)
+        return params
+
+
+    @property
     def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
@@ -121,6 +130,15 @@ class LibrarySparseLogNormal(LibrarySparseBase):
                                                      num_receptors, parameters)
         self.sigma = sigma
         self.typical_sensitivity = typical_sensitivity
+
+
+    @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        params = super(LibrarySparseLogNormal, self).repr_params
+        params.append('sigma=%g' % self.sigma)
+        params.append('S0=%g' % self.typical_sensitivity)
+        return params
 
 
     @property

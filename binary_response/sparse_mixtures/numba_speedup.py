@@ -51,7 +51,7 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
             for n in range(Nr):
                 if a_n[n] >= 1:
                     r_nm[n, n] += 1
-                    for m in range(n + 1, Nr):
+                    for m in range(n):
                         if a_n[m] >= 1:
                             r_nm[n, m] += 1
                             r_nm[m, n] += 1
@@ -71,13 +71,14 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(self, ret_correlations=Fa
     # call the jitted function
     LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
         self.Ns, self.Nr, steps, self.int_mat,
-        self.substrate_probabilities, #< c_prob
-        self.concentrations,          #< c_means
-        np.empty(self.Nr, np.double), #< a
+        self.substrate_probabilities, #< p_i
+        self.concentrations,          #< d_i
+        np.empty(self.Nr, np.double), #< a_n
         ret_correlations,
         r_n, r_nm
     )
     
+    # return the normalized output
     r_n /= steps
     if ret_correlations:
         r_nm /= steps
@@ -95,9 +96,8 @@ numba_patcher.register_method(
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
-                                                  c_prob, c_means, alpha,
-                                                  prob_a):
+def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, S_ni, p_i, d_i,
+                                                  a_n, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -105,18 +105,18 @@ def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
     # substrates
     for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
-        alpha[:] = 0  #< activity pattern of this mixture
+        a_n[:] = 0  #< activity pattern of this mixture
         for i in range(Ns):
-            if np.random.random() < c_prob[i]:
+            if np.random.random() < p_i[i]:
                 # mixture contains substrate i
-                ci = np.random.exponential() * c_means[i]
+                ci = np.random.exponential() * d_i[i]
                 for n in range(Nr):
-                    alpha[n] += int_mat[n, i] * ci
+                    a_n[n] += S_ni[n, i] * ci
         
         # calculate the activity pattern id
         a_id, base = 0, 1
         for n in range(Nr):
-            if alpha[n] >= 1:
+            if a_n[n] >= 1:
                 a_id += base
             base *= 2
         
@@ -147,9 +147,9 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     # call the jitted function
     MI = LibrarySparseNumeric_mutual_information_numba(
         self.Ns, self.Nr, self.monte_carlo_steps,  self.int_mat,
-        self.substrate_probabilities, #< c_prob
-        self.concentrations,          #< c_means
-        np.empty(self.Nr, np.double), #< a
+        self.substrate_probabilities, #< p_i
+        self.concentrations,          #< d_i
+        np.empty(self.Nr, np.double), #< a_n
         prob_a
     )
     

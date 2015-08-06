@@ -196,12 +196,13 @@ class LibrarySparseNumeric(LibrarySparseBase):
         d_i = self.concentrations
         
         for _ in range(self._sample_steps):
-            # choose ligands that are _not_ in a mixture
-            b_not = (np.random.random(self.Ns) >= p_i)
-
             # choose a mixture vector according to substrate probabilities
             c = np.random.exponential(size=self.Ns) * d_i
+            
+            # choose ligands that are _not_ in a mixture
+            b_not = (np.random.random(self.Ns) >= p_i)
             c[b_not] = 0
+            
             yield c
             
         
