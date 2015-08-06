@@ -41,6 +41,14 @@ class LibraryBinaryUniform(LibraryBinaryBase):
 
 
     @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        params = super(LibraryBinaryUniform, self).repr_params
+        params.append('xi=%g' % self.density)
+        return params
+
+
+    @property
     def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """

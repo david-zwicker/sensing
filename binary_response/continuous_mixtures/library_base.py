@@ -62,6 +62,14 @@ class LibraryContinuousBase(LibraryBase):
                              initialize_state)
 
 
+    @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        params = super(LibraryContinuousBase, self).repr_params
+        params.append('<d>=%g' % self.concentration_means)
+        return params
+
+
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random args for creating test instances """

@@ -33,7 +33,16 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                                                          parameters)
         self.typical_sensitivity = typical_sensitivity
         self.sigma = sigma
+
         
+    @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        params = super(LibraryContinuousLogNormal, self).repr_params
+        params.append('sigma=%g' % self.sigma)
+        params.append('S0=%g' % self.typical_sensitivity)
+        return params
+
         
     @property
     def int_mat_distribution(self):

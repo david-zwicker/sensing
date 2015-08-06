@@ -47,6 +47,17 @@ class LibraryBase(object):
 
 
     @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        return ['Ns=%d' % self.Ns, 'Nr=%d' % self.Nr]
+
+
+    def __repr__(self):
+        params = ', '.join(self.repr_params)
+        return '%s(%s)' % (self.__class__.__name__, params)
+
+
+    @property
     def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """

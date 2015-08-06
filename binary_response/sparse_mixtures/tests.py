@@ -45,8 +45,8 @@ class TestLibrarySparse(unittest.TestCase):
         
         # test the numpy distribution
         rvs = np.random.lognormal(np.log(mu), sigma, size=1000000)
-        self.assertAlmostEqual(rvs.mean(), S0, places=3)
-        self.assertAlmostEqual(rvs.var(), var, places=3)
+        self.assertAlmostEqual(rvs.mean(), S0, places=2)
+        self.assertAlmostEqual(rvs.var(), var, places=2)
         
         
     def _create_test_models(self):
