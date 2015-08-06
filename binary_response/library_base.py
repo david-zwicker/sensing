@@ -130,20 +130,31 @@ class LibraryBase(object):
             return result.mean(axis=0), result.std(axis=0)
         
         
-    def _estimate_mutual_information_from_q(self, q_n, q_nm):
+    def _estimate_mutual_information_from_q(self, q_n, q_nm, averaged=False):
         """ estimate the mutual information from given probabilities """
-        # calculate the approximate mutual information
-        MI = self.Nr
-        MI -= 0.5/np.log(2) * np.sum((2*q_n - 1)**2)
-        MI -= 8/np.log(2) * np.sum(np.triu(q_nm, 1)**2)
+        if averaged:
+            # calculate the approximate mutual information from means
+            MI = self.Nr
+            MI -= 0.5/np.log(2) * self.Nr * (2*q_n - 1)**2
+            MI -= 4/np.log(2) * self.Nr*(self.Nr - 1) * q_nm**2
+            
+        else:
+            # calculate the approximate mutual information from data
+            MI = self.Nr
+            MI -= 0.5/np.log(2) * np.sum((2*q_n - 1)**2)
+            MI -= 8/np.log(2) * np.sum(np.triu(q_nm, 1)**2)
+            
         return MI
     
         
-    def _estimate_mutual_information_from_r(self, r_n, r_nm):
+    def _estimate_mutual_information_from_r(self, r_n, r_nm, averaged=False):
         """ estimate the mutual information from given probabilities """
         # calculate the crosstalk
-        q_nm = r_nm - np.outer(r_n, r_n)
-        return self._estimate_mutual_information_from_q(r_n, q_nm)
+        if averaged:
+            q_nm = r_nm - r_n**2
+        else:
+            q_nm = r_nm - np.outer(r_n, r_n)
+        return self._estimate_mutual_information_from_q(r_n, q_nm, averaged)
       
     
 
