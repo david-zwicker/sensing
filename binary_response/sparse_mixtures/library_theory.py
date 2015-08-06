@@ -180,10 +180,10 @@ class LibrarySparseLogNormal(LibrarySparseBase):
         sn_mean = sni_means.sum()
         sn_var = sni_vars.sum()
         snm = np.sum((S0*di)**2 * pi * (2 - pi))
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide='ignore', invalid='ignore'):
             rho = snm / sn_var
 
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide='ignore', invalid='ignore'):
             q_n = 0.5 + (sn_mean - 1) / np.sqrt(PI2 * sn_var) 
             q_n += ((5*sn_mean - 9)*np.sqrt(sn_var))/(8*np.sqrt(2*np.pi))
         q_nm = rho / PI2
