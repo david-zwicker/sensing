@@ -201,9 +201,19 @@ class LibrarySparseLogNormal(LibrarySparseBase):
         with np.errstate(divide='ignore', invalid='ignore'):
             rho = snm / sn_var
 
+
+        an_mean = S0 * np.sum(di * pi)
+        an_var = S0**2 * (np.exp(sigma2) - 1) * np.sum(di**2 * pi)
+        bn_mean = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi)
+        bn_var = S0**4 * (np.exp(6*sigma2) - np.exp(2*sigma2)) * np.sum(di**4 * pi)
+
+
         with np.errstate(divide='ignore', invalid='ignore'):
-            q_n = 0.5 + (sn_mean - 1) / np.sqrt(PI2 * sn_var) 
-            q_n += ((5*sn_mean - 9)*np.sqrt(sn_var))/(8*np.sqrt(2*np.pi))
+            # q_n = 0.5 + (sn_mean - 1) / np.sqrt(PI2 * sn_var) 
+            # q_n += ((5*sn_mean - 9)*np.sqrt(sn_var))/(8*np.sqrt(2*np.pi))
+            
+            q_n = 0.5 + (an_mean - 1) / np.sqrt(bn_mean) * np.exp(3*bn_var/8)
+            
         q_nm = rho / PI2
         
         # np.clip(q_n, 0, 1, q_n)
