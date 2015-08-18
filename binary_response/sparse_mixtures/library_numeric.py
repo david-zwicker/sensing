@@ -42,9 +42,6 @@ class LibrarySparseNumeric(LibrarySparseBase):
                                                    num_receptors,
                                                    parameters)        
 
-        # prevent integer overflow in collecting activity patterns
-        assert num_receptors <= self.parameters['max_num_receptors'] <= 63
-
         initialize_state = self.parameters['initialize_state'] 
         int_mat_shape = (self.Nr, self.Ns)
         
@@ -229,6 +226,9 @@ class LibrarySparseNumeric(LibrarySparseBase):
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
+        # prevent integer overflow in collecting activity patterns
+        assert self.Nr <= self.parameters['max_num_receptors'] <= 63
+
         S_ni = self.int_mat
 
         r_n = np.zeros(self.Nr)
@@ -378,6 +378,9 @@ class LibrarySparseNumeric(LibrarySparseBase):
         number of steps is given by the model parameter 'monte_carlo_steps' """
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
+
+        # prevent integer overflow in collecting activity patterns
+        assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
         base = 2 ** np.arange(0, self.Nr)
 

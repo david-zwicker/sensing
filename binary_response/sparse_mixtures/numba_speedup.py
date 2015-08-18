@@ -64,6 +64,9 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(self, ret_correlations=Fa
     if self.correlated_mixture:
         raise NotImplementedError('Not implemented for correlated mixtures')
 
+    # prevent integer overflow in collecting activity patterns
+    assert self.Nr <= self.parameters['max_num_receptors'] <= 63
+
     r_n = np.zeros(self.Nr) 
     r_nm = np.zeros((self.Nr, self.Nr)) 
     steps = self.monte_carlo_steps
@@ -141,6 +144,9 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     mixtures """
     if self.correlated_mixture:
         raise NotImplementedError('Not implemented for correlated mixtures')
+
+    # prevent integer overflow in collecting activity patterns
+    assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
     prob_a = np.zeros(2**self.Nr)
  
