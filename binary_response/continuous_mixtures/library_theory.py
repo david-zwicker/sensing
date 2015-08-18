@@ -24,10 +24,8 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
 
     def __init__(self, num_substrates, num_receptors, typical_sensitivity=1,
                  sigma=0.1, parameters=None):
-        """ initialize the receptor library by setting the number of receptors,
-        the number of substrates it can respond to, the weights `hs` of the 
-        substrates, and the fraction `density` of substrates a single receptor
-        responds to """
+        """ represents a theoretical receptor library where the entries of the
+        sensitivity matrix are drawn from a log-normal distribution """
         super(LibraryContinuousLogNormal, self).__init__(num_substrates,
                                                          num_receptors,
                                                          parameters)

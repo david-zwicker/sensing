@@ -102,7 +102,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
         # determine optimal parameters for the interaction matrix
         from .library_theory import LibrarySparseBinary  # @UnresolvedImport
-        theory = LibrarySparseBinary.from_other(obj)
+        theory = LibrarySparseBinary.from_other(obj)     # @UndefinedVariable
         obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
     
@@ -406,13 +406,17 @@ class LibrarySparseNumeric(LibrarySparseBase):
             return MI
 
                     
-    def mutual_information_estimate(self, approx_prob=False):
+    def mutual_information_estimate(self, approx_prob=False, clip=True):
         """ returns a simple estimate of the mutual information.
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
-            which should work for small probabilities. """
-        r_n, r_nm = self.receptor_activity_estimate(ret_correlations=True,
-                                                    approx_prob=approx_prob)
+            which should work for small probabilities.
+        `clip` determines whether the approximated probabilities should be
+            clipped to [0, 1] before being used to calculate the mutual info.
+        """
+        q_n, q_nm = self.receptor_crosstalk_estimate(ret_receptor_activity=True,
+                                                     approx_prob=approx_prob,
+                                                     clip=clip)
         # calculate the approximate mutual information
-        return self._estimate_mutual_information_from_r(r_n, r_nm)
+        return self._estimate_mutual_information_from_q(q_n, q_nm)
             

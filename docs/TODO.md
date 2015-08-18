@@ -1,4 +1,3 @@
-* add __repr__ and __str__ function with most important information for the classes
 * Add other distributions (Gamma) for commonness to continuous mixtures
 * Think about implementing the sped up version of the mutual information
     calculation for correlated mixtures by representing the concentration
