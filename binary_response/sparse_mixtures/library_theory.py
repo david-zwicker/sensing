@@ -64,11 +64,60 @@ class LibrarySparseBinary(LibrarySparseBase):
         return args
 
 
-    def activity_single(self):
+    def receptor_activity(self, ret_correlations=False):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        raise NotImplementedError
-        return 1 - np.prod(1 - self.density * self.substrate_probabilities)
+        q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True)
+        if ret_correlations:
+            r_nm = np.outer(q_n, q_n) + q_nm
+            return q_n, r_nm
+        else:
+            return q_n
+        
+        
+    def receptor_crosstalk(self, ret_receptor_activity=False, clip=True):
+        """ calculates the average activity of the receptor as a response to 
+        single ligands. """
+        if self.correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+        
+        di = self.concentrations
+        pi = self.substrate_probabilities
+        S0 = self.typical_sensitivity
+        xi = self.density
+        
+        sn_mean = S0 * xi * np.sum(di * pi)
+        sn_var = S0**2 * xi * np.sum(di**2 * pi*(2 - pi))
+        snm = S0**2 * xi**2 * np.sum(di**2 * pi)
+        
+        with np.errstate(divide='ignore', invalid='ignore'):
+            # calculate the probability that a receptor is activated
+            sn_cv2 = sn_var/sn_mean**2
+            enum = np.log(np.sqrt(1 + sn_cv2)/sn_mean)
+            denom = np.sqrt(2*np.log(1 + sn_cv2))
+            q_n = 0.5*special.erfc(enum/denom)
+            
+            # calculate the probability that two receptors are excited together
+            rho = snm / sn_var
+            q_nm = rho / PI2
+        
+        if clip:
+            q_n = np.clip(q_n, 0, 1)
+            q_nm = np.clip(q_nm, 0, 1)
+
+        if ret_receptor_activity:
+            return q_n, q_nm
+        else:
+            return q_nm
+
+
+    def mutual_information(self, clip=False):
+        """ calculates the typical mutual information """
+        q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True)
+        MI = self._estimate_mutual_information_from_q(q_n, q_nm, averaged=True)
+        if clip:
+            np.clip(MI, 0, self.Nr, MI)
+        return MI
 
         
     def density_optimal(self, assume_homogeneous=False):
