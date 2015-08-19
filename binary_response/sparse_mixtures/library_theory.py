@@ -233,10 +233,15 @@ class LibrarySparseLogNormal(LibrarySparseBase):
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        m = self.mixture_size_statistics()['mean']
-        d = self.concentration_statistics()['mean'].mean()
-        S0 = 1/(m*d)
+        c_stats = self.concentration_statistics()
+        ctot_mean = c_stats['mean'].sum()
+        ctot_var = c_stats['var'].sum()
+
+        sigma_opt = 2
+        S0_opt = np.sqrt(1/ctot_mean**2
+                         + ctot_var/ctot_mean**4 * np.exp(sigma_opt**2)) 
+        
         return {'distribution': 'log_normal',
-                'typical_sensitivity': S0, 'sigma': 1}
+                'typical_sensitivity': S0_opt, 'sigma': sigma_opt}
     
         
