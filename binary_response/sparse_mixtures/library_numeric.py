@@ -259,13 +259,13 @@ class LibrarySparseNumeric(LibrarySparseBase):
         p_i = self.substrate_probabilities
         d_i = self.concentrations
         
-        b_mean = np.dot(S_ni, p_i * d_i)
-        b_var = np.dot(S_ni**2, p_i * d_i**2)
-        b_std = np.sqrt(b_var)
+        sn_mean = np.dot(S_ni, d_i * p_i)
+        sn_var = np.dot(S_ni**2, d_i**2 * p_i*(2 - p_i))
+        sn_std = np.sqrt(sn_var)
 
         # handle division by zero correctly
         with np.errstate(divide='ignore'):
-            delta = np.divide(b_mean - 1, b_std)  #< deviation from optimum
+            delta = np.divide(sn_mean - 1, sn_std)  #< deviation from optimum
             # delta will be +- infinity if b_std is zero
 
         if approx_prob:
@@ -280,7 +280,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
             # calculate the correlation coefficient 
             with np.errstate(divide='ignore', invalid='ignore'):
-                rho = np.divide(b_covar, np.outer(b_std, b_std))
+                rho = np.divide(b_covar, np.outer(sn_std, sn_std))
                 
             # estimate the activity correlation
             r_nm = (0.25
@@ -336,20 +336,20 @@ class LibrarySparseNumeric(LibrarySparseBase):
         p_i = self.substrate_probabilities
         d_i = self.concentrations
         
-        b_mean = np.dot(S_ni, p_i*d_i)
-        b_var = np.dot(S_ni**2, p_i * d_i**2)
-        b_std = np.sqrt(b_var)
+        sn_mean = np.dot(S_ni, d_i * p_i)
+        sn_var = np.dot(S_ni**2, d_i**2 * p_i*(2 - p_i))
+        sn_std = np.sqrt(sn_var)
 
         # handle division by zero correctly
         with np.errstate(divide='ignore'):
-            delta = np.divide(b_mean - 1, b_std)  #< deviation from optimum
+            delta = np.divide(sn_mean - 1, sn_std)  #< deviation from optimum
             # delta will be +- infinity if b_std is zero
 
             b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], p_i * d_i**2)
             
             # calculate the correlation coefficient 
             with np.errstate(divide='ignore', invalid='ignore'):
-                rho = np.divide(b_covar, np.outer(b_std, b_std))
+                rho = np.divide(b_covar, np.outer(sn_std, sn_std))
                 
             # estimate the activity correlation
             q_nm = rho / (2*np.pi)
