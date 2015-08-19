@@ -85,25 +85,29 @@ class LibrarySparseBinary(LibrarySparseBase):
         pi = self.substrate_probabilities
         S0 = self.typical_sensitivity
         xi = self.density
-        
+
+        # calculate statistics of the sum s_n = S_ni * c_i        
         sn_mean = S0 * xi * np.sum(di * pi)
         sn_var = S0**2 * xi * np.sum(di**2 * pi*(2 - pi))
-        snm = S0**2 * xi**2 * np.sum(di**2 * pi)
+        snm_covar = S0**2 * xi**2 * np.sum(di**2 * pi)
         
-        with np.errstate(divide='ignore', invalid='ignore'):
+        if sn_mean == 0:
+            q_n, q_nm = 0, 0
+        else:
             # calculate the probability that a receptor is activated
-            sn_cv2 = sn_var/sn_mean**2
-            enum = np.log(np.sqrt(1 + sn_cv2)/sn_mean)
-            denom = np.sqrt(2*np.log(1 + sn_cv2))
-            q_n = 0.5*special.erfc(enum/denom)
-            
-            # calculate the probability that two receptors are excited together
-            rho = snm / sn_var
-            q_nm = rho / PI2
-        
-        if clip:
-            q_n = np.clip(q_n, 0, 1)
-            q_nm = np.clip(q_nm, 0, 1)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                sn_cv2 = sn_var/sn_mean**2
+                enum = np.log(np.sqrt(1 + sn_cv2)/sn_mean)
+                denom = np.sqrt(2*np.log(1 + sn_cv2))
+                q_n = 0.5*special.erfc(enum/denom)
+                
+                # calculate the probability that two receptors are excited together
+                rho = snm_covar / sn_var
+                q_nm = rho / PI2
+                
+            if clip:
+                q_n = np.clip(q_n, 0, 1)
+                q_nm = np.clip(q_nm, 0, 1)
 
         if ret_receptor_activity:
             return q_n, q_nm
@@ -242,10 +246,11 @@ class LibrarySparseLogNormal(LibrarySparseBase):
         S0 = self.typical_sensitivity
         sigma2 = self.sigma ** 2
         
+        # calculate statistics of the sum s_n = S_ni * c_i        
         sn_mean = S0 * np.sum(di * pi)
         sn_var = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi*(2 - pi))
+        snm_covar = S0**2 * np.sum(di**2 * pi*(2 - pi))
 
-        snm = S0**2 * np.sum(di**2 * pi*(2 - pi))
         with np.errstate(divide='ignore', invalid='ignore'):
             # calculate the probability that a receptor is activated
             sn_cv2 = sn_var/sn_mean**2
@@ -254,7 +259,7 @@ class LibrarySparseLogNormal(LibrarySparseBase):
             q_n = 0.5*special.erfc(enum/denom)
             
             # calculate the probability that two receptors are excited together
-            rho = snm / sn_var
+            rho = snm_covar / sn_var
             q_nm = rho / PI2
         
         if clip:
