@@ -7,6 +7,7 @@ Created on Mar 31, 2015
 from __future__ import division
 
 import numpy as np
+from scipy import special
 
 from utils.math_distributions import lognorm_mean, DeterministicDistribution
 from .library_base import LibrarySparseBase  # @UnresolvedImport
@@ -181,7 +182,7 @@ class LibrarySparseLogNormal(LibrarySparseBase):
             return q_n
         
         
-    def receptor_crosstalk(self, ret_receptor_activity=False):
+    def receptor_crosstalk(self, ret_receptor_activity=False, clip=True):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
         if self.correlated_mixture:
@@ -192,32 +193,24 @@ class LibrarySparseLogNormal(LibrarySparseBase):
         S0 = self.typical_sensitivity
         sigma2 = self.sigma ** 2
         
-        sni_means = S0 * di * pi
-        sni_vars = (S0*di)**2 * pi * (2*np.exp(sigma2) - pi)
-        
-        sn_mean = sni_means.sum()
-        sn_var = sni_vars.sum()
-        snm = np.sum((S0*di)**2 * pi * (2 - pi))
+        sn_mean = S0 * np.sum(di * pi)
+        sn_var = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi*(2 - pi))
+
+        snm = S0**2 * np.sum(di**2 * pi*(2 - pi))
         with np.errstate(divide='ignore', invalid='ignore'):
+            # calculate the probability that a receptor is activated
+            sn_cv2 = sn_var/sn_mean**2
+            enum = np.log(np.sqrt(1 + sn_cv2)/sn_mean)
+            denom = np.sqrt(2*np.log(1 + sn_cv2))
+            q_n = 0.5*special.erfc(enum/denom)
+            
+            # calculate the probability that two receptors are excited together
             rho = snm / sn_var
-
-
-        an_mean = S0 * np.sum(di * pi)
-        an_var = S0**2 * (np.exp(sigma2) - 1) * np.sum(di**2 * pi)
-        bn_mean = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi)
-        bn_var = S0**4 * (np.exp(6*sigma2) - np.exp(2*sigma2)) * np.sum(di**4 * pi)
-
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            # q_n = 0.5 + (sn_mean - 1) / np.sqrt(PI2 * sn_var) 
-            # q_n += ((5*sn_mean - 9)*np.sqrt(sn_var))/(8*np.sqrt(2*np.pi))
-            
-            q_n = 0.5 + (an_mean - 1) / np.sqrt(bn_mean) * np.exp(3*bn_var/8)
-            
-        q_nm = rho / PI2
+            q_nm = rho / PI2
         
-        # np.clip(q_n, 0, 1, q_n)
-        # np.clip(q_nm, 0, 1, q_nm)
+        if clip:
+            q_n = np.clip(q_n, 0, 1)
+            q_nm = np.clip(q_nm, 0, 1)
 
         if ret_receptor_activity:
             return q_n, q_nm
