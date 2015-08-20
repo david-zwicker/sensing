@@ -38,14 +38,14 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
     def receptor_crosstalk(self, ret_receptor_activity=False, clip=True):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
-        sn_mean, sn_var, snm_covar = self.excitation_statistics()
+        en_mean, en_var, enm_covar = self.excitation_statistics()
         
-        if sn_mean == 0:
+        if en_mean == 0:
             q_n, q_nm = 0, 0
             
         else:
-            q_n = self._estimate_qn_from_sn(sn_mean, sn_var)
-            q_nm = self._estimate_qnm_from_sn(sn_var, snm_covar)
+            q_n = self._estimate_qn_from_en(en_mean, en_var)
+            q_nm = self._estimate_qnm_from_en(en_var, enm_covar)
                 
             if clip:
                 q_n = np.clip(q_n, 0, 1)
@@ -126,11 +126,11 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         xi = self.density
 
         # calculate statistics of the sum s_n = S_ni * c_i        
-        sn_mean = S0 * xi * np.sum(di * pi)
-        sn_var = S0**2 * xi * np.sum(di**2 * pi*(2 - pi))
-        snm_covar = S0**2 * xi**2 * np.sum(di**2 * pi*(2 - pi))
+        en_mean = S0 * xi * np.sum(di * pi)
+        en_var = S0**2 * xi * np.sum(di**2 * pi*(2 - pi))
+        enm_covar = S0**2 * xi**2 * np.sum(di**2 * pi*(2 - pi))
                 
-        return sn_mean, sn_var, snm_covar
+        return en_mean, en_var, enm_covar
 
         
     def density_optimal(self, assume_homogeneous=False):
@@ -245,11 +245,11 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         sigma2 = self.sigma ** 2
         
         # calculate statistics of the sum s_n = S_ni * c_i        
-        sn_mean = S0 * np.sum(di * pi)
-        sn_var = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi*(2 - pi))
-        snm_covar = S0**2 * np.sum(di**2 * pi*(2 - pi))
+        en_mean = S0 * np.sum(di * pi)
+        en_var = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi*(2 - pi))
+        enm_covar = S0**2 * np.sum(di**2 * pi*(2 - pi))
 
-        return sn_mean, sn_var, snm_covar
+        return en_mean, en_var, enm_covar
         
 
     def get_optimal_library(self):

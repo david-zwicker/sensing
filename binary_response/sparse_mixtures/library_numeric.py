@@ -211,12 +211,12 @@ class LibrarySparseNumeric(LibrarySparseBase):
         d_i = self.concentrations
         
         # calculate statistics of the sum s_n = S_ni * c_i        
-        sn_mean = np.dot(S_ni, d_i * p_i)
-        sn_var = np.dot(S_ni**2, d_i**2 * p_i*(2 - p_i))
-        snm_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :],
+        en_mean = np.dot(S_ni, d_i * p_i)
+        en_var = np.dot(S_ni**2, d_i**2 * p_i*(2 - p_i))
+        enm_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :],
                            d_i**2 * p_i*(2 - p_i))
         
-        return sn_mean, sn_var, snm_covar
+        return en_mean, en_var, enm_covar
             
         
     def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
@@ -268,17 +268,17 @@ class LibrarySparseNumeric(LibrarySparseBase):
     def receptor_activity_estimate(self, ret_correlations=False,
                                    approx_prob=False, clip=False):
         """ estimates the average activity of each receptor """
-        sn_mean, sn_var, snm_covar = self.excitation_statistics_estimate()
+        en_mean, en_var, enm_covar = self.excitation_statistics_estimate()
 
         # calculate the receptor activity
-        r_n = self._estimate_qn_from_sn(sn_mean, sn_var,
+        r_n = self._estimate_qn_from_en(en_mean, en_var,
                             approx_prob=approx_prob)
         if clip:
             np.clip(r_n, 0, 1, r_n)
 
         if ret_correlations:
             # calculate the correlated activity 
-            q_nm = self._estimate_qnm_from_sn(sn_var, snm_covar)
+            q_nm = self._estimate_qnm_from_en(en_var, enm_covar)
             r_nm = r_n**2 + q_nm
             if clip:
                 np.clip(r_nm, 0, 1, r_nm)
@@ -319,17 +319,17 @@ class LibrarySparseNumeric(LibrarySparseBase):
                                     approx_prob=False, clip=False):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
-        sn_mean, sn_var, snm_covar = self.excitation_statistics_estimate()
+        en_mean, en_var, enm_covar = self.excitation_statistics_estimate()
 
         # calculate the receptor crosstalk
-        q_nm = self._estimate_qnm_from_sn(sn_var, snm_covar)
+        q_nm = self._estimate_qnm_from_en(en_var, enm_covar)
         if clip:
             np.clip(q_nm, 0, 1, q_nm)
 
         if ret_receptor_activity:
             # calculate the receptor activity
-            q_n = self._estimate_qn_from_sn(sn_mean, sn_var,
-                                approx_prob=approx_prob)
+            q_n = self._estimate_qn_from_en(en_mean, en_var,
+                                            approx_prob=approx_prob)
             if clip:
                 np.clip(q_n, 0, 1, q_n)
 
