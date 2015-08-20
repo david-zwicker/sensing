@@ -11,6 +11,8 @@ import multiprocessing as mp
 import numpy as np
 
 
+LOG2 = np.log(2)
+
 
 class LibraryBase(object):
     """ represents a single receptor library. This is a base class that provides
@@ -141,31 +143,51 @@ class LibraryBase(object):
             return result.mean(axis=0), result.std(axis=0)
         
         
-    def _estimate_mutual_information_from_q(self, q_n, q_nm, averaged=False):
+    def _estimate_mutual_information_from_q_values(self, q_n, q_nm):
         """ estimate the mutual information from given probabilities """
-        if averaged:
-            # calculate the approximate mutual information from means
-            MI = self.Nr
-            MI -= 0.5/np.log(2) * self.Nr * (2*q_n - 1)**2
-            MI -= 4/np.log(2) * self.Nr*(self.Nr - 1) * q_nm**2
-            
-        else:
-            # calculate the approximate mutual information from data
-            MI = self.Nr
-            MI -= 0.5/np.log(2) * np.sum((2*q_n - 1)**2)
-            MI -= 8/np.log(2) * np.sum(np.triu(q_nm, 1)**2)
+        # calculate the approximate mutual information from data
+        MI = self.Nr
+        MI -= 0.5/LOG2 * np.sum((2*q_n - 1)**2)
+        MI -= 8/LOG2 * np.sum(np.triu(q_nm, 1)**2)
             
         return MI
     
         
-    def _estimate_mutual_information_from_r(self, r_n, r_nm, averaged=False):
+    def _estimate_mutual_information_from_q_stats(self, q_n, q_nm, q_n_var=0,
+                                                  q_nm_var=0, ret_var=False):
+        """ estimate the mutual information from given probabilities """
+        Nr = self.Nr
+        
+        # calculate the approximate mutual information from means
+        MI = Nr
+        MI -= 0.5/LOG2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
+        MI -= 4/LOG2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
+            
+        if ret_var:
+            MI_var = (
+                4 * Nr**2 * q_n_var * ((2*q_n - 1)**2 + 2*q_n_var)
+                + 32 * (Nr*(Nr - 1))**2 * q_nm_var * (2*q_nm**2 + q_nm_var)
+            ) / LOG2**2
+            return MI, MI_var
+        else:
+            return MI
+    
+        
+    def _estimate_mutual_information_from_r_values(self, r_n, r_nm):
         """ estimate the mutual information from given probabilities """
         # calculate the crosstalk
-        if averaged:
-            q_nm = r_nm - r_n**2
-        else:
-            q_nm = r_nm - np.outer(r_n, r_n)
-        return self._estimate_mutual_information_from_q(r_n, q_nm, averaged)
+        q_nm = r_nm - np.outer(r_n, r_n)
+        return self._estimate_mutual_information_from_q_values(r_n, q_nm)
+      
+        
+    def _estimate_mutual_information_from_r_stats(self, r_n, r_nm, r_n_var=0,
+                                                  r_nm_var=0, ret_var=False):
+        """ estimate the mutual information from given probabilities """
+        # calculate the crosstalk
+        q_nm = r_nm - r_n**2 - r_n_var
+        q_nm_var = r_nm_var + 4*r_n**2*r_n_var + 2*r_n_var**2
+        return self._estimate_mutual_information_from_q_stats(
+                                  r_n, q_nm, r_n_var, q_nm_var, ret_var=ret_var)
       
     
 

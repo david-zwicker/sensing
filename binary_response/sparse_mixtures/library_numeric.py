@@ -421,5 +421,5 @@ class LibrarySparseNumeric(LibrarySparseBase):
                                                      approx_prob=approx_prob,
                                                      clip=clip)
         # calculate the approximate mutual information
-        return self._estimate_mutual_information_from_q(q_n, q_nm)
+        return self._estimate_mutual_information_from_q_values(q_n, q_nm)
             

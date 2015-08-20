@@ -118,7 +118,7 @@ class LibrarySparseBinary(LibrarySparseBase):
     def mutual_information(self, clip=False):
         """ calculates the typical mutual information """
         q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True)
-        MI = self._estimate_mutual_information_from_q(q_n, q_nm, averaged=True)
+        MI = self._estimate_mutual_information_from_q_stats(q_n, q_nm)
         if clip:
             np.clip(MI, 0, self.Nr, MI)
         return MI
@@ -163,9 +163,9 @@ class LibrarySparseBinary(LibrarySparseBase):
         m = self.mixture_size_statistics()['mean']
         d = self.concentration_statistics()['mean'].mean()
         density = self.density_optimal()
-        I0 = 1 / (m*d*density + d*np.log(2))
+        S0 = 1 / (m*d*density + d*np.log(2))
         return {'distribution': 'binary',
-                'typical_sensitivity': I0, 'density': density}
+                'typical_sensitivity': S0, 'density': density}
 
 
 
@@ -178,7 +178,7 @@ class LibrarySparseLogNormal(LibrarySparseBase):
                  typical_sensitivity=1, parameters=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the width of the
-        distribution `sigma`, and the typical sensitivity or magnitude I0 of the
+        distribution `sigma`, and the typical sensitivity or magnitude S0 of the
         sensitivity matrix """
         super(LibrarySparseLogNormal, self).__init__(num_substrates,
                                                      num_receptors, parameters)
@@ -249,7 +249,7 @@ class LibrarySparseLogNormal(LibrarySparseBase):
         # calculate statistics of the sum s_n = S_ni * c_i        
         sn_mean = S0 * np.sum(di * pi)
         sn_var = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi*(2 - pi))
-        snm_covar = S0**2 * np.sum(di**2 * pi*(2 - pi))
+        snm_covar = S0**2 * np.sum(di**2 * pi)
 
         with np.errstate(divide='ignore', invalid='ignore'):
             # calculate the probability that a receptor is activated
@@ -275,7 +275,7 @@ class LibrarySparseLogNormal(LibrarySparseBase):
     def mutual_information(self, clip=False):
         """ calculates the typical mutual information """
         q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True)
-        MI = self._estimate_mutual_information_from_q(q_n, q_nm, averaged=True)
+        MI = self._estimate_mutual_information_from_q_stats(q_n, q_nm)
         if clip:
             np.clip(MI, 0, self.Nr, MI)
         return MI
