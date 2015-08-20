@@ -276,7 +276,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
             r_n = 0.5 * special.erfc(-delta / np.sqrt(2))
             
         if ret_correlations:
-            b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], p_i * d_i**2)
+            b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :],
+                             d_i**2 * p_i*(2 - p_i))
             
             # calculate the correlation coefficient 
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -345,7 +346,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
             delta = np.divide(sn_mean - 1, sn_std)  #< deviation from optimum
             # delta will be +- infinity if b_std is zero
 
-            b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :], p_i * d_i**2)
+            b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :],
+                             d_i**2 * p_i*(2 - p_i))
             
             # calculate the correlation coefficient 
             with np.errstate(divide='ignore', invalid='ignore'):
