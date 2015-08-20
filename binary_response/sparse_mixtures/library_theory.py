@@ -67,7 +67,7 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
 
 
 
-class LibrarySparseBinary(LibrarySparseBase):
+class LibrarySparseBinary(LibrarySparseTheoryBase):
     """ represents a single receptor library with random entries. The only
     parameters that characterizes this library is the density of entries and
     their magnitude """
@@ -178,7 +178,7 @@ class LibrarySparseBinary(LibrarySparseBase):
 
 
 
-class LibrarySparseLogNormal(LibrarySparseBase):
+class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     """ represents a single receptor library with random entries drawn from a
     lognormal distribution """
 

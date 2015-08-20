@@ -235,26 +235,3 @@ class LibrarySparseBase(LibraryBinaryBase):
         return q_nm
     
         
-#     def _estimate_rnm_from_sn(self, sn_mean, sn_var, snm_covar):
-#         """ estimates probability r_nm that receptors n and m are activated by
-#         a mixture based on the statistics of the excitations sn """
-#         
-#         sn_std = np.sqrt(sn_var)
-#         
-#         # calculate the correlation coefficient 
-#         with np.errstate(divide='ignore', invalid='ignore'):
-#             delta = np.divide(sn_mean - 1, sn_std)
-#             rho = np.divide(snm_covar, np.outer(sn_std, sn_std))
-#             
-#         # estimate the activity correlation
-#         r_nm = (0.25
-#                 + np.add.outer(delta, delta) / np.sqrt(8*np.pi)
-#                 + (np.outer(delta, delta) + rho) / (2*np.pi))
-#         
-#         # Replace values that are nan with zero. This might not be exact,
-#         # but only occurs in corner cases that are not interesting to us  
-#         r_nm[np.isnan(r_nm)] = 0
-#         
-#         return r_nm       
-        
-
