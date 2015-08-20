@@ -126,15 +126,14 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
-        di = self.concentrations
-        pi = self.substrate_probabilities
+        ctot_stats = self.ctot_statistics()
         S0 = self.typical_sensitivity
         xi = self.density
 
         # calculate statistics of the sum s_n = S_ni * c_i        
-        en_mean = S0 * xi * np.sum(di * pi)
-        en_var = S0**2 * xi * np.sum(di**2 * pi*(2 - pi))
-        enm_covar = S0**2 * xi**2 * np.sum(di**2 * pi*(2 - pi))
+        en_mean = S0 * xi * ctot_stats['mean']
+        en_var = S0**2 * xi * ctot_stats['var']
+        enm_covar = S0**2 * xi**2 * ctot_stats['var']
                 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'covar': enm_covar}
@@ -246,15 +245,14 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
-        di = self.concentrations
-        pi = self.substrate_probabilities
+        ctot_stats = self.ctot_statistics()
         S0 = self.typical_sensitivity
         sigma2 = self.sigma ** 2
         
         # calculate statistics of the sum s_n = S_ni * c_i        
-        en_mean = S0 * np.sum(di * pi)
-        en_var = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi*(2 - pi))
-        enm_covar = S0**2 * np.sum(di**2 * pi*(2 - pi))
+        en_mean = S0 * ctot_stats['mean']
+        en_var = S0**2 * np.exp(sigma2) * ctot_stats['var']
+        enm_covar = S0**2 * ctot_stats['var']
 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'covar': enm_covar}
@@ -266,9 +264,9 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        c_stats = self.concentration_statistics()
-        ctot_mean = c_stats['mean'].sum()
-        ctot_var = c_stats['var'].sum()
+        ctot_stats = self.ctot_statistics()
+        ctot_mean = ctot_stats['mean']
+        ctot_var = ctot_stats['var']
 
         arg = 1/ctot_mean**2 + ctot_var/ctot_mean**4 * np.exp(sigma_opt**2)
         S0_opt = np.sqrt(arg) 

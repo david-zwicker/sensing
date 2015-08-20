@@ -164,6 +164,16 @@ class LibrarySparseBase(LibraryBinaryBase):
         # return the results in a dictionary to be able to extend it later
         return {'mean': c_means, 'std': np.sqrt(c_vars), 'var': c_vars}
 
+
+    def ctot_statistics(self):
+        """ returns the statistics for the total concentration """
+        c_stats = self.concentration_statistics()
+        ctot_mean = c_stats['mean'].sum()
+        ctot_var = c_stats['var'].sum()
+        
+        # return the results in a dictionary to be able to extend it later
+        return {'mean': ctot_mean, 'std': np.sqrt(ctot_var), 'var': ctot_var}
+
     
     @property
     def is_homogeneous(self):

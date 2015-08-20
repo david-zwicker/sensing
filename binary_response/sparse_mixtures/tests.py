@@ -132,7 +132,37 @@ class TestLibrarySparse(unittest.TestCase):
                 self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
                 
-
+        
+    def test_theory(self):
+        """ test liming cases of the theory """
+        # prepare a random log-normal library
+        th1 = LibrarySparseLogNormal.create_test_instance(sigma=0.001)
+        lib_opt = th1.get_optimal_library(sigma_opt=0.001)
+        th1.typical_sensitivity = lib_opt['typical_sensitivity']
+        
+        # prepare equivalent binary library
+        args = th1.init_arguments
+        del args['sigma']
+        th2 = LibrarySparseBinary(**args)
+        th2.density = 1
+        
+        # test various methods on the two libraries
+        for method in ['receptor_activity', 'receptor_crosstalk',
+                       'mutual_information']:
+            res1 = getattr(th1, method)()
+            res2 = getattr(th2, method)()
+            self.assertAlmostEqual(res1, res2, places=4)
+            
+            
+    def test_concentration_statistics(self):
+        """ test the statistics of the concentrations """
+        model = LibrarySparseNumeric.create_test_instance(num_substrates=128)
+        cs = [c.sum() for c in model._sample_mixtures()]
+        c_stats = model.concentration_statistics()
+        self.assertAllClose(np.mean(cs), c_stats['mean'].sum(), rtol=0.1)
+        self.assertAllClose(np.var(cs), c_stats['var'].sum(), rtol=0.1)
+            
+            
     def test_correlations_and_crosstalk(self):
         """ tests the correlations and crosstalk """
         for model in self._create_test_models():
@@ -156,26 +186,6 @@ class TestLibrarySparse(unittest.TestCase):
         self.assertTrue(numba_patcher.test_consistency(repeat=3, verbosity=1),
                         msg='Numba methods are not consistent')
         
-        
-    def test_theory(self):
-        """ test liming cases of the theory """
-        # prepare a random log-normal library
-        th1 = LibrarySparseLogNormal.create_test_instance(sigma=0.001)
-        lib_opt = th1.get_optimal_library(sigma_opt=0.001)
-        th1.typical_sensitivity = lib_opt['typical_sensitivity']
-        
-        # prepare equivalent binary library
-        args = th1.init_arguments
-        del args['sigma']
-        th2 = LibrarySparseBinary(**args)
-        th2.density = 1
-        
-        # test various methods on the two libraries
-        for method in ['receptor_activity', 'receptor_crosstalk',
-                       'mutual_information']:
-            res1 = getattr(th1, method)()
-            res2 = getattr(th2, method)()
-            self.assertAlmostEqual(res1, res2, places=4)
 
     
 
