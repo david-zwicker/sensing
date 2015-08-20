@@ -11,7 +11,7 @@ import multiprocessing as mp
 import numpy as np
 
 
-LOG2 = np.log(2)
+LN2 = np.log(2)
 
 
 class LibraryBase(object):
@@ -147,8 +147,8 @@ class LibraryBase(object):
         """ estimate the mutual information from given probabilities """
         # calculate the approximate mutual information from data
         MI = self.Nr
-        MI -= 0.5/LOG2 * np.sum((2*q_n - 1)**2)
-        MI -= 8/LOG2 * np.sum(np.triu(q_nm, 1)**2)
+        MI -= 0.5/LN2 * np.sum((2*q_n - 1)**2)
+        MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
             
         return MI
     
@@ -160,14 +160,14 @@ class LibraryBase(object):
         
         # calculate the approximate mutual information from means
         MI = Nr
-        MI -= 0.5/LOG2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
-        MI -= 4/LOG2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
+        MI -= 0.5/LN2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
+        MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
             
         if ret_var:
             MI_var = (
                 4 * Nr**2 * q_n_var * ((2*q_n - 1)**2 + 2*q_n_var)
                 + 32 * (Nr*(Nr - 1))**2 * q_nm_var * (2*q_nm**2 + q_nm_var)
-            ) / LOG2**2
+            ) / LN2**2
             return MI, MI_var
         else:
             return MI

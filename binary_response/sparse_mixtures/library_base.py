@@ -7,9 +7,42 @@ Created on Apr 1, 2015
 from __future__ import division
 
 import numpy as np
-from scipy import stats
+from scipy import stats, special
 
 from ..binary_mixtures.library_base import LibraryBinaryBase
+
+
+
+@np.vectorize
+def _estimate_qn_from_sn_approx(sn_mean, sn_var):
+    """ estimates probability q_n that a receptor is activated by a mixture
+    based on the statistics of the excitations s_n using an approximation """
+    if sn_var == 0:
+        q_n = np.float(sn_mean > 1)
+    else:                
+        delta = (sn_mean - 1) / np.sqrt(sn_var)
+        q_n = 0.5 + delta / np.sqrt(2*np.pi)
+
+    return q_n
+
+
+
+@np.vectorize
+def _estimate_qn_from_sn_lognorm(sn_mean, sn_var):
+    """ estimates probability q_n that a receptor is activated by a mixture
+    based on the statistics of the excitations s_n assuming an underlying
+    log-normal distribution for s_n """
+    if sn_var == 0:
+        q_n = np.float(sn_mean > 1)
+    elif sn_mean == 0:
+        q_n = 0
+    else:
+        sn_cv2 = sn_var / sn_mean**2
+        enum = np.log(np.sqrt(1 + sn_cv2) / sn_mean)
+        denom = np.sqrt(2*np.log(1 + sn_cv2))
+        q_n = 0.5 * special.erfc(enum/denom)
+        
+    return q_n
 
 
 
@@ -166,5 +199,62 @@ class LibrarySparseBase(LibraryBinaryBase):
         # we additionally store the parameters that were used for this function
         c_params = {'scheme': scheme, 'mean_concentration': mean_concentration}
         c_params.update(kwargs)
-        self.parameters['concentration_parameters'] = c_params  
+        self.parameters['concentration_parameters'] = c_params
+        
+        
+    def _estimate_qn_from_sn(self, sn_mean, sn_var, approx_prob=False):  
+        """ estimates probability q_n that a receptor is activated by a mixture
+        based on the statistics of the excitations sn """
+
+        if approx_prob:
+            q_n = _estimate_qn_from_sn_approx(sn_mean, sn_var)
+
+        else:
+            # estimate from a log-normal distribution
+            q_n = _estimate_qn_from_sn_lognorm(sn_mean, sn_var)
+            
+        return q_n
+   
+    
+    def _estimate_qnm_from_sn(self, sn_var, snm_covar):
+        """ estimates crosstalk q_nm based on the statistics of the excitations
+        sn """
+        sn_std = np.sqrt(sn_var)
+        
+        # calculate the correlation coefficient 
+        with np.errstate(divide='ignore', invalid='ignore'):
+            rho = np.divide(snm_covar, np.outer(sn_std, sn_std))
+
+        # Replace values that are nan with zero. This might not be exact,
+        # but only occurs in corner cases that are not interesting to us  
+        rho[np.isnan(rho)] = 0
+            
+        # estimate the crosstalk
+        q_nm = rho / (2*np.pi)
+            
+        return q_nm
+    
+        
+#     def _estimate_rnm_from_sn(self, sn_mean, sn_var, snm_covar):
+#         """ estimates probability r_nm that receptors n and m are activated by
+#         a mixture based on the statistics of the excitations sn """
+#         
+#         sn_std = np.sqrt(sn_var)
+#         
+#         # calculate the correlation coefficient 
+#         with np.errstate(divide='ignore', invalid='ignore'):
+#             delta = np.divide(sn_mean - 1, sn_std)
+#             rho = np.divide(snm_covar, np.outer(sn_std, sn_std))
+#             
+#         # estimate the activity correlation
+#         r_nm = (0.25
+#                 + np.add.outer(delta, delta) / np.sqrt(8*np.pi)
+#                 + (np.outer(delta, delta) + rho) / (2*np.pi))
+#         
+#         # Replace values that are nan with zero. This might not be exact,
+#         # but only occurs in corner cases that are not interesting to us  
+#         r_nm[np.isnan(r_nm)] = 0
+#         
+#         return r_nm       
+        
 

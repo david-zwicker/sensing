@@ -7,14 +7,11 @@ Created on May 1, 2015
 from __future__ import division
 
 import numpy as np
-from scipy import special
 from six.moves import range
 
 from utils.math_distributions import lognorm_mean
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 
-
-LN2 = np.log(2)
 
 
 class LibrarySparseNumeric(LibrarySparseBase):
@@ -202,6 +199,25 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
             yield c
             
+    
+    def excitation_statistics_estimate(self):
+        """ calculates the statistics of the excitation of the receptors.
+        Returns the mean exciation, the variance, and the covariance matrix """
+        if self.correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+        
+        S_ni = self.int_mat
+        p_i = self.substrate_probabilities
+        d_i = self.concentrations
+        
+        # calculate statistics of the sum s_n = S_ni * c_i        
+        sn_mean = np.dot(S_ni, d_i * p_i)
+        sn_var = np.dot(S_ni**2, d_i**2 * p_i*(2 - p_i))
+        snm_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :],
+                           d_i**2 * p_i*(2 - p_i))
+        
+        return sn_mean, sn_var, snm_covar
+            
         
     def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
         """ calculates the average activity of each receptor
@@ -252,57 +268,24 @@ class LibrarySparseNumeric(LibrarySparseBase):
     def receptor_activity_estimate(self, ret_correlations=False,
                                    approx_prob=False, clip=False):
         """ estimates the average activity of each receptor """
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-        
-        S_ni = self.int_mat
-        p_i = self.substrate_probabilities
-        d_i = self.concentrations
-        
-        sn_mean = np.dot(S_ni, d_i * p_i)
-        sn_var = np.dot(S_ni**2, d_i**2 * p_i*(2 - p_i))
-        sn_std = np.sqrt(sn_var)
+        sn_mean, sn_var, snm_covar = self.excitation_statistics_estimate()
 
-        # handle division by zero correctly
-        with np.errstate(divide='ignore'):
-            delta = np.divide(sn_mean - 1, sn_std)  #< deviation from optimum
-            # delta will be +- infinity if b_std is zero
+        # calculate the receptor activity
+        r_n = self._estimate_qn_from_sn(sn_mean, sn_var,
+                            approx_prob=approx_prob)
+        if clip:
+            np.clip(r_n, 0, 1, r_n)
 
-        if approx_prob:
-            r_n = 0.5 + delta / np.sqrt(2*np.pi)
-            if clip:
-                np.clip(r_n, 0, 1, r_n)
-        else:
-            # estimate from a normal distribution
-            # r_n = 0.5 * special.erfc(-delta / np.sqrt(2))
-            # estimate from a log-normal distribution
-            sn_cv2 = sn_mean**2 / sn_var
-            enum = np.log(np.sqrt(1 + sn_cv2)/sn_mean)
-            denom = np.sqrt(2*np.log(1 + sn_cv2))
-            r_n = 0.5 * special.erfc(enum/denom)
-            
         if ret_correlations:
-            b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :],
-                             d_i**2 * p_i*(2 - p_i))
-            
-            # calculate the correlation coefficient 
-            with np.errstate(divide='ignore', invalid='ignore'):
-                rho = np.divide(b_covar, np.outer(sn_std, sn_std))
-                
-            # estimate the activity correlation
-            r_nm = (0.25
-                    + np.add.outer(delta, delta) / np.sqrt(8*np.pi)
-                    + (np.outer(delta, delta) + rho) / (2*np.pi))
-            # Replace values that are nan with zero. This might not be exact,
-            # but only occurs in corner cases that are not interesting to us  
-            r_nm[np.isnan(r_nm)] = 0
-
+            # calculate the correlated activity 
+            q_nm = self._estimate_qnm_from_sn(sn_var, snm_covar)
+            r_nm = r_n**2 + q_nm
             if clip:
                 np.clip(r_nm, 0, 1, r_nm)
+
             return r_n, r_nm
-        
         else:
-            return r_n
+            return r_nm
                
  
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
@@ -336,52 +319,20 @@ class LibrarySparseNumeric(LibrarySparseBase):
                                     approx_prob=False, clip=False):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-        
-        S_ni = self.int_mat
-        p_i = self.substrate_probabilities
-        d_i = self.concentrations
-        
-        sn_mean = np.dot(S_ni, d_i * p_i)
-        sn_var = np.dot(S_ni**2, d_i**2 * p_i*(2 - p_i))
-        sn_std = np.sqrt(sn_var)
+        sn_mean, sn_var, snm_covar = self.excitation_statistics_estimate()
 
-        # handle division by zero correctly
-        with np.errstate(divide='ignore'):
-            delta = np.divide(sn_mean - 1, sn_std)  #< deviation from optimum
-            # delta will be +- infinity if b_std is zero
-
-            b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :],
-                             d_i**2 * p_i*(2 - p_i))
-            
-            # calculate the correlation coefficient 
-            with np.errstate(divide='ignore', invalid='ignore'):
-                rho = np.divide(b_covar, np.outer(sn_std, sn_std))
-                
-            # estimate the activity correlation
-            q_nm = rho / (2*np.pi)
-            
-        # Replace values that are nan with zero. This might not be exact,
-        # but only occurs in corner cases that are not interesting to us  
-        q_nm[np.isnan(q_nm)] = 0
-
+        # calculate the receptor crosstalk
+        q_nm = self._estimate_qnm_from_sn(sn_var, snm_covar)
         if clip:
             np.clip(q_nm, 0, 1, q_nm)
 
         if ret_receptor_activity:
-            if approx_prob:
-                q_n = 0.5 + delta / np.sqrt(2*np.pi)
-                if clip:
-                    np.clip(q_n, 0, 1, q_n)
-            else:
-                # estimate from a normal distribution
-                # q_n = 0.5 * special.erfc(-delta / np.sqrt(2))
-                # estimate from a log-normal distribution
-                sn_cv2 = sn_mean**2 / sn_var
-                enum = np.log(np.sqrt(1 + sn_cv2)/sn_mean)
-                denom = np.sqrt(2*np.log(1 + sn_cv2))
-                q_n = 0.5 * special.erfc(enum/denom)
+            # calculate the receptor activity
+            q_n = self._estimate_qn_from_sn(sn_mean, sn_var,
+                                approx_prob=approx_prob)
+            if clip:
+                np.clip(q_n, 0, 1, q_n)
+
             return q_n, q_nm
         else:
             return q_nm        
