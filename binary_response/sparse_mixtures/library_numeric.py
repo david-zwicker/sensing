@@ -273,7 +273,13 @@ class LibrarySparseNumeric(LibrarySparseBase):
             if clip:
                 np.clip(r_n, 0, 1, r_n)
         else:
-            r_n = 0.5 * special.erfc(-delta / np.sqrt(2))
+            # estimate from a normal distribution
+            # r_n = 0.5 * special.erfc(-delta / np.sqrt(2))
+            # estimate from a log-normal distribution
+            sn_cv2 = sn_mean**2 / sn_var
+            enum = np.log(np.sqrt(1 + sn_cv2)/sn_mean)
+            denom = np.sqrt(2*np.log(1 + sn_cv2))
+            r_n = 0.5 * special.erfc(enum/denom)
             
         if ret_correlations:
             b_covar = np.dot(S_ni[:, None, :] * S_ni[None, :, :],
@@ -369,7 +375,13 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 if clip:
                     np.clip(q_n, 0, 1, q_n)
             else:
-                q_n = 0.5 * special.erfc(-delta / np.sqrt(2))
+                # estimate from a normal distribution
+                # q_n = 0.5 * special.erfc(-delta / np.sqrt(2))
+                # estimate from a log-normal distribution
+                sn_cv2 = sn_mean**2 / sn_var
+                enum = np.log(np.sqrt(1 + sn_cv2)/sn_mean)
+                denom = np.sqrt(2*np.log(1 + sn_cv2))
+                q_n = 0.5 * special.erfc(enum/denom)
             return q_n, q_nm
         else:
             return q_nm        
