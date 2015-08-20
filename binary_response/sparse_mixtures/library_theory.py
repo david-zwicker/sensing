@@ -89,7 +89,7 @@ class LibrarySparseBinary(LibrarySparseBase):
         # calculate statistics of the sum s_n = S_ni * c_i        
         sn_mean = S0 * xi * np.sum(di * pi)
         sn_var = S0**2 * xi * np.sum(di**2 * pi*(2 - pi))
-        snm_covar = S0**2 * xi**2 * np.sum(di**2 * pi)
+        snm_covar = S0**2 * xi**2 * np.sum(di**2 * pi*(2 - pi))
         
         if sn_mean == 0:
             q_n, q_nm = 0, 0
@@ -249,7 +249,7 @@ class LibrarySparseLogNormal(LibrarySparseBase):
         # calculate statistics of the sum s_n = S_ni * c_i        
         sn_mean = S0 * np.sum(di * pi)
         sn_var = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi*(2 - pi))
-        snm_covar = S0**2 * np.sum(di**2 * pi)
+        snm_covar = S0**2 * np.sum(di**2 * pi*(2 - pi))
 
         with np.errstate(divide='ignore', invalid='ignore'):
             # calculate the probability that a receptor is activated
