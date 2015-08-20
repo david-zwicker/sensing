@@ -16,6 +16,12 @@ from .library_base import LibrarySparseBase  # @UnresolvedImport
 class LibrarySparseTheoryBase(LibrarySparseBase):
     """ base class for theoretical libraries for sparse mixtures """
     
+    def excitation_statistics(self):
+        """ calculates the statistics of the excitation of the receptors.
+        Returns the mean exciation, the variance, and the covariance matrix """
+        raise NotImplementedError('Must be implemented by subclass')
+    
+    
     def receptor_activity(self, ret_correlations=False, clip=True):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
@@ -38,14 +44,14 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
     def receptor_crosstalk(self, ret_receptor_activity=False, clip=True):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
-        en_mean, en_var, enm_covar = self.excitation_statistics()
+        en_stats = self.excitation_statistics()
         
-        if en_mean == 0:
+        if en_stats['mean'] == 0:
             q_n, q_nm = 0, 0
             
         else:
-            q_n = self._estimate_qn_from_en(en_mean, en_var)
-            q_nm = self._estimate_qnm_from_en(en_var, enm_covar)
+            q_n = self._estimate_qn_from_en(en_stats)
+            q_nm = self._estimate_qnm_from_en(en_stats)
                 
             if clip:
                 q_n = np.clip(q_n, 0, 1)
@@ -130,7 +136,8 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         en_var = S0**2 * xi * np.sum(di**2 * pi*(2 - pi))
         enm_covar = S0**2 * xi**2 * np.sum(di**2 * pi*(2 - pi))
                 
-        return en_mean, en_var, enm_covar
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                'covar': enm_covar}
 
         
     def density_optimal(self, assume_homogeneous=False):
@@ -249,10 +256,11 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         en_var = S0**2 * np.exp(sigma2) * np.sum(di**2 * pi*(2 - pi))
         enm_covar = S0**2 * np.sum(di**2 * pi*(2 - pi))
 
-        return en_mean, en_var, enm_covar
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                'covar': enm_covar}
         
 
-    def get_optimal_library(self):
+    def get_optimal_library(self, sigma_opt=2):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices """
         if self.correlated_mixture:
@@ -262,9 +270,8 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         ctot_mean = c_stats['mean'].sum()
         ctot_var = c_stats['var'].sum()
 
-        sigma_opt = 2
-        S0_opt = np.sqrt(1/ctot_mean**2
-                         + ctot_var/ctot_mean**4 * np.exp(sigma_opt**2)) 
+        arg = 1/ctot_mean**2 + ctot_var/ctot_mean**4 * np.exp(sigma_opt**2)
+        S0_opt = np.sqrt(arg) 
         
         return {'distribution': 'log_normal',
                 'typical_sensitivity': S0_opt, 'sigma': sigma_opt}

@@ -16,6 +16,7 @@ from scipy import misc, stats
 from utils.math_distributions import lognorm_mean
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 from .library_numeric import LibrarySparseNumeric
+from .library_theory import LibrarySparseBinary, LibrarySparseLogNormal
 from .numba_speedup import numba_patcher  # @UnresolvedImport
 
       
@@ -154,8 +155,30 @@ class TestLibrarySparse(unittest.TestCase):
         """ test the consistency of the numba functions """
         self.assertTrue(numba_patcher.test_consistency(repeat=3, verbosity=1),
                         msg='Numba methods are not consistent')
-                
+        
+        
+    def test_theory(self):
+        """ test liming cases of the theory """
+        # prepare a random log-normal library
+        th1 = LibrarySparseLogNormal.create_test_instance(sigma=0.001)
+        lib_opt = th1.get_optimal_library(sigma_opt=0.001)
+        th1.typical_sensitivity = lib_opt['typical_sensitivity']
+        
+        # prepare equivalent binary library
+        args = th1.init_arguments
+        del args['sigma']
+        th2 = LibrarySparseBinary(**args)
+        th2.density = 1
+        
+        # test various methods on the two libraries
+        for method in ['receptor_activity', 'receptor_crosstalk',
+                       'mutual_information']:
+            res1 = getattr(th1, method)()
+            res2 = getattr(th2, method)()
+            self.assertAlmostEqual(res1, res2, places=4)
+
     
 
 if __name__ == '__main__':
     unittest.main()
+

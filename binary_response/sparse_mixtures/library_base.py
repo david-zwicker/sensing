@@ -202,28 +202,27 @@ class LibrarySparseBase(LibraryBinaryBase):
         self.parameters['concentration_parameters'] = c_params
         
         
-    def _estimate_qn_from_en(self, en_mean, en_var, approx_prob=False):  
+    def _estimate_qn_from_en(self, en_stats, approx_prob=False):  
         """ estimates probability q_n that a receptor is activated by a mixture
         based on the statistics of the excitations en """
 
         if approx_prob:
-            q_n = _estimate_qn_from_en_approx(en_mean, en_var)
+            q_n = _estimate_qn_from_en_approx(en_stats['mean'], en_stats['var'])
 
         else:
             # estimate from a log-normal distribution
-            q_n = _estimate_qn_from_en_lognorm(en_mean, en_var)
+            q_n = _estimate_qn_from_en_lognorm(en_stats['mean'], en_stats['var'])
             
         return q_n
    
     
-    def _estimate_qnm_from_en(self, en_var, enm_covar):
+    def _estimate_qnm_from_en(self, en_stats):
         """ estimates crosstalk q_nm based on the statistics of the excitations
         en """
-        en_std = np.sqrt(en_var)
-        
         # calculate the correlation coefficient 
         with np.errstate(divide='ignore', invalid='ignore'):
-            rho = np.divide(enm_covar, np.outer(en_std, en_std))
+            rho = np.divide(en_stats['covar'],
+                            np.outer(en_stats['std'], en_stats['std']))
 
         # Replace values that are nan with zero. This might not be exact,
         # but only occurs in corner cases that are not interesting to us  

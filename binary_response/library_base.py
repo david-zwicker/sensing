@@ -183,6 +183,8 @@ class LibraryBase(object):
     def _estimate_mutual_information_from_r_stats(self, r_n, r_nm, r_n_var=0,
                                                   r_nm_var=0, ret_var=False):
         """ estimate the mutual information from given probabilities """
+        if r_nm_var != 0:
+            raise NotImplementedError('Correlation calculations are not tested.')
         # calculate the crosstalk
         q_nm = r_nm - r_n**2 - r_n_var
         q_nm_var = r_nm_var + 4*r_n**2*r_n_var + 2*r_n_var**2
