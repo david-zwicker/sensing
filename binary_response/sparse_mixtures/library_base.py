@@ -27,7 +27,8 @@ def _estimate_qn_from_en_approx(en_mean, en_var):
     return q_n
 
 # vectorize the function above
-_estimate_qn_from_en_approx = np.vectorize(_estimate_qn_from_en_approx, otypes=[np.double])
+_estimate_qn_from_en_approx = np.vectorize(_estimate_qn_from_en_approx,
+                                           otypes=[np.double])
 
 
 
@@ -48,7 +49,8 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
     return q_n
 
 # vectorize the function above
-_estimate_qn_from_en_lognorm = np.vectorize(_estimate_qn_from_en_lognorm, otypes=[np.double])
+_estimate_qn_from_en_lognorm = np.vectorize(_estimate_qn_from_en_lognorm,
+                                            otypes=[np.double])
 
 
 

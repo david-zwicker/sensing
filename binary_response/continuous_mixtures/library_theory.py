@@ -318,17 +318,17 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         """ return a theoretical estimate of the mutual information between
         input and output """
         if approximation is None or approximation == 'none':
-            p_r = self.receptor_activity()
+            q_n = self.receptor_activity()
         else:
-            p_r = self.receptor_activity_estimate(approximation)
+            q_n = self.receptor_activity_estimate(approximation)
             
-        if p_r == 0 or p_r == 1:
+        if q_n == 0 or q_n == 1:
             # receptors are never or always activated
             return 0
 
         else:
             # calculate the information a single receptor contributes            
-            H_r = -(p_r*np.log2(p_r) + (1 - p_r)*np.log2(1 - p_r))
+            H_r = -(q_n*np.log2(q_n) + (1 - q_n)*np.log2(1 - q_n))
             # calculate the MI assuming that receptors are independent
             MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
             return MI

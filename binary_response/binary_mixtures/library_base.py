@@ -213,11 +213,11 @@ class LibraryBinaryBase(LibraryBase):
 
         # calculate basic statistics
         prob_s = self.substrate_probabilities
-        l_mean = np.sum(prob_s)
-        l_var = np.sum(prob_s/(1 + np.exp(self._hs)))
+        m_mean = np.sum(prob_s)
+        m_var = np.sum(prob_s/(1 + np.exp(self._hs)))
         
         # return the results in a dictionary to be able to extend it later
-        return {'mean': l_mean, 'std': np.sqrt(l_var), 'var': l_var}
+        return {'mean': m_mean, 'std': np.sqrt(m_var), 'var': m_var}
 
 
     def mixture_entropy(self):
