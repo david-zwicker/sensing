@@ -8,7 +8,8 @@ from __future__ import division
 
 import numpy as np
 
-from utils.math_distributions import lognorm_mean, DeterministicDistribution
+from utils.math_distributions import (lognorm_mean, loguniform_mean,
+                                      DeterministicDistribution)
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 
 
@@ -119,6 +120,13 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         S0 = np.random.random() + 0.5
         args['typical_sensitivity'] = kwargs.get('typical_sensitivity', S0)
         return args
+
+
+    def sensitivity_stats(self):
+        """ returns statistics of the sensitivity distribution """
+        S0 = self.typical_sensitivity
+        xi = self.density
+        return {'mean': S0*xi, 'var': S0**2 * xi*(1 - xi)}
 
 
     def excitation_statistics(self):
@@ -240,6 +248,13 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             return lognorm_mean(self.typical_sensitivity, self.sigma)
 
 
+    def sensitivity_stats(self):
+        """ returns statistics of the sensitivity distribution """
+        S0 = self.typical_sensitivity
+        sigma = self.sigma
+        return {'mean': S0, 'var': S0**2 * (np.exp(sigma**2) - 1)}
+
+
     def excitation_statistics(self):
         """ calculates the statistics of the excitation of the receptors.
         Returns the mean exciation, the variance, and the covariance matrix """
@@ -275,4 +290,111 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         return {'distribution': 'log_normal',
                 'typical_sensitivity': S0_opt, 'sigma': sigma_opt}
     
+
+
+class LibrarySparseLogUniform(LibrarySparseTheoryBase):
+    """ represents a single receptor library with random entries drawn from a
+    log-uniform distribution """
+
+
+    def __init__(self, num_substrates, num_receptors, sigma=1,
+                 typical_sensitivity=1, parameters=None):
+        """ initialize the receptor library by setting the number of receptors,
+        the number of substrates it can respond to, the width of the
+        distribution `sigma`, and the typical sensitivity or magnitude S0 of the
+        sensitivity matrix """
+        super(LibrarySparseLogUniform, self).__init__(num_substrates,
+                                                      num_receptors, parameters)
+        if sigma < 1:
+            raise ValueError('Spread parameter `sigma` must be larger than 1')
+        self.sigma = sigma
+        self.typical_sensitivity = typical_sensitivity
+
+
+    @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        params = super(LibrarySparseLogUniform, self).repr_params
+        params.append('sigma=%g' % self.sigma)
+        params.append('S0=%g' % self.typical_sensitivity)
+        return params
+
+
+    @property
+    def init_arguments(self):
+        """ return the parameters of the model that can be used to reconstruct
+        it by calling the __init__ method with these arguments """
+        args = super(LibrarySparseLogUniform, self).init_arguments
+        args['sigma'] = self.sigma
+        args['typical_sensitivity'] = self.typical_sensitivity
+        return args
+
+
+    @classmethod
+    def get_random_arguments(cls, **kwargs):
+        """ create random arguments for creating test instances """
+        args = super(LibrarySparseLogUniform, cls).get_random_arguments(**kwargs)
+        args['sigma'] = kwargs.get('sigma', np.random.random() + 1.5)
+        S0 = np.random.random() + 0.5
+        args['typical_sensitivity'] = kwargs.get('typical_sensitivity', S0)
+        return args
+
+
+    @property
+    def sensitivity_distribution(self):
+        """ returns the sensitivity distribution """
+        if self.sigma == 1:
+            return DeterministicDistribution(self.typical_sensitivity)
+        else:
+            return loguniform_mean(self.typical_sensitivity, self.sigma)
+
+
+    def sensitivity_stats(self):
+        """ returns statistics of the sensitivity distribution """
+        S0 = self.typical_sensitivity
+        sigma = self.sigma
+        
+        # calculate the unscaled variance
+        var_S1 = (1 - sigma**2 + (1 + sigma**2)*np.log(sigma))/(sigma**2 - 1)
+        return {'mean': S0, 'var': S0**2 * var_S1}
+    
+
+    def excitation_statistics(self):
+        """ calculates the statistics of the excitation of the receptors.
+        Returns the mean exciation, the variance, and the covariance matrix """
+        if self.correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+        
+        ctot_stats = self.ctot_statistics()
+        S_stats = self.sensitivity_stats()
+        S_mean = S_stats['mean']
+        S_var = S_stats['var']
+        
+        # calculate statistics of the sum s_n = S_ni * c_i        
+        en_mean = S_mean * ctot_stats['mean']
+        en_var = (S_var - S_mean**2) * ctot_stats['var']
+        enm_covar = S_mean**2 * ctot_stats['var']
+
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                'covar': enm_covar}
+        
+
+    def get_optimal_library(self, sigma_opt=2):
+        """ returns an estimate for the optimal parameters for the random
+        interaction matrices """
+        raise NotImplementedError()
+        if self.correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
+        ctot_stats = self.ctot_statistics()
+        ctot_mean = ctot_stats['mean']
+        ctot_var = ctot_stats['var']
+
+        arg = 1/ctot_mean**2 + ctot_var/ctot_mean**4 * np.exp(sigma_opt**2)
+        S0_opt = np.sqrt(arg) 
+        
+        return {'distribution': 'log_normal',
+                'typical_sensitivity': S0_opt, 'sigma': sigma_opt}
+        
+        
         

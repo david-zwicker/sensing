@@ -15,7 +15,8 @@ from scipy import misc
 
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 from .library_numeric import LibrarySparseNumeric
-from .library_theory import LibrarySparseBinary, LibrarySparseLogNormal
+from .library_theory import (LibrarySparseBinary, LibrarySparseLogNormal,
+                             LibrarySparseLogUniform)
 from .numba_speedup import numba_patcher  # @UnresolvedImport
 
       
@@ -113,8 +114,20 @@ class TestLibrarySparse(unittest.TestCase):
                 self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
                 
+
+    def test_theory_distributions(self):
+        """ test the distributions of the theoretical cases """
+        theories = (LibrarySparseLogNormal.create_test_instance(),
+                    LibrarySparseLogUniform.create_test_instance())
         
-    def test_theory(self):
+        for theory in theories:
+            dist = theory.sensitivity_distribution
+            stats = theory.sensitivity_stats()
+            self.assertAlmostEqual(dist.mean(), stats['mean'])
+            self.assertAlmostEqual(dist.var(), stats['var'])
+
+        
+    def test_theory_limiting(self):
         """ test liming cases of the theory """
         # prepare a random log-normal library
         th1 = LibrarySparseLogNormal.create_test_instance(sigma=0.001)
