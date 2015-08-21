@@ -284,8 +284,8 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         ctot_mean = ctot_stats['mean']
         ctot_var = ctot_stats['var']
 
-        arg = 1/ctot_mean**2 + ctot_var/ctot_mean**4 * np.exp(sigma_opt**2)
-        S0_opt = np.sqrt(arg) 
+        arg = 1 + ctot_var/ctot_mean**2 * np.exp(sigma_opt**2)
+        S0_opt = np.sqrt(arg) / ctot_mean 
         
         return {'distribution': 'log_normal',
                 'typical_sensitivity': S0_opt, 'sigma': sigma_opt}
@@ -353,8 +353,11 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         sigma = self.sigma
         
         # calculate the unscaled variance
-        exp_s2 = np.exp(sigma)**2
-        var_S1 = (1 - exp_s2 + (1 + exp_s2)*sigma)/(exp_s2 - 1)
+        if sigma == 0:
+            var_S1 = 0
+        else:
+            exp_s2 = np.exp(sigma)**2
+            var_S1 = (1 - exp_s2 + (1 + exp_s2)*sigma)/(exp_s2 - 1)
         return {'mean': S0, 'var': S0**2 * var_S1}
     
 
@@ -367,16 +370,16 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         ctot_stats = self.ctot_statistics()
         S0 = self.typical_sensitivity
         sigma = self.sigma
-        exp_s2 = np.exp(sigma)**2
         
         # calculate statistics of the sum s_n = S_ni * c_i        
         en_mean = S0 * ctot_stats['mean']
         if sigma == 0:
             term = 1 
         else:
+            exp_s2 = np.exp(sigma)**2
             term = (exp_s2 + 1) * sigma / (exp_s2 - 1)
         en_var = S0**2 * term * ctot_stats['var']
-        enm_covar = S0**2 * ctot_stats['var'] #< not verified, yet
+        enm_covar = S0**2 * ctot_stats['var']
 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'covar': enm_covar}
@@ -385,7 +388,6 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     def get_optimal_library(self, sigma_opt=2):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices """
-        raise NotImplementedError()
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
@@ -393,8 +395,12 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         ctot_mean = ctot_stats['mean']
         ctot_var = ctot_stats['var']
 
-        arg = 1/ctot_mean**2 + ctot_var/ctot_mean**4 * np.exp(sigma_opt**2)
-        S0_opt = np.sqrt(arg) 
+        if self.sigma == 0:
+            term = 1 
+        else:
+            exp_s2 = np.exp(self.sigma)**2
+            term = (exp_s2 + 1) * self.sigma / (exp_s2 - 1)
+        S0_opt = np.sqrt(1 + ctot_var/ctot_mean**2 * term) / ctot_mean 
         
         return {'distribution': 'log_normal',
                 'typical_sensitivity': S0_opt, 'sigma': sigma_opt}
