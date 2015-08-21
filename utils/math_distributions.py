@@ -18,6 +18,14 @@ def lognorm_mean(mean, sigma):
 
 
 
+def loguniform_mean(mean, sigma):
+    """ returns a loguniform distribution parameterized by its mean and a spread
+    parameter `sigma`. The ratio between the maximal value and the minimal value
+    is given by sigma**2 """
+    scale =  mean * (2*sigma*np.log(sigma)) / (sigma**2 - 1)
+    return LogUniformDistribution(scale=scale, s=sigma)
+
+
 def random_log_uniform(v_min, v_max, size):
     """ returns random variables that a distributed uniformly in log space """
     log_min, log_max = np.log(v_min), np.log(v_max)
@@ -41,7 +49,6 @@ class DeterministicDistribution_gen(stats.rv_continuous):
 DeterministicDistribution = DeterministicDistribution_gen(
     name='DeterministicDistribution'
 )
-
 
 
 
@@ -84,6 +91,14 @@ class LogUniformDistribution_gen(stats.rv_continuous):
         idx = (q > 0)
         res[idx] = s**(2*q[idx] - 1)
         return res
+    
+    
+    def _stats(self, s):
+        """ calculates statistics of the distribution """
+        mean = (s**2 - 1)/(2*s*np.log(s))
+        var = ((s**4 - 1)*np.log(s) - (s**2 - 1)**2)/(4* s**2 *np.log(s)**2)
+        return mean, var, None, None
+
     
 
 LogUniformDistribution = LogUniformDistribution_gen(

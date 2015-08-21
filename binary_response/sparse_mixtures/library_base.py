@@ -21,7 +21,8 @@ def _estimate_qn_from_en_approx(en_mean, en_var):
     else:                
         q_n = (0.5
                + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
-               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi)))
+               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi))
+               )
         # here, the last term comes from an expansion of the log-normal approx.
 
     return q_n
@@ -36,10 +37,10 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations s_n assuming an underlying
     log-normal distribution for s_n """
-    if en_var == 0:
-        q_n = np.float(en_mean > 1)
-    elif en_mean == 0:
+    if en_mean == 0:
         q_n = 0
+    elif en_var == 0:
+        q_n = np.float(en_mean > 1)
     else:
         en_cv2 = en_var / en_mean**2
         enum = np.log(np.sqrt(1 + en_cv2) / en_mean)
@@ -225,6 +226,8 @@ class LibrarySparseBase(LibraryBinaryBase):
         based on the statistics of the excitations en """
 
         if approx_prob:
+            # estimate from a simple expression, which was obtained from
+            # expanding the more complicated expression given below
             q_n = _estimate_qn_from_en_approx(en_stats['mean'], en_stats['var'])
 
         else:

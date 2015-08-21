@@ -9,7 +9,7 @@ from __future__ import division
 import numpy as np
 from six.moves import range
 
-from utils.math_distributions import lognorm_mean
+from utils.math_distributions import lognorm_mean, loguniform_mean
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 
 
@@ -145,7 +145,16 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 self.int_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
-            raise NotImplementedError
+            # log uniform distribution
+            kwargs.setdefault('sigma', 10)
+            if kwargs['sigma'] < 1:
+                raise ValueError('The spread parameter `sigma` must be larger '
+                                 'than 1.')
+            elif kwargs['sigma'] == 1:
+                self.int_mat = np.full(shape, typical_sensitivity)
+            else:
+                dist = loguniform_mean(typical_sensitivity, kwargs['sigma'])
+                self.int_mat = dist.rvs(shape)
             
         elif distribution == 'log_gamma':
             raise NotImplementedError
