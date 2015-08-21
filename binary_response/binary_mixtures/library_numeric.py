@@ -502,7 +502,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if ret_receptor_activity:
             return q_n, q_nm
         else:
-            return q_nm 
+            return q_nm
     
     
     def receptor_crosstalk_estimate(self, approx_prob=False, clip=False):

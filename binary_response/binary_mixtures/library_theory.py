@@ -7,21 +7,12 @@ Created on Mar 31, 2015
 from __future__ import division
 
 import numpy as np
-import scipy.misc
 
 from .library_base import LibraryBinaryBase
 
 
 
 LN2 = np.log(2)
-
-
-
-def binom(N, p):
-    """ calculate the probability mass function for the binomial distribution
-    of `N` experiments with individual probability `p` """
-    k = np.arange(0, N + 1)
-    return scipy.misc.comb(N, k) * p**k * (1 - p)**(N - k)
 
 
 
@@ -64,31 +55,30 @@ class LibraryBinaryUniform(LibraryBinaryBase):
         args['density'] = kwargs.get('density', np.random.random())
         return args
 
-
-    def activity_single(self):
+    
+    def receptor_activity(self, ret_correlations=False, approx_prob=False,
+                          clip=True):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
-        return 1 - np.prod(1 - self.density * self.substrate_probabilities)
-
-
-    def mutual_information(self, approx_prob=False, use_polynom=False, 
-                           with_crosstalk=False):
-        """ return a theoretical estimate of the mutual information between
-        input and output.
-            `approx_prob` determines whether a linear approximation should be
-                used to calculate the probabilities that receptors are active
-            `use_polynom` determines whether a polynomial approximation for the
-                mutual information should be used
-            `with_crosstalk` determines whether the crosstalk between receptors
-                should also be included. Note that the cross talk will be
-                approximated by a polynomial expression independent of the
-                `use_polynom` argument.
-        """
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
+        q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True,
+                                            approx_prob=approx_prob)
+        
+        r_n = q_n
+        r_nm = q_n**2 + q_nm
+        
+        if clip:
+            r_n = np.clip(r_n, 0, 1)
+            r_nm = np.clip(r_nm, 0, 1)
+        
+        if ret_correlations:
+            return r_n, r_nm
+        else:
+            return r_n
+        
+        
+    def receptor_crosstalk(self, ret_receptor_activity=False, approx_prob=False):
+        """ calculates the average activity of the receptor as a response to 
+        single ligands. """
 
         p_i = self.substrate_probabilities
         
@@ -97,42 +87,63 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             # use approximate formulas for calculating the probabilities
             q_n = self.density * p_i.sum()
             q_nm = self.density**2 * p_i.sum()
+            
+            # clip the result to [0, 1]
+            q_n = np.clip(q_n, 0, 1)
+            q_nm = np.clip(q_nm, 0, 1)
+
         else:
             # use better formulas for calculating the probabilities 
             q_n = 1 - np.prod(1 - self.density * p_i)
             q_nm = 1 - np.prod(1 - self.density**2 * p_i)
-        
-        # calculate the mutual information with requested method
-        if use_polynom:
-            # calculate MI using Taylor approximation
-            MI = self.Nr - 0.5/LN2 * self.Nr * (1 - 2*q_n)**2
-
-        elif q_n == 0 or q_n == 1:
-            # receptors are never or always activated
-            MI = 0
-            
+                
+        if ret_receptor_activity:
+            return q_n, q_nm
         else:
-            # calculate MI by assuming that receptors are independent
+            return q_nm
 
-            # calculate the information a single receptor contributes            
-            H_r = -(q_n*np.log2(q_n) + (1 - q_n)*np.log2(1 - q_n))
+        
+    def mutual_information(self, approx_prob=False, use_polynom=False):
+        """ return a theoretical estimate of the mutual information between
+        input and output.
+            `approx_prob` determines whether a linear approximation should be
+                used to calculate the probabilities that receptors are active
+            `use_polynom` determines whether a polynomial approximation for the
+                mutual information should be used
+        """
+        if use_polynom:
+            # use the expansion of the mutual information around the optimal
+            # point to calculate an approximation of the mututal information
             
-            # calculate the MI assuming that receptors are independent
+            # determine the probabilities of receptor activations        
+            q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True,
+                                                approx_prob=approx_prob)
+    
+            # calculate mutual information from this
+            MI = self._estimate_mutual_information_from_q_stats(
+                                                q_n, q_nm, use_polynom=True)
+
+        else:
+            # calculate the MI assuming that receptors are independent.
             # This expression assumes that each receptor provides a fractional 
             # information H_r/N_s. Some of the information will be overlapping
             # and the resulting MI is thus smaller than the naive estimate:
             #     MI < N_r * H_r
+
+            # determine the probabilities of receptor activation  
+            q_n = self.receptor_activity(approx_prob=approx_prob)
+    
+            # calculate mutual information from this, ignoring crosstalk
+            MI = self._estimate_mutual_information_from_q_stats(
+                                                    q_n, 0, use_polynom=False)
+
+            # estimate the effect of crosstalk by calculating the expected
+            # overlap between independent receptors  
+            H_r = MI / self.Nr
             MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
-           
-        if with_crosstalk:
-            Nr = self.Nr
-            MI -= 1/LN2 * (Nr**2 - Nr) * (0.75*q_nm + 2*q_n - 1) * q_nm
-            MI -= 0.5/LN2 * (Nr**3 - 3*Nr**2 + 2*Nr) * q_nm**2
-            
-        # determine the entropy of the mixtures
-        H_m = -np.sum(p_i*np.log2(p_i) + (1 - p_i)*np.log2(1 - p_i))
+        
         # limit the MI to the mixture entropy
-        return min(MI, H_m)
+        return min(MI, self.mixture_entropy())
         
         
     def density_optimal(self, assume_homogeneous=False):

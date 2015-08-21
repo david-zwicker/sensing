@@ -19,6 +19,7 @@ import numpy as np
 from scipy.stats import itemfreq
 
 
+
 def score_interaction_matrices(I1, I2):
     """ returns a score of the similarity of the interaction matrices, taking
     into account all permutations of the receptors """

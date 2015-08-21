@@ -143,7 +143,8 @@ class LibraryBase(object):
             return result.mean(axis=0), result.std(axis=0)
         
         
-    def _estimate_mutual_information_from_q_values(self, q_n, q_nm):
+    def _estimate_mutual_information_from_q_values(self, q_n, q_nm,
+                                                   use_polynom=False):
         """ estimate the mutual information from given probabilities """
         # calculate the approximate mutual information from data
         MI = self.Nr
@@ -153,17 +154,25 @@ class LibraryBase(object):
         return MI
     
         
-    def _estimate_mutual_information_from_q_stats(self, q_n, q_nm, q_n_var=0,
-                                                  q_nm_var=0, ret_var=False):
+    def _estimate_mutual_information_from_q_stats(
+            self, q_n, q_nm, q_n_var=0, q_nm_var=0,
+            use_polynom=True, ret_var=False):
         """ estimate the mutual information from given probabilities """
         Nr = self.Nr
         
-        # calculate the approximate mutual information from means
-        MI = Nr
-        MI -= 0.5/LN2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
+        if use_polynom:
+            # use the quadratic approximation of the mutual information
+            MI = Nr - 0.5/LN2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
+            
+        else:
+            # calculate the information assuming receptors are independent            
+            MI = -Nr * (q_n*np.log2(q_n) + (1 - q_n)*np.log2(1 - q_n))
+        
+        # add the effect of crosstalk
         MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
             
         if ret_var:
+            # also estimate the variance of the mutual information
             MI_var = (
                 4 * Nr**2 * q_n_var * ((2*q_n - 1)**2 + 2*q_n_var)
                 + 32 * (Nr*(Nr - 1))**2 * q_nm_var * (2*q_nm**2 + q_nm_var)

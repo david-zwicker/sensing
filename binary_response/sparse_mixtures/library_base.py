@@ -198,7 +198,7 @@ class LibrarySparseBase(LibraryBinaryBase):
             c_means = np.random.uniform(0, 2*mean_concentration, self.Ns)
             
         else:
-            raise ValueError('Unknown commonness scheme `%s`' % scheme)
+            raise ValueError('Unknown concentration scheme `%s`' % scheme)
 
         # make sure that the mean concentration is correct
         c_means *= mean_concentration / c_means.mean()
