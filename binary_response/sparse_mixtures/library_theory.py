@@ -365,14 +365,14 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
             raise NotImplementedError('Not implemented for correlated mixtures')
         
         ctot_stats = self.ctot_statistics()
-        S_stats = self.sensitivity_stats()
-        S_mean = S_stats['mean']
-        S_var = S_stats['var']
+        S0 = self.typical_sensitivity
+        sigma = self.sigma
+        exp_s2 = np.exp(sigma)**2
         
         # calculate statistics of the sum s_n = S_ni * c_i        
-        en_mean = S_mean * ctot_stats['mean']
-        en_var = (S_var - S_mean**2) * ctot_stats['var']
-        enm_covar = S_mean**2 * ctot_stats['var']
+        en_mean = S0 * ctot_stats['mean']
+        en_var = S0**2 * (exp_s2 + 1) * sigma / (exp_s2 - 1) * ctot_stats['var']
+        enm_covar = S0**2 * ctot_stats['var'] #< not verified, yet
 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'covar': enm_covar}
