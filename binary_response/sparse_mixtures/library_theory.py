@@ -68,8 +68,9 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
         q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True)
         MI = self._estimate_mutual_information_from_q_stats(q_n, q_nm)
         if clip:
-            MI = np.clip(MI, 0, self.Nr)
-        return MI
+            return np.clip(MI, 0, self.Nr)
+        else:
+            return MI
 
 
 
