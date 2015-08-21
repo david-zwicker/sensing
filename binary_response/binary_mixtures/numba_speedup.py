@@ -701,13 +701,25 @@ numba_patcher.register_method(
 #===============================================================================
 
 
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def _mutual_information_from_q(Nr, q_n, q_nm):
+    """ estimates the mutual information from q_n and q_nm """
+    LN2 = np.log(2) #< compile-time constant
+    
+    MI = Nr
+    for n in range(Nr):
+        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
+        for m in range(n):
+            MI -= 8/LN2 * q_nm[n, m]**2
+    return MI 
+
+
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
            nogil=NUMBA_NOGIL)
 def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
         Ns, Nr, int_mat, prob_s, q_n, q_nm, ids):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    LN2 = np.log(2) #< compile-time constant
     
     # iterate over all receptors to estimate crosstalk
     for n in range(Nr):
@@ -721,18 +733,8 @@ def LibraryBinaryNumeric_mutual_information_estimate_approx_numba(
                     if n != m and int_mat[m, i] == 1:
                         q_nm[n, m] += prob_s[i]
 
-    # iterate over all receptors to estimate mutual information
-    #TODO: these loops can be optimized
-    MI = Nr
-    for n in range(Nr):
-        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
-        for m in range(Nr):
-            MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1) * q_nm[n, m]
-            for l in range(Nr):
-                MI -= 0.5/LN2 * q_nm[n, l] * q_nm[m, l]
-
-    return MI
-    
+    # estimate mutual information
+    return _mutual_information_from_q(Nr, q_n, q_nm)
     
     
 @numba.jit(locals={'i_count': numba.int32}, nopython=NUMBA_NOPYTHON,
@@ -741,8 +743,6 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
         Ns, Nr, int_mat, prob_s, q_n, q_nm, ids):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    LN2 = np.log(2) #< compile-time constant
-    
     # iterate over all receptors to determine q_n and q_nm
     for n in range(Nr):
         # evaluate the direct
@@ -764,18 +764,9 @@ def LibraryBinaryNumeric_mutual_information_estimate_numba(
                         prod *= 1 - prob_s[ids[k]]
                 q_nm[n, m] = 1 - prod
 
-    #TODO: these loops can be optimized
-    # iterate over all receptors
-    MI = Nr
-    for n in range(Nr):
-        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
-        for m in range(Nr):
-            MI -= 1/LN2 * (0.75*q_nm[n, m] + q_n[n] + q_n[m] - 1) * q_nm[n, m]
-            for l in range(Nr):
-                MI -= 0.5/LN2 * q_nm[n, l] * q_nm[m, l]
-                
-    return MI
-    
+    # estimate mutual information
+    return _mutual_information_from_q(Nr, q_n, q_nm)
+
 
 
 def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
@@ -809,9 +800,9 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
 
 
 # Temporarily disable the numba method since we change it frequently
-# numba_patcher.register_method(
-#     'LibraryBinaryNumeric.mutual_information_estimate',
-#     LibraryBinaryNumeric_mutual_information_estimate,
-#     test_function=check_return_value_exact
-# )
+numba_patcher.register_method(
+    'LibraryBinaryNumeric.mutual_information_estimate',
+    LibraryBinaryNumeric_mutual_information_estimate,
+    test_function=check_return_value_exact
+)
 
