@@ -211,8 +211,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
         # calculate statistics of the sum s_n = S_ni * c_i        
         S_ni = self.int_mat
         en_mean = np.dot(S_ni, c_stats['mean'])
-        en_var = np.dot(S_ni**2, c_stats['var'])
         enm_covar = np.einsum('ni,mi,i->nm', S_ni, S_ni, c_stats['var'])
+        en_var = np.diag(enm_covar) #< en_var = np.dot(S_ni**2, c_stats['var'])
         
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'covar': enm_covar}

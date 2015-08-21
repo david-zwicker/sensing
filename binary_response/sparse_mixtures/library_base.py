@@ -13,21 +13,24 @@ from ..binary_mixtures.library_base import LibraryBinaryBase
 
 
 
-@np.vectorize
 def _estimate_qn_from_en_approx(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations s_n using an approximation """
     if en_var == 0:
         q_n = np.float(en_mean > 1)
     else:                
-        delta = (en_mean - 1) / np.sqrt(en_var)
-        q_n = 0.5 + delta / np.sqrt(2*np.pi)
+        q_n = (0.5
+               + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
+               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi)))
+        # here, the last term comes from an expansion of the log-normal approx.
 
     return q_n
 
+# vectorize the function above
+_estimate_qn_from_en_approx = np.vectorize(_estimate_qn_from_en_approx, otypes=[np.double])
 
 
-@np.vectorize
+
 def _estimate_qn_from_en_lognorm(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations s_n assuming an underlying
@@ -43,6 +46,9 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
         q_n = 0.5 * special.erfc(enum/denom)
         
     return q_n
+
+# vectorize the function above
+_estimate_qn_from_en_lognorm = np.vectorize(_estimate_qn_from_en_lognorm, otypes=[np.double])
 
 
 
