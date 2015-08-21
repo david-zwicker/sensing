@@ -305,8 +305,6 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         sensitivity matrix """
         super(LibrarySparseLogUniform, self).__init__(num_substrates,
                                                       num_receptors, parameters)
-        if sigma < 1:
-            raise ValueError('Spread parameter `sigma` must be larger than 1')
         self.sigma = sigma
         self.typical_sensitivity = typical_sensitivity
 
@@ -334,7 +332,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
         args = super(LibrarySparseLogUniform, cls).get_random_arguments(**kwargs)
-        args['sigma'] = kwargs.get('sigma', np.random.random() + 1.5)
+        args['sigma'] = kwargs.get('sigma', np.random.random() + 0.1)
         S0 = np.random.random() + 0.5
         args['typical_sensitivity'] = kwargs.get('typical_sensitivity', S0)
         return args
@@ -343,10 +341,10 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     @property
     def sensitivity_distribution(self):
         """ returns the sensitivity distribution """
-        if self.sigma == 1:
+        if self.sigma == 0:
             return DeterministicDistribution(self.typical_sensitivity)
         else:
-            return loguniform_mean(self.typical_sensitivity, self.sigma)
+            return loguniform_mean(self.typical_sensitivity, np.exp(self.sigma))
 
 
     def sensitivity_stats(self):
@@ -355,7 +353,8 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         sigma = self.sigma
         
         # calculate the unscaled variance
-        var_S1 = (1 - sigma**2 + (1 + sigma**2)*np.log(sigma))/(sigma**2 - 1)
+        exp_s2 = np.exp(sigma)**2
+        var_S1 = (1 - exp_s2 + (1 + exp_s2)*sigma)/(exp_s2 - 1)
         return {'mean': S0, 'var': S0**2 * var_S1}
     
 

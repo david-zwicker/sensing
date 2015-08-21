@@ -146,14 +146,12 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 
         elif distribution == 'log_uniform':
             # log uniform distribution
-            kwargs.setdefault('sigma', 10)
-            if kwargs['sigma'] < 1:
-                raise ValueError('The spread parameter `sigma` must be larger '
-                                 'than 1.')
-            elif kwargs['sigma'] == 1:
+            kwargs.setdefault('sigma', 1)
+            if kwargs['sigma'] == 0:
                 self.int_mat = np.full(shape, typical_sensitivity)
             else:
-                dist = loguniform_mean(typical_sensitivity, kwargs['sigma'])
+                dist = loguniform_mean(typical_sensitivity,
+                                       np.exp(kwargs['sigma']))
                 self.int_mat = dist.rvs(shape)
             
         elif distribution == 'log_gamma':
