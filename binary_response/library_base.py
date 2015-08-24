@@ -118,7 +118,11 @@ class LibraryBase(object):
         if multiprocessing and avg_num > 1:
             
             init_arguments = self.init_arguments
-            init_arguments['parameters']['initialize_state'] = 'ensemble'
+            
+            # set the initialization procedure to ensemble, such that new
+            # realizations are chosen at each iteration 
+            if init_arguments['parameters']['initialize_state'] == 'auto':
+                init_arguments['parameters']['initialize_state'] = 'ensemble'
             
             # run the calculations in multiple processes
             arguments = (self.__class__, init_arguments, method, args)
