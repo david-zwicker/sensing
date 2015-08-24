@@ -1081,7 +1081,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         self.int_mat = state.copy()
 
         if ret_error:
-            return (result_best[0], np.std(values)), result_best[1:]
+            value_best = result_best[0]
+            value_err = np.abs(value_best - np.median(values))
+            return (value_best, value_err), result_best[1:]
         else:
             return result_best
                                
