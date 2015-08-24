@@ -6,6 +6,8 @@ Created on May 1, 2015
 
 from __future__ import division
 
+import logging
+
 import numpy as np
 from six.moves import range
 
@@ -38,40 +40,46 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         # prevent integer overflow in collecting activity patterns
         assert num_receptors <= self.parameters['max_num_receptors'] <= 63
 
-        initialize_state = self.parameters['initialize_state'] 
-        int_mat_shape = (self.Nr, self.Ns)
+        initialize_state = self.parameters['initialize_state']
         
-        if initialize_state is None:
-            # do not initialize with anything
-            self.int_mat = np.zeros(int_mat_shape, np.uint8)
+        if initialize_state == 'auto': 
+            # use exact values if saved or ensemble properties otherwise
+            if self.parameters['interaction_matrix'] is not None:
+                initialize_state = 'exact'
+            elif self.parameters['interaction_matrix_params'] is not None:
+                initialize_state = 'ensemble'
+            else:
+                initialize_state = 'zero'
+        
+        # initialize the state using the chosen protocol
+        if initialize_state is None or initialize_state == 'zero':
+            self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
-                self.int_mat = self.parameters['interaction_matrix'].copy()
+            int_mat = self.parameters['interaction_matrix']
+            if int_mat is None:
+                logging.warn('Interaction matrix was not given. Initialize '
+                             'empty matrix.')
+                self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+            else:
+                self.int_mat = int_mat.copy()
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
                 params = self.parameters['interaction_matrix_params']
-                self.choose_interaction_matrix(**params)
+                if params is None:
+                    logging.warn('Parameters for interaction matrix were not '
+                                 'specified. Initialize empty matrix.')
+                    self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+                else:
+                    self.choose_interaction_matrix(**params)
             
-        elif initialize_state == 'auto':
-            # use exact values if saved or ensemble properties otherwise
-            if self.parameters['interaction_matrix'] is not None:
-                # copy the given matrix
-                self.int_mat = self.parameters['interaction_matrix'].copy()
-            elif self.parameters['interaction_matrix_params'] is not None:
-                # create a matrix with the given properties
-                params = self.parameters['interaction_matrix_params']
-                self.choose_interaction_matrix(**params)
-            else:
-                # initialize the interaction matrix with zeros
-                self.int_mat = np.zeros(int_mat_shape, np.uint8)
-
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              initialize_state)
-
-        assert self.int_mat.shape == int_mat_shape
+            
+        assert self.int_mat.shape == (self.Nr, self.Ns)
             
             
     @classmethod
