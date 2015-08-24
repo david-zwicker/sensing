@@ -1026,7 +1026,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
              
     def optimize_library_descent_multiple(self, target, direction='max',
                                           trials=4, multiprocessing=False,
-                                          **kwargs):
+                                          ret_error=False, **kwargs):
         """ optimizes the current library to maximize the result of the target
         function using gradient descent from `trials` different staring
         positions. Only the result from the best run will be returned """
@@ -1067,8 +1067,9 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             result_iter = (_run_job(job) for job in joblist)
         
         # find the best result by iterating over all results
-        result_best = None
+        result_best, values = None, []
         for result in result_iter:
+            values.append(result[0])
             # check whether this run improved the result
             if result_best is None:
                 result_best = result
@@ -1080,7 +1081,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         state = self.sort_interaction_matrix(result_best[1])
         self.int_mat = state.copy()
 
-        return result_best
+        if ret_error:
+            return (result_best[0], np.std(values)), result_best[1:]
+        else:
+            return result_best
                                
     
     def optimize_library_anneal(self, target, direction='max', steps=100,

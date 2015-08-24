@@ -116,6 +116,7 @@ def _get_entropy_normalize(data):
     Z = data.sum()
     H = 0
     for k in range(len(data)):
+        # do in-place division such that data is normalized after this function 
         data[k] /= Z
         value = data[k]
         if value > 0: 
