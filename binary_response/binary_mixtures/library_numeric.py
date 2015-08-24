@@ -1084,7 +1084,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             # replace the best value by a tuple of the best value and its error
             value_best = result_best[0]
             value_err = np.abs(value_best - np.median(values))
-            result_best[0] = (value_best, value_err)
+            result_best = ((value_best, value_err), ) + result_best[1:]
         return result_best
                                
     
