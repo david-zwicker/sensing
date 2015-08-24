@@ -437,8 +437,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         else:
             # simple case => calculate explicitly
-            return -sum(ps*np.log2(ps) + (1 - ps)*np.log2(1 - ps)
-                        for ps in self.substrate_probabilities)
+            return super(LibraryBinaryNumeric, self).mixture_entropy()
         
     
     def mixture_entropy_brute_force(self):
