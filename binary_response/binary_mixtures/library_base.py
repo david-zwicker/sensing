@@ -355,7 +355,7 @@ class LibraryBinaryBase(LibraryBase):
         self.parameters['commonness_parameters'] = c_params  
 
 
-    def set_correlations(self, scheme, magnitude, diagonal_zero=True):
+    def set_correlations(self, scheme, magnitude, diagonal_zero=True, **kwargs):
         """ picks a correlation matrix according to the supplied parameters:
         `magnitude` determines the magnitude of the correlations, which are
         drawn from the random distribution indicated by `scheme`: 
@@ -387,6 +387,10 @@ class LibraryBinaryBase(LibraryBase):
         elif scheme == 'random_normal':
             # all correlations are uniformly distributed
             Jij = np.random.normal(scale=magnitude, size=shape)
+        
+        elif scheme == 'random_sparse':
+            density = kwargs.get('density', 0.5)
+            Jij = magnitude * (np.random.random(shape) < density)
             
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
