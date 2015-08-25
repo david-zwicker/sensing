@@ -574,7 +574,8 @@ def LibraryBinaryNumeric_mutual_information_metropolis_swap_numba(
     assert num_1 == len(ind_1)
     
     if num_0 == 0 or num_1 == 0:
-        # there will be only a single mixture
+        # there will be only a single mixture and the mutual information thus
+        # vanishes trivially
         return 0
 
     # get the energy and activity pattern of the first mixture      

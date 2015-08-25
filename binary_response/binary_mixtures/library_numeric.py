@@ -76,6 +76,23 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # prevent integer overflow in collecting activity patterns
         assert num_receptors <= self.parameters['max_num_receptors'] <= 63
 
+        # check fixed_mixture_size parameter
+        fixed_mixture_size = self.parameters['fixed_mixture_size']
+        if fixed_mixture_size is False:
+            # special case where we accept False and silently convert to None
+            self.parameters['fixed_mixture_size'] = None
+        elif fixed_mixture_size is not None:
+            # if the value is not None it better is an integer
+            try:
+                fixed_mixture_size = int(fixed_mixture_size)
+                if 0 <= fixed_mixture_size <= self.Ns:
+                    self.parameters['fixed_mixture_size'] = fixed_mixture_size
+                else:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValueError('`fixed_mixture_size` must either be None or '
+                                 'an integer between 0 and Ns.')
+
         initialize_state = self.parameters['initialize_state'] 
         
         if initialize_state == 'auto': 
@@ -275,6 +292,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
                 weight_c = np.exp(np.dot(np.dot(Jij, c) + hi, c))
                 yield c, weight_c
                 
+        elif mixture_size == 0:
+            # special case which is not covered by the iteration below
+            yield np.zeros(self.Ns, np.uint8), 1
+                
+        elif mixture_size == self.Ns:
+            # special case which is not covered by the iteration below
+            yield np.ones(self.Ns, np.uint8), 1
+                
         else:
             # iterate over all mixtures with constant number of substrates
             c = np.zeros(self.Ns, np.uint8)
@@ -307,7 +332,19 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             for _ in range(self._sample_steps):
                 # choose a mixture vector according to substrate probabilities
                 yield (np.random.random(self.Ns) < prob_s)
-                
+
+        elif mixture_size == 0:
+            # special case which is not covered by the iteration below
+            c_zero = np.zeros(self.Ns)
+            for _ in range(self._sample_steps):
+                yield c_zero
+
+        elif mixture_size == self.Ns:
+            # special case which is not covered by the iteration below
+            c_ones = np.ones(self.Ns)
+            for _ in range(self._sample_steps):
+                yield c_ones
+           
         else:            
             # use metropolis algorithm
             hi = self.commonness
@@ -443,6 +480,12 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def mixture_entropy_brute_force(self):
         """ gets the entropy in the mixture distribution using brute force """
         Z, sum_wlogw = 0, 0
+
+        # Naive implementation of measuring the entropy is
+        #    p(c) = w(c) / Z   with Z = sum_c w(c)
+        #    H_c  = -sum_c p(c) * log2(p(c))
+        # This can be transformed to a more stable implementation:
+        #    H_c = log2(Z) - 1/Z * sum_c w(c) * log2(w(c))
         
         for _, weight_c in self._iterate_mixtures():
             if weight_c > 0:
@@ -466,11 +509,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         # estimate entropy from the histogram
         counts = np.array(observations.values(), np.double)
         
-        # naive implementation of measuring the entropy is
+        # Naive implementation of measuring the entropy is
         #    ps = counts / self._sample_steps
         #    H = -np.sum(ps * np.log2(ps))
-        # this can be transformed to a more stable implementation
-            
+        # This can be transformed to a more stable implementation:
         log_steps = np.log2(self._sample_steps)
         return -np.sum(counts*(np.log2(counts) - log_steps))/self._sample_steps
     

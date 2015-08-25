@@ -225,8 +225,8 @@ class LibraryBinaryBase(LibraryBase):
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        return -sum(ps*np.log2(ps) + (1 - ps)*np.log2(1 - ps)
-                    for ps in self.substrate_probabilities)
+        pi = self.substrate_probabilities
+        return -np.sum(pi*np.log2(pi) + (1 - pi)*np.log2(1 - pi))
 
     
     def set_commonness(self, scheme, mean_mixture_size, **kwargs):
