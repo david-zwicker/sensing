@@ -19,12 +19,15 @@ import tempfile
 
 from binary_response import LibraryBinaryNumeric
 
-# create an object and trigger the numba just-in-time compilation
-model = LibraryBinaryNumeric.create_test_instance(Ns=10, Nr=5)
-model.mutual_information_brute_force()
+# parameters
+Ns, Nr, m = 16, 8, 4
+
+model = LibraryBinaryNumeric(Ns, Nr)
+model.set_commonness('random_uniform', m)
+model.mutual_information() #< make sure numba jiting has happened
 
 # run the profiler and save result to temporary file
-cmd = "model.optimize_library('mutual_information', method='anneal', steps=10000)"
+cmd = "model.optimize_library('mutual_information', method='anneal', steps=1000)"
 with tempfile.NamedTemporaryFile() as tmpfile:
     cProfile.run(cmd, tmpfile.name)
     stats = pstats.Stats(tmpfile.name)
