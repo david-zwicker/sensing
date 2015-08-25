@@ -163,10 +163,13 @@ class LibraryBinaryUniform(LibraryBinaryBase):
                                'mixtures so far.')
                 
         # mean probability of finding a specific substrate in a mixture
-        p0 = self.substrate_probabilities.mean()
+        p_mean = self.substrate_probabilities.mean()
             
         # calculate the fraction for the homogeneous case
-        return (1 - 2**(-1/self.Ns))/p0
+        if p_mean == 0:
+            return 1
+        else:
+            return np.clip((1 - 2**(-1/self.Ns)) / p_mean, 0, 1)
     
     
     def get_optimal_library(self):
