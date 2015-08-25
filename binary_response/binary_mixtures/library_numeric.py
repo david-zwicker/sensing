@@ -491,7 +491,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             if weight_c > 0:
                 Z += weight_c
                 sum_wlogw += weight_c * np.log2(weight_c)
-        return np.log2(Z) - sum_wlogw / Z
+                
+        if Z == 0:
+            return 0
+        else:
+            return np.log2(Z) - sum_wlogw / Z
             
 
     def mixture_entropy_monte_carlo(self):
