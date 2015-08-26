@@ -17,7 +17,7 @@ def _estimate_qn_from_en_approx(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations s_n using an approximation """
     if en_var == 0:
-        q_n = np.float(en_mean > 1)
+        q_n = np.double(en_mean > 1)
     else:                
         q_n = (0.5
                + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
@@ -38,9 +38,9 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
     based on the statistics of the excitations s_n assuming an underlying
     log-normal distribution for s_n """
     if en_mean == 0:
-        q_n = 0
+        q_n = 0.
     elif en_var == 0:
-        q_n = np.float(en_mean > 1)
+        q_n = np.double(en_mean > 1)
     else:
         en_cv2 = en_var / en_mean**2
         enum = np.log(np.sqrt(1 + en_cv2) / en_mean)
