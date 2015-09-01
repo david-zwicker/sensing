@@ -9,7 +9,6 @@ from __future__ import division
 import logging
 
 import numpy as np
-from scipy import stats
 from six.moves import range
 
 from utils.math_distributions import lognorm_mean, loguniform_mean
@@ -156,19 +155,19 @@ class LibrarySparseNumeric(LibrarySparseBase):
         elif distribution == 'log_normal':
             # log normal distribution
             sigma = kwargs.pop('sigma', 1)
-            correlations = kwargs.pop('correlations', 0)
+            correlation = kwargs.pop('correlation', 0)
             int_mat_params['sigma'] = sigma
-            int_mat_params['correlations'] = correlations
+            int_mat_params['correlation'] = correlation
 
-            if sigma == 0 and correlations == 0:
+            if sigma == 0 and correlation == 0:
                 # edge case without randomness
                 self.int_mat = np.full(shape, typical_sensitivity)
 
-            elif correlations != 0:
+            elif correlation != 0:
                 # correlated receptors
                 mu = np.log(typical_sensitivity) - 0.5 * sigma**2
                 mean = np.full(self.Nr, mu)
-                cov = np.full((self.Nr, self.Nr), correlations**2)
+                cov = np.full((self.Nr, self.Nr), correlation * sigma**2)
                 np.fill_diagonal(cov, sigma**2)
                 vals = np.random.multivariate_normal(mean, cov, size=self.Ns).T
                 self.int_mat = np.exp(vals)
@@ -195,19 +194,19 @@ class LibrarySparseNumeric(LibrarySparseBase):
         elif distribution == 'normal':
             # normal distribution
             sigma = kwargs.pop('sigma', 1)
-            correlations = kwargs.pop('correlations', 0)
+            correlation = kwargs.pop('correlation', 0)
             int_mat_params['sigma'] = sigma
-            int_mat_params['correlations'] = correlations
+            int_mat_params['correlation'] = correlation
 
-            if sigma == 0 and correlations == 0:
+            if sigma == 0 and correlation == 0:
                 # edge case without randomness
                 self.int_mat = np.full(shape, typical_sensitivity)
                 
-            elif correlations != 0:
+            elif correlation != 0:
                 # correlated receptors
                 mean = np.full(self.Nr, typical_sensitivity)
-                cov = np.full((self.Nr, self.Nr), correlations)
-                np.fill_diagonal(cov, sigma)
+                cov = np.full((self.Nr, self.Nr), correlation * sigma**2)
+                np.fill_diagonal(cov, sigma**2)
                 if not is_pos_semidef(cov):
                     raise ValueError('The specified correlation leads to a '
                                      'correlation matrix that is not positive '
