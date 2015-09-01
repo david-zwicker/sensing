@@ -433,7 +433,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
             return MI
 
                     
-    def mutual_information_estimate(self, approx_prob=False, clip=True):
+    def mutual_information_estimate(self, approx_prob=False, clip=True,
+                                    use_polynom=False):
         """ returns a simple estimate of the mutual information.
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
@@ -445,5 +446,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
                                                      approx_prob=approx_prob,
                                                      clip=clip)
         # calculate the approximate mutual information
-        return self._estimate_mutual_information_from_q_values(q_n, q_nm)
+        return self._estimate_mutual_information_from_q_values(
+                                           q_n, q_nm, use_polynom=use_polynom)
+        
             
