@@ -302,7 +302,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
                 'covar': enm_covar}
         
 
-    def get_optimal_library(self, fixed_parameter='S0'):
+    def get_optimal_parameters(self, fixed_parameter='S0'):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices.
             `fixed_parameter` determines which parameter is kept fixed during
@@ -322,7 +322,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             
             arg = 1 + ctot_cv2 * np.exp(sigma_opt**2)
             S0_opt = np.sqrt(arg) / ctot_mean
-            #std_opt = S0_opt * np.sqrt(np.exp(sigma_opt**2) - 1)
+            std_opt = S0_opt * np.sqrt(np.exp(sigma_opt**2) - 1)
             
         elif fixed_parameter == 'S0':
             # keep the typical sensitivity fixed and determine the other params 
@@ -330,15 +330,26 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             
             arg = (ctot_mean**2 * self.typical_sensitivity**2 - 1)/ctot_cv2
             sigma_opt = np.sqrt(np.log(arg))
-            #std_opt = self.typical_sensitivity * np.sqrt(arg - 1)
+            std_opt = self.typical_sensitivity * np.sqrt(arg - 1)
             
         else:
             raise ValueError('Parameter `%s` is unknown or cannot be held '
                              'fixed' % fixed_parameter) 
         
-        return {'distribution': 'log_normal',
-                'typical_sensitivity': S0_opt, 'sigma': sigma_opt}
+        return {'typical_sensitivity': S0_opt, 'sigma': sigma_opt,
+                'standard_deviation': std_opt}
     
+    
+    def get_optimal_library(self, fixed_parameter='S0'):
+        """ returns an estimate for the optimal parameters for the random
+        interaction matrices.
+            `fixed_parameter` determines which parameter is kept fixed during
+                the optimization procedure
+        """
+        library_opt = self.get_optimal_parameters(fixed_parameter)
+        return {'distribution': 'log_normal', 'sigma': library_opt['sigma'],
+                'typical_sensitivity': library_opt['typical_sensitivity']}
+                
 
 
 class LibrarySparseLogUniform(LibrarySparseTheoryBase):

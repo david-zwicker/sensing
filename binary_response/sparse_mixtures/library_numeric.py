@@ -23,7 +23,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
         'max_num_receptors': 28,           #< prevents memory overflows
-        'max_steps': 1e7,               #< maximal number of steps 
+        'max_steps': 1e7,                  #< maximal number of steps 
         'interaction_matrix': None,        #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
         'monte_carlo_steps': 'auto',       #< default steps for monte carlo
