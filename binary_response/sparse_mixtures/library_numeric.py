@@ -154,9 +154,21 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
         elif distribution == 'log_normal':
             # log normal distribution
-            sigma = kwargs.pop('sigma', 1)
+            if 'standard_deviation' in kwargs:
+                standard_deviation = kwargs.pop('standard_deviation')
+                cv = standard_deviation / typical_sensitivity 
+                sigma = np.sqrt(np.log(cv**2 + 1))
+            elif 'sigma' in kwargs:
+                sigma = kwargs.pop('sigma')
+                cv = np.sqrt(np.exp(sigma**2) - 1)
+                standard_deviation = typical_sensitivity * cv
+            else:
+                standard_deviation = 1
+                cv = standard_deviation / typical_sensitivity 
+                sigma = np.sqrt(np.log(cv**2 + 1))
+
             correlation = kwargs.pop('correlation', 0)
-            int_mat_params['sigma'] = sigma
+            int_mat_params['standard_deviation'] = standard_deviation
             int_mat_params['correlation'] = correlation
 
             if sigma == 0 and correlation == 0:
@@ -179,19 +191,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 
         elif distribution == 'log_uniform':
             # log uniform distribution
-            if 'standard_deviation' in kwargs:
-                standard_deviation = kwargs.pop('standard_deviation')
-                cv = standard_deviation / typical_sensitivity 
-                sigma = np.sqrt(np.log(cv**2 + 1))
-            elif 'sigma' in kwargs:
-                sigma = kwargs.pop('sigma')
-                cv = np.sqrt(np.exp(sigma**2) - 1)
-                standard_deviation = typical_sensitivity * cv
-            else:
-                standard_deviation = 1
-                cv = standard_deviation / typical_sensitivity 
-                sigma = np.sqrt(np.log(cv**2 + 1))
-            int_mat_params['standard_deviation'] = standard_deviation
+            sigma = kwargs.pop('sigma', 1)
+            int_mat_params['sigma'] = sigma
 
             if sigma == 0:
                 self.int_mat = np.full(shape, typical_sensitivity)

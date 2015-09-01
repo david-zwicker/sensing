@@ -40,7 +40,7 @@ class TestMathDistributions(unittest.TestCase):
             self.assertAllClose(dist.mean(), rvs.mean(), rtol=0.01,
                                 msg='Means of the distribution is not '
                                     'consistent.')
-            self.assertAllClose(dist.var(), rvs.var(), rtol=0.05,
+            self.assertAllClose(dist.var(), rvs.var(), rtol=0.1,
                                 msg='Variance of the distribution is not '
                                     'consistent.')
 
