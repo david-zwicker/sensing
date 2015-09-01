@@ -18,11 +18,31 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
     """ base class for theoretical libraries for sparse mixtures """
     
     
+    def sensitivity_stats(self):
+        """ returns the statistics of the sensitivity matrix """
+        raise NotImplementedError
+    
+    
     def excitation_statistics(self):
         """ calculates the statistics of the excitation of the receptors.
         Returns the mean exciation, the variance, and the covariance matrix """
-        raise NotImplementedError('Must be implemented by subclass')
-    
+        if self.correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+        
+        ctot_stats = self.ctot_statistics()
+        S_stats = self.sensitivity_stats()
+        S_mean = S_stats['mean']
+        S_var = S_stats['var']
+        S_covar = S_stats['covar']
+        
+        # calculate statistics of the sum s_n = S_ni * c_i        
+        en_mean = S_mean * ctot_stats['mean']
+        en_var = (S_mean**2 + S_var) * ctot_stats['var']
+        enm_covar = (S_mean**2 + S_covar) * ctot_stats['var']
+
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                'covar': enm_covar}
+        
     
     def receptor_activity(self, approx_prob=False, ret_correlations=False,
                           clip=True):
@@ -136,28 +156,9 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         """ returns statistics of the sensitivity distribution """
         S0 = self.typical_sensitivity
         xi = self.density
-        return {'mean': S0*xi, 'var': S0**2 * xi*(1 - xi)}
+        return {'mean': S0*xi, 'var': S0**2 * xi*(1 - xi), 'covar': 0}
 
 
-    def excitation_statistics(self):
-        """ calculates the statistics of the excitation of the receptors.
-        Returns the mean exciation, the variance, and the covariance matrix """
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-        
-        ctot_stats = self.ctot_statistics()
-        S0 = self.typical_sensitivity
-        xi = self.density
-
-        # calculate statistics of the sum s_n = S_ni * c_i        
-        en_mean = S0 * xi * ctot_stats['mean']
-        en_var = S0**2 * xi * ctot_stats['var']
-        enm_covar = S0**2 * xi**2 * ctot_stats['var']
-                
-        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                'covar': enm_covar}
-
-        
     def density_optimal(self, assume_homogeneous=False):
         """ return the estimated optimal activity fraction for the simple case
         where all h are the same. The estimate relies on an approximation that
@@ -209,7 +210,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
 
 
     def __init__(self, num_substrates, num_receptors, typical_sensitivity=1,
-                 parameters=None, **kwargs):
+                 correlation=0, parameters=None, **kwargs):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, and the typical sensitivity
         or magnitude S0 of the sensitivity matrix.
@@ -220,6 +221,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
                                                      num_receptors, parameters)
         
         self.typical_sensitivity = typical_sensitivity
+        self.correlation = correlation
 
         if 'standard_deviation' in kwargs:
             standard_deviation = kwargs.pop('standard_deviation')
@@ -237,13 +239,20 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             raise ValueError('The following keyword arguments have not been '
                              'used: %s' % str(kwargs)) 
             
+            
+    @property
+    def standard_deviation(self):
+        """ return the standard deviation of the distribution """
+        return self.typical_sensitivity * np.sqrt((np.exp(self.sigma**2) - 1))
+            
 
     @property
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogNormal, self).repr_params
-        params.append('sigma=%g' % self.sigma)
         params.append('S0=%g' % self.typical_sensitivity)
+        params.append('sigma=%g' % self.sigma)
+        params.append('correlation=%g' % self.correlation)
         return params
 
 
@@ -252,8 +261,9 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
         args = super(LibrarySparseLogNormal, self).init_arguments
-        args['sigma'] = self.sigma
         args['typical_sensitivity'] = self.typical_sensitivity
+        args['sigma'] = self.sigma
+        args['correlation'] = self.correlation
         return args
 
 
@@ -270,6 +280,10 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     @property
     def sensitivity_distribution(self):
         """ returns the sensitivity distribution """
+        if self.correlation != 0:
+            raise NotImplementedError('Cannot return the sensitivity '
+                                      'distribution with correlations, yet')
+        
         if self.sigma == 0:
             return DeterministicDistribution(self.typical_sensitivity)
         else:
@@ -279,28 +293,9 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     def sensitivity_stats(self):
         """ returns statistics of the sensitivity distribution """
         S0 = self.typical_sensitivity
-        sigma = self.sigma
-        return {'mean': S0, 'var': S0**2 * (np.exp(sigma**2) - 1)}
+        var = S0**2 * (np.exp(self.sigma**2) - 1)
+        return {'mean': S0, 'var': var, 'covar': self.correlation * var}
 
-
-    def excitation_statistics(self):
-        """ calculates the statistics of the excitation of the receptors.
-        Returns the mean exciation, the variance, and the covariance matrix """
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-        
-        ctot_stats = self.ctot_statistics()
-        S0 = self.typical_sensitivity
-        sigma2 = self.sigma ** 2
-        
-        # calculate statistics of the sum s_n = S_ni * c_i        
-        en_mean = S0 * ctot_stats['mean']
-        en_var = S0**2 * np.exp(sigma2) * ctot_stats['var']
-        enm_covar = S0**2 * ctot_stats['var']
-
-        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                'covar': enm_covar}
-        
 
     def get_optimal_parameters(self, fixed_parameter='S0'):
         """ returns an estimate for the optimal parameters for the random
@@ -418,32 +413,8 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         else:
             exp_s2 = np.exp(sigma)**2
             var_S1 = (1 - exp_s2 + (1 + exp_s2)*sigma)/(exp_s2 - 1)
-        return {'mean': S0, 'var': S0**2 * var_S1}
+        return {'mean': S0, 'var': S0**2 * var_S1, 'covar': 0}
     
-
-    def excitation_statistics(self):
-        """ calculates the statistics of the excitation of the receptors.
-        Returns the mean exciation, the variance, and the covariance matrix """
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-        
-        ctot_stats = self.ctot_statistics()
-        S0 = self.typical_sensitivity
-        sigma = self.sigma
-        
-        # calculate statistics of the sum s_n = S_ni * c_i        
-        en_mean = S0 * ctot_stats['mean']
-        if sigma == 0:
-            term = 1 
-        else:
-            exp_s2 = np.exp(sigma)**2
-            term = (exp_s2 + 1) * sigma / (exp_s2 - 1)
-        en_var = S0**2 * term * ctot_stats['var']
-        enm_covar = S0**2 * ctot_stats['var']
-
-        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                'covar': enm_covar}
-        
 
     def get_optimal_library(self, sigma_opt=2):
         """ returns an estimate for the optimal parameters for the random
