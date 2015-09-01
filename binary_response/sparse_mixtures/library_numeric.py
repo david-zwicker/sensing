@@ -170,8 +170,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 mean = np.full(self.Nr, mu)
                 cov = np.full((self.Nr, self.Nr), correlations**2)
                 np.fill_diagonal(cov, sigma**2)
-                dist = stats.multivariate_normal(mean, cov)
-                self.int_mat = np.exp(dist.rvs(size=self.Ns).T)
+                vals = np.random.multivariate_normal(mean, cov, size=self.Ns).T
+                self.int_mat = np.exp(vals)
 
             else:
                 # uncorrelated receptors
