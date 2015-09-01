@@ -208,17 +208,35 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     lognormal distribution """
 
 
-    def __init__(self, num_substrates, num_receptors, sigma=1,
-                 typical_sensitivity=1, parameters=None):
+    def __init__(self, num_substrates, num_receptors, typical_sensitivity=1,
+                 parameters=None, **kwargs):
         """ initialize the receptor library by setting the number of receptors,
-        the number of substrates it can respond to, the width of the
-        distribution `sigma`, and the typical sensitivity or magnitude S0 of the
-        sensitivity matrix """
+        the number of substrates it can respond to, and the typical sensitivity
+        or magnitude S0 of the sensitivity matrix.
+        The width of the distribution is either set by the parameter `sigma` or
+        by setting the `standard_deviation`.
+        """
         super(LibrarySparseLogNormal, self).__init__(num_substrates,
                                                      num_receptors, parameters)
-        self.sigma = sigma
+        
         self.typical_sensitivity = typical_sensitivity
 
+        if 'standard_deviation' in kwargs:
+            standard_deviation = kwargs.pop('standard_deviation')
+            cv = standard_deviation / typical_sensitivity 
+            self.sigma = np.sqrt(np.log(cv**2 + 1))
+        elif 'sigma' in kwargs:
+            self.sigma = kwargs.pop('sigma')
+        else:
+            standard_deviation = 1
+            cv = standard_deviation / typical_sensitivity 
+            self.sigma = np.sqrt(np.log(cv**2 + 1))
+
+        # raise an error if keyword arguments have not been used
+        if len(kwargs) > 0:
+            raise ValueError('The following keyword arguments have not been '
+                             'used: %s' % str(kwargs)) 
+            
 
     @property
     def repr_params(self):

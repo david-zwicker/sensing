@@ -179,8 +179,19 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 
         elif distribution == 'log_uniform':
             # log uniform distribution
-            sigma = kwargs.pop('sigma', 1)
-            int_mat_params['sigma'] = sigma
+            if 'standard_deviation' in kwargs:
+                standard_deviation = kwargs.pop('standard_deviation')
+                cv = standard_deviation / typical_sensitivity 
+                sigma = np.sqrt(np.log(cv**2 + 1))
+            elif 'sigma' in kwargs:
+                sigma = kwargs.pop('sigma')
+                cv = np.sqrt(np.exp(sigma**2) - 1)
+                standard_deviation = typical_sensitivity * cv
+            else:
+                standard_deviation = 1
+                cv = standard_deviation / typical_sensitivity 
+                sigma = np.sqrt(np.log(cv**2 + 1))
+            int_mat_params['standard_deviation'] = standard_deviation
 
             if sigma == 0:
                 self.int_mat = np.full(shape, typical_sensitivity)

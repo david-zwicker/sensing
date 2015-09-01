@@ -145,7 +145,8 @@ class TestLibrarySparse(unittest.TestCase):
                        'mutual_information']:
             res1 = getattr(th1, method)()
             res2 = getattr(th2, method)()
-            self.assertAlmostEqual(res1, res2, places=4)
+            self.assertAlmostEqual(res1, res2, places=4,
+                                   msg='Failed at calculating `%s`' % method)
             
             
     def test_concentration_statistics(self):
