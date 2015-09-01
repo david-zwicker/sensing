@@ -20,6 +20,12 @@ from scipy.stats import itemfreq
 
 
 
+def is_pos_semidef(x):
+    """ checks whether the correlation matrix is positive semi-definite """
+    return np.all(np.linalg.eigvals(x) >= 0)
+
+
+
 def score_interaction_matrices(I1, I2):
     """ returns a score of the similarity of the interaction matrices, taking
     into account all permutations of the receptors """

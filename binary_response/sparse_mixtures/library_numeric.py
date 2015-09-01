@@ -9,9 +9,11 @@ from __future__ import division
 import logging
 
 import numpy as np
+from scipy import stats
 from six.moves import range
 
 from utils.math_distributions import lognorm_mean, loguniform_mean
+from utils.misc import is_pos_semidef
 from .library_base import LibrarySparseBase  # @UnresolvedImport
 
 
@@ -122,7 +124,11 @@ class LibrarySparseNumeric(LibrarySparseBase):
         """
         shape = (self.Nr, self.Ns)
 
-        assert typical_sensitivity > 0 
+        assert typical_sensitivity > 0
+        
+        int_mat_params = {'distribution': distribution,
+                          'typical_sensitivity': typical_sensitivity,
+                          'ensure_mean': ensure_mean}
 
         if distribution == 'const':
             # simple constant matrix
@@ -130,36 +136,57 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
         elif distribution == 'binary':
             # choose a binary matrix with a typical scale
-            kwargs.setdefault('density', 0)
-            if kwargs['density'] == 0:
+            density = kwargs.pop('density', 0)
+            int_mat_params['density'] = density
+            
+            if density == 0:
                 # simple case of empty matrix
                 self.int_mat = np.zeros(shape)
-            elif kwargs['density'] >= 1:
+                
+            elif density >= 1:
                 # simple case of full matrix
                 self.int_mat = np.full(shape, typical_sensitivity)
+                
             else:
                 # choose receptor substrate interaction randomly and don't worry
                 # about correlations
                 self.int_mat = (typical_sensitivity * 
-                                (np.random.random(shape) < kwargs['density']))
+                                (np.random.random(shape) < density))
 
         elif distribution == 'log_normal':
             # log normal distribution
-            kwargs.setdefault('sigma', 1)
-            if kwargs['sigma'] == 0:
+            sigma = kwargs.pop('sigma', 1)
+            correlations = kwargs.pop('correlations', 0)
+            int_mat_params['sigma'] = sigma
+            int_mat_params['correlations'] = correlations
+
+            if sigma == 0 and correlations == 0:
+                # edge case without randomness
                 self.int_mat = np.full(shape, typical_sensitivity)
+
+            elif correlations != 0:
+                # correlated receptors
+                mu = np.log(typical_sensitivity) - 0.5 * sigma**2
+                mean = np.full(self.Nr, mu)
+                cov = np.full((self.Nr, self.Nr), correlations**2)
+                np.fill_diagonal(cov, sigma**2)
+                dist = stats.multivariate_normal(mean, cov)
+                self.int_mat = np.exp(dist.rvs(size=self.Ns).T)
+
             else:
-                dist = lognorm_mean(typical_sensitivity, kwargs['sigma'])
+                # uncorrelated receptors
+                dist = lognorm_mean(typical_sensitivity, sigma)
                 self.int_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
             # log uniform distribution
-            kwargs.setdefault('sigma', 1)
-            if kwargs['sigma'] == 0:
+            sigma = kwargs.pop('sigma', 1)
+            int_mat_params['sigma'] = sigma
+
+            if sigma == 0:
                 self.int_mat = np.full(shape, typical_sensitivity)
             else:
-                dist = loguniform_mean(typical_sensitivity,
-                                       np.exp(kwargs['sigma']))
+                dist = loguniform_mean(typical_sensitivity, np.exp(sigma))
                 self.int_mat = dist.rvs(shape)
             
         elif distribution == 'log_gamma':
@@ -167,12 +194,31 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
         elif distribution == 'normal':
             # normal distribution
-            kwargs.setdefault('sigma', 1)
-            if kwargs['sigma'] == 0:
+            sigma = kwargs.pop('sigma', 1)
+            correlations = kwargs.pop('correlations', 0)
+            int_mat_params['sigma'] = sigma
+            int_mat_params['correlations'] = correlations
+
+            if sigma == 0 and correlations == 0:
+                # edge case without randomness
                 self.int_mat = np.full(shape, typical_sensitivity)
+                
+            elif correlations != 0:
+                # correlated receptors
+                mean = np.full(self.Nr, typical_sensitivity)
+                cov = np.full((self.Nr, self.Nr), correlations)
+                np.fill_diagonal(cov, sigma)
+                if not is_pos_semidef(cov):
+                    raise ValueError('The specified correlation leads to a '
+                                     'correlation matrix that is not positive '
+                                     'semi-definite.')
+                vals = np.random.multivariate_normal(mean, cov, size=self.Ns)
+                self.int_mat = vals.T
+
             else:
+                # uncorrelated receptors
                 self.int_mat = np.random.normal(loc=typical_sensitivity,
-                                                scale=kwargs['sigma'],
+                                                scale=sigma,
                                                 size=shape)
             
         elif distribution == 'gamma':
@@ -185,11 +231,12 @@ class LibrarySparseNumeric(LibrarySparseBase):
             self.int_mat *= typical_sensitivity / self.int_mat.mean()
             
         # save the parameters determining this matrix
-        int_mat_params = {'distribution': distribution,
-                          'typical_sensitivity': typical_sensitivity,
-                          'ensure_mean': ensure_mean}
-        int_mat_params.update(kwargs)
-        self.parameters['interaction_matrix_params'] = int_mat_params 
+        self.parameters['interaction_matrix_params'] = int_mat_params
+        
+        # raise an error if keyword arguments have not been used
+        if len(kwargs) > 0:
+            raise ValueError('The following keyword arguments have not been '
+                             'used: %s' % str(kwargs)) 
 
 
     @property
