@@ -60,7 +60,7 @@ class TestMathDistributions(unittest.TestCase):
         # test the numpy distribution
         rvs = np.random.lognormal(np.log(mu), sigma, size=1000000)
         self.assertAlmostEqual(rvs.mean(), S0, places=2)
-        self.assertAlmostEqual(rvs.var(), var, places=2)
+        self.assertAlmostEqual(rvs.var(), var, places=1)
 
 
     def test_log_uniform(self):

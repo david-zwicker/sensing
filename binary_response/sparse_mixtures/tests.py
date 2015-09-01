@@ -29,7 +29,25 @@ class TestLibrarySparse(unittest.TestCase):
     
     def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
         """ compares all the entries of the arrays a and b """
-        self.assertTrue(np.allclose(a, b, rtol, atol), msg)
+        is_close = (np.allclose(a, b, rtol, atol) or
+                    (np.isnan(a) and np.isnan(b)))
+        self.assertTrue(is_close, msg)
+
+        
+    def assertDictAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
+        """ compares all the entries of the dictionaries a and b """
+        for k, v in a.iteritems():
+            # create a message if non was given
+            if msg is None:
+                submsg = 'Dictionaries differ for key `%s`' % k
+            else:
+                submsg = msg
+                
+            # try comparing as numpy arrays and fall back if that doesn't work
+            try:
+                self.assertAllClose(v, b[k], rtol, atol, submsg)
+            except TypeError:
+                self.assertEqual(v, b[k], submsg)
 
         
     def _create_test_models(self):
@@ -131,7 +149,7 @@ class TestLibrarySparse(unittest.TestCase):
         """ test liming cases of the theory """
         # prepare a random log-normal library
         th1 = LibrarySparseLogNormal.create_test_instance(sigma=0.001)
-        lib_opt = th1.get_optimal_library(sigma_opt=0.001)
+        lib_opt = th1.get_optimal_library(fixed_parameter='sigma')
         th1.typical_sensitivity = lib_opt['typical_sensitivity']
         
         # prepare equivalent binary library
@@ -148,6 +166,21 @@ class TestLibrarySparse(unittest.TestCase):
             self.assertAlmostEqual(res1, res2, places=4,
                                    msg='Failed at calculating `%s`' % method)
             
+            
+    def test_theory_log_normal(self):
+        """ test specific functions of the log-normal distribution """
+        kept_fixed = ('S0', 'sigma')
+        for a, b in itertools.permutations(kept_fixed, 2):
+            th1 = LibrarySparseLogNormal.create_test_instance()
+            lib_opt1 = th1.get_optimal_library(fixed_parameter=a)
+            th2 = LibrarySparseLogNormal.from_other(
+                th1,
+                typical_sensitivity=lib_opt1['typical_sensitivity'],
+                sigma=lib_opt1['sigma']
+            )
+            lib_opt2 = th2.get_optimal_library(fixed_parameter=b)
+            self.assertDictAllClose(lib_opt1, lib_opt2)
+    
             
     def test_concentration_statistics(self):
         """ test the statistics of the concentrations """

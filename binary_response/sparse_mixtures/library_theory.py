@@ -302,18 +302,39 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
                 'covar': enm_covar}
         
 
-    def get_optimal_library(self, sigma_opt=2):
+    def get_optimal_library(self, fixed_parameter='S0'):
         """ returns an estimate for the optimal parameters for the random
-        interaction matrices """
+        interaction matrices.
+            `fixed_parameter` determines which parameter is kept fixed during
+                the optimization procedure
+        """
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         ctot_stats = self.ctot_statistics()
         ctot_mean = ctot_stats['mean']
         ctot_var = ctot_stats['var']
-
-        arg = 1 + ctot_var/ctot_mean**2 * np.exp(sigma_opt**2)
-        S0_opt = np.sqrt(arg) / ctot_mean 
+        ctot_cv2 = ctot_var/ctot_mean**2
+        
+        if fixed_parameter == 'sigma':
+            # keep the sigma parameter fixed and determine the others 
+            sigma_opt = self.sigma
+            
+            arg = 1 + ctot_cv2 * np.exp(sigma_opt**2)
+            S0_opt = np.sqrt(arg) / ctot_mean
+            #std_opt = S0_opt * np.sqrt(np.exp(sigma_opt**2) - 1)
+            
+        elif fixed_parameter == 'S0':
+            # keep the typical sensitivity fixed and determine the other params 
+            S0_opt = self.typical_sensitivity
+            
+            arg = (ctot_mean**2 * self.typical_sensitivity**2 - 1)/ctot_cv2
+            sigma_opt = np.sqrt(np.log(arg))
+            #std_opt = self.typical_sensitivity * np.sqrt(arg - 1)
+            
+        else:
+            raise ValueError('Parameter `%s` is unknown or cannot be held '
+                             'fixed' % fixed_parameter) 
         
         return {'distribution': 'log_normal',
                 'typical_sensitivity': S0_opt, 'sigma': sigma_opt}
