@@ -135,8 +135,22 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
         elif distribution == 'binary':
             # choose a binary matrix with a typical scale
-            density = kwargs.pop('density', 0)
-            int_mat_params['density'] = density
+            S_mean2 = typical_sensitivity ** 2
+            if 'standard_deviation' in kwargs:
+                standard_deviation = kwargs.pop('standard_deviation')
+                cv = standard_deviation / typical_sensitivity
+                density = S_mean2 / (S_mean2 + standard_deviation**2)
+                if density > 1:
+                    raise ValueError('Standard deviation is too large.')
+            elif 'sigma' in kwargs:
+                density = kwargs.pop('density', 0)
+                standard_deviation = np.sqrt(S_mean2 * density * (1 - density))
+            else:
+                density = S_mean2 / (S_mean2 + standard_deviation**2)
+                if density > 1:
+                    raise ValueError('Standard deviation is too large.')
+                
+            int_mat_params['standard_deviation'] = standard_deviation
             
             if density == 0:
                 # simple case of empty matrix
