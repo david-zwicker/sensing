@@ -172,47 +172,47 @@ class LibrarySparseNumeric(LibrarySparseBase):
             if 'standard_deviation' in kwargs:
                 standard_deviation = kwargs.pop('standard_deviation')
                 cv = standard_deviation / mean_sensitivity 
-                sigma = np.sqrt(np.log(cv**2 + 1))
-            elif 'sigma' in kwargs:
-                sigma = kwargs.pop('sigma')
-                cv = np.sqrt(np.exp(sigma**2) - 1)
+                spread = np.sqrt(np.log(cv**2 + 1))
+            elif 'spread' in kwargs:
+                spread = kwargs.pop('spread')
+                cv = np.sqrt(np.exp(spread**2) - 1)
                 standard_deviation = mean_sensitivity * cv
             else:
                 standard_deviation = 1
                 cv = standard_deviation / mean_sensitivity
-                sigma = np.sqrt(np.log(cv**2 + 1))
+                spread = np.sqrt(np.log(cv**2 + 1))
 
             correlation = kwargs.pop('correlation', 0)
             int_mat_params['standard_deviation'] = standard_deviation
             int_mat_params['correlation'] = correlation
 
-            if sigma == 0 and correlation == 0:
+            if spread == 0 and correlation == 0:
                 # edge case without randomness
                 self.int_mat = np.full(shape, mean_sensitivity)
 
             elif correlation != 0:
                 # correlated receptors
-                mu = np.log(mean_sensitivity) - 0.5 * sigma**2
+                mu = np.log(mean_sensitivity) - 0.5 * spread**2
                 mean = np.full(self.Nr, mu)
-                cov = np.full((self.Nr, self.Nr), correlation * sigma**2)
-                np.fill_diagonal(cov, sigma**2)
+                cov = np.full((self.Nr, self.Nr), correlation * spread**2)
+                np.fill_diagonal(cov, spread**2)
                 vals = np.random.multivariate_normal(mean, cov, size=self.Ns).T
                 self.int_mat = np.exp(vals)
 
             else:
                 # uncorrelated receptors
-                dist = lognorm_mean(mean_sensitivity, sigma)
+                dist = lognorm_mean(mean_sensitivity, spread)
                 self.int_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
             # log uniform distribution
-            sigma = kwargs.pop('sigma', 1)
-            int_mat_params['sigma'] = sigma
+            spread = kwargs.pop('spread', 1)
+            int_mat_params['spread'] = spread
 
-            if sigma == 0:
+            if spread == 0:
                 self.int_mat = np.full(shape, mean_sensitivity)
             else:
-                dist = loguniform_mean(mean_sensitivity, np.exp(sigma))
+                dist = loguniform_mean(mean_sensitivity, np.exp(spread))
                 self.int_mat = dist.rvs(shape)
             
         elif distribution == 'log_gamma':
@@ -220,20 +220,20 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
         elif distribution == 'normal':
             # normal distribution
-            sigma = kwargs.pop('sigma', 1)
+            spread = kwargs.pop('spread', 1)
             correlation = kwargs.pop('correlation', 0)
-            int_mat_params['sigma'] = sigma
+            int_mat_params['spread'] = spread
             int_mat_params['correlation'] = correlation
 
-            if sigma == 0 and correlation == 0:
+            if spread == 0 and correlation == 0:
                 # edge case without randomness
                 self.int_mat = np.full(shape, mean_sensitivity)
                 
             elif correlation != 0:
                 # correlated receptors
                 mean = np.full(self.Nr, mean_sensitivity)
-                cov = np.full((self.Nr, self.Nr), correlation * sigma**2)
-                np.fill_diagonal(cov, sigma**2)
+                cov = np.full((self.Nr, self.Nr), correlation * spread**2)
+                np.fill_diagonal(cov, spread**2)
                 if not is_pos_semidef(cov):
                     raise ValueError('The specified correlation leads to a '
                                      'correlation matrix that is not positive '
@@ -244,7 +244,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             else:
                 # uncorrelated receptors
                 self.int_mat = np.random.normal(loc=mean_sensitivity,
-                                                scale=sigma,
+                                                scale=spread,
                                                 size=shape)
             
         elif distribution == 'gamma':
