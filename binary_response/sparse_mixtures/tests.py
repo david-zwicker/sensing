@@ -224,7 +224,6 @@ class TestLibrarySparse(unittest.TestCase):
         self.assertTrue(numba_patcher.test_consistency(repeat=3, verbosity=1),
                         msg='Numba methods are not consistent')
         
-
     
 
 if __name__ == '__main__':
