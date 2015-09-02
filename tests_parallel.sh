@@ -1,3 +1,6 @@
 #!/bin/bash
-echo 'Run unittests in parallel...'
-nosetests-2.7 --processes=30 --process-timeout=20 --stop
+
+CORES=`python -c 'import multiprocessing as mp; print(mp.cpu_count())'`
+
+echo 'Run unittests on '$CORES' cores...'
+nosetests-2.7 --processes=$CORES --process-timeout=60 --stop
