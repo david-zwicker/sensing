@@ -149,8 +149,10 @@ class LibrarySparseNumeric(LibrarySparseBase):
             else:
                 # choose receptor substrate interaction randomly and don't worry
                 # about correlations
-                self.int_mat = (typical_sensitivity * 
-                                (np.random.random(shape) < density))
+                S_scale = typical_sensitivity / density
+                nonzeros = (np.random.random(shape) < density)
+                self.int_mat = S_scale * nonzeros 
+                                
 
         elif distribution == 'log_normal':
             # log normal distribution
@@ -164,7 +166,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 standard_deviation = typical_sensitivity * cv
             else:
                 standard_deviation = 1
-                cv = standard_deviation / typical_sensitivity 
+                cv = standard_deviation / typical_sensitivity
                 sigma = np.sqrt(np.log(cv**2 + 1))
 
             correlation = kwargs.pop('correlation', 0)

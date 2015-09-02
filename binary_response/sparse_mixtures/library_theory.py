@@ -161,7 +161,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         """ returns statistics of the sensitivity distribution """
         S0 = self.typical_sensitivity
         xi = self.density
-        return {'mean': S0*xi, 'var': S0**2 * xi*(1 - xi), 'covar': 0}
+        return {'mean': S0, 'var': S0**2 * (1/xi - 1), 'covar': 0}
 
 
     def density_optimal(self, assume_homogeneous=False):
@@ -203,7 +203,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         m = self.mixture_size_statistics()['mean']
         d = self.concentration_statistics()['mean'].mean()
         density = self.density_optimal()
-        S0 = 1 / (m*d*density + d*np.log(2))
+        S0 = 1 / (m*d*density + d*np.log(2)) / density
         return {'distribution': 'binary',
                 'typical_sensitivity': S0, 'density': density}
 
