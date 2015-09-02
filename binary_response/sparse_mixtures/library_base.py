@@ -240,14 +240,26 @@ class LibrarySparseBase(LibraryBinaryBase):
     def _estimate_qnm_from_en(self, en_stats):
         """ estimates crosstalk q_nm based on the statistics of the excitations
         en """
-        # calculate the correlation coefficient 
-        with np.errstate(divide='ignore', invalid='ignore'):
-            rho = np.divide(en_stats['covar'],
-                            np.outer(en_stats['std'], en_stats['std']))
-
-        # Replace values that are nan with zero. This might not be exact,
-        # but only occurs in corner cases that are not interesting to us  
-        rho[np.isnan(rho)] = 0
+        en_covar = en_stats['covar']
+        
+        # calculate the correlation coefficient
+        if np.isscalar(en_covar):
+            # scalar case
+            en_var = en_stats['var']
+            if en_var == 0:
+                rho = 0
+            else:
+                rho = en_covar / en_var
+            
+        else:
+            # matrix case
+            en_std = en_stats['std'] 
+            with np.errstate(divide='ignore', invalid='ignore'):
+                rho = np.divide(en_covar, np.outer(en_std, en_std))
+    
+            # Replace values that are nan with zero. This might not be exact,
+            # but only occurs in corner cases that are not interesting to us  
+            rho[np.isnan(rho)] = 0
             
         # estimate the crosstalk
         q_nm = rho / (2*np.pi)
