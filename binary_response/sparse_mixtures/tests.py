@@ -155,6 +155,7 @@ class TestLibrarySparse(unittest.TestCase):
         # prepare equivalent binary library
         args = th1.init_arguments
         del args['sigma']
+        del args['correlation']
         th2 = LibrarySparseBinary(**args)
         th2.density = 1
         

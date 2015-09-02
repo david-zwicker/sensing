@@ -32,13 +32,11 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
         ctot_stats = self.ctot_statistics()
         S_stats = self.sensitivity_stats()
         S_mean = S_stats['mean']
-        S_var = S_stats['var']
-        S_covar = S_stats['covar']
         
         # calculate statistics of the sum s_n = S_ni * c_i        
         en_mean = S_mean * ctot_stats['mean']
-        en_var = (S_mean**2 + S_var) * ctot_stats['var']
-        enm_covar = (S_mean**2 + S_covar) * ctot_stats['var']
+        en_var = (S_mean**2 + S_stats['var']) * ctot_stats['var']
+        enm_covar = (S_mean**2 + S_stats['covar']) * ctot_stats['var']
 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'covar': enm_covar}
@@ -102,6 +100,13 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
             return np.clip(MI, 0, self.Nr)
         else:
             return MI
+        
+        
+    def set_optimal_parameters(self, **kwargs):
+        """ adapts the parameters of this library to be close to optimal """
+        params = self.get_optimal_library()
+        del params['distribution']
+        self.__dict__.update(params)
 
 
 
@@ -294,7 +299,8 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         """ returns statistics of the sensitivity distribution """
         S0 = self.typical_sensitivity
         var = S0**2 * (np.exp(self.sigma**2) - 1)
-        return {'mean': S0, 'var': var, 'covar': self.correlation * var}
+        covar = S0**2 * (np.exp(self.correlation * self.sigma**2) - 1)
+        return {'mean': S0, 'var': var, 'covar': covar}
 
 
     def get_optimal_parameters(self, fixed_parameter='S0'):
@@ -343,7 +349,8 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         """
         library_opt = self.get_optimal_parameters(fixed_parameter)
         return {'distribution': 'log_normal', 'sigma': library_opt['sigma'],
-                'typical_sensitivity': library_opt['typical_sensitivity']}
+                'typical_sensitivity': library_opt['typical_sensitivity'],
+                'correlation': 0}
                 
 
 
