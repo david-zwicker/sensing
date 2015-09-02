@@ -94,24 +94,24 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         return obj
 
 
-    def choose_interaction_matrix(self, distribution, typical_sensitivity=1,
+    def choose_interaction_matrix(self, distribution, mean_sensitivity=1,
                                   **kwargs):
         """ creates a interaction matrix with the given properties
             `distribution` determines the distribution from which we choose the
                 entries of the sensitivity matrix
-            `typical_sensitivity` should in principle set the mean sensitivity,
+            `mean_sensitivity` should in principle set the mean sensitivity,
                 although there are some exceptional distributions. For instance,
-                for binary distributions `typical_sensitivity` sets the
+                for binary distributions `mean_sensitivity` sets the
                 magnitude of the entries that are non-zero.
             Some distributions might accept additional parameters.
         """
         shape = (self.Nr, self.Ns)
 
-        assert typical_sensitivity > 0 
+        assert mean_sensitivity > 0 
 
         if distribution == 'const':
             # simple constant matrix
-            self.int_mat = np.full(shape, typical_sensitivity)
+            self.int_mat = np.full(shape, mean_sensitivity)
 
         elif distribution == 'binary':
             # choose a binary matrix with a typical scale
@@ -121,20 +121,20 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
                 self.int_mat = np.zeros(shape)
             elif kwargs['density'] >= 1:
                 # simple case of full matrix
-                self.int_mat = np.full(shape, typical_sensitivity)
+                self.int_mat = np.full(shape, mean_sensitivity)
             else:
                 # choose receptor substrate interaction randomly and don't worry
                 # about correlations
-                self.int_mat = (typical_sensitivity * 
+                self.int_mat = (mean_sensitivity * 
                                 (np.random.random(shape) < kwargs['density']))
 
         elif distribution == 'log_normal':
             # log normal distribution
             kwargs.setdefault('sigma', 1)
             if kwargs['sigma'] == 0:
-                self.int_mat = np.full(shape, typical_sensitivity)
+                self.int_mat = np.full(shape, mean_sensitivity)
             else:
-                dist = lognorm_mean(typical_sensitivity, kwargs['sigma'])
+                dist = lognorm_mean(mean_sensitivity, kwargs['sigma'])
                 self.int_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
@@ -151,7 +151,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             
         # save the parameters determining this matrix
         int_mat_params = {'distribution': distribution,
-                          'typical_sensitivity': typical_sensitivity}
+                          'mean_sensitivity': mean_sensitivity}
         int_mat_params.update(kwargs)
         self.parameters['interaction_matrix_params'] = int_mat_params 
 

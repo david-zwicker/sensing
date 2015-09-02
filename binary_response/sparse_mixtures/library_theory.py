@@ -116,16 +116,38 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
     their magnitude """
 
 
-    def __init__(self, num_substrates, num_receptors, density=1,
-                 typical_sensitivity=1, parameters=None):
+    def __init__(self, num_substrates, num_receptors,
+                 mean_sensitivity=1, parameters=None, **kwargs):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the fraction `density` of
         substrates a single receptor responds to, and the typical sensitivity
         or magnitude S0 of the sensitivity matrix """
         super(LibrarySparseBinary, self).__init__(num_substrates,
                                                   num_receptors, parameters)
-        self.density = density
-        self.typical_sensitivity = typical_sensitivity
+
+        self.mean_sensitivity = mean_sensitivity
+        
+        if 'standard_deviation' in kwargs:
+            standard_deviation = kwargs.pop('standard_deviation')
+            S_mean2 = mean_sensitivity**2
+            self.density = S_mean2 / (S_mean2 + standard_deviation**2)
+        elif 'density' in kwargs:
+            self.density = kwargs.pop('density')
+        else:
+            standard_deviation = 1
+            S_mean2 = mean_sensitivity**2
+            self.density = S_mean2 / (S_mean2 + standard_deviation**2)
+
+        # raise an error if keyword arguments have not been used
+        if len(kwargs) > 0:
+            raise ValueError('The following keyword arguments have not been '
+                             'used: %s' % str(kwargs)) 
+
+
+    @property
+    def standard_deviation(self):
+        """ returns the standard deviation of the sensitivity matrix """
+        return self.mean_sensitivity * np.sqrt(1/self.density - 1)
 
 
     @property
@@ -133,7 +155,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseBinary, self).repr_params
         params.append('xi=%g' % self.density)
-        params.append('S0=%g' % self.typical_sensitivity)
+        params.append('S0=%g' % self.mean_sensitivity)
         return params
 
 
@@ -143,7 +165,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         it by calling the __init__ method with these arguments """
         args = super(LibrarySparseBinary, self).init_arguments
         args['density'] = self.density
-        args['typical_sensitivity'] = self.typical_sensitivity
+        args['mean_sensitivity'] = self.mean_sensitivity
         return args
 
 
@@ -153,15 +175,15 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         args = super(LibrarySparseBinary, cls).get_random_arguments(**kwargs)
         args['density'] = kwargs.get('density', np.random.random())
         S0 = np.random.random() + 0.5
-        args['typical_sensitivity'] = kwargs.get('typical_sensitivity', S0)
+        args['mean_sensitivity'] = kwargs.get('mean_sensitivity', S0)
         return args
 
 
     def sensitivity_stats(self):
         """ returns statistics of the sensitivity distribution """
-        S0 = self.typical_sensitivity
-        xi = self.density
-        return {'mean': S0, 'var': S0**2 * (1/xi - 1), 'covar': 0}
+        S0 = self.mean_sensitivity
+        var = S0**2 * (1/self.density - 1)
+        return {'mean': S0, 'var': var, 'std': np.sqrt(var), 'covar': 0}
 
 
     def density_optimal(self, assume_homogeneous=False):
@@ -205,7 +227,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         density = self.density_optimal()
         S0 = 1 / (m*d*density + d*np.log(2)) / density
         return {'distribution': 'binary',
-                'typical_sensitivity': S0, 'density': density}
+                'mean_sensitivity': S0, 'density': density}
 
 
 
@@ -214,7 +236,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     lognormal distribution """
 
 
-    def __init__(self, num_substrates, num_receptors, typical_sensitivity=1,
+    def __init__(self, num_substrates, num_receptors, mean_sensitivity=1,
                  correlation=0, parameters=None, **kwargs):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, and the typical sensitivity
@@ -225,18 +247,18 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         super(LibrarySparseLogNormal, self).__init__(num_substrates,
                                                      num_receptors, parameters)
         
-        self.typical_sensitivity = typical_sensitivity
+        self.mean_sensitivity = mean_sensitivity
         self.correlation = correlation
 
         if 'standard_deviation' in kwargs:
             standard_deviation = kwargs.pop('standard_deviation')
-            cv = standard_deviation / typical_sensitivity 
+            cv = standard_deviation / mean_sensitivity 
             self.sigma = np.sqrt(np.log(cv**2 + 1))
         elif 'sigma' in kwargs:
             self.sigma = kwargs.pop('sigma')
         else:
             standard_deviation = 1
-            cv = standard_deviation / typical_sensitivity 
+            cv = standard_deviation / mean_sensitivity 
             self.sigma = np.sqrt(np.log(cv**2 + 1))
 
         # raise an error if keyword arguments have not been used
@@ -248,14 +270,14 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     @property
     def standard_deviation(self):
         """ return the standard deviation of the distribution """
-        return self.typical_sensitivity * np.sqrt((np.exp(self.sigma**2) - 1))
+        return self.mean_sensitivity * np.sqrt((np.exp(self.sigma**2) - 1))
             
 
     @property
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogNormal, self).repr_params
-        params.append('S0=%g' % self.typical_sensitivity)
+        params.append('S0=%g' % self.mean_sensitivity)
         params.append('sigma=%g' % self.sigma)
         params.append('correlation=%g' % self.correlation)
         return params
@@ -266,7 +288,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
         args = super(LibrarySparseLogNormal, self).init_arguments
-        args['typical_sensitivity'] = self.typical_sensitivity
+        args['mean_sensitivity'] = self.mean_sensitivity
         args['sigma'] = self.sigma
         args['correlation'] = self.correlation
         return args
@@ -278,7 +300,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         args = super(LibrarySparseLogNormal, cls).get_random_arguments(**kwargs)
         args['sigma'] = kwargs.get('sigma', np.random.random() + 0.5)
         S0 = np.random.random() + 0.5
-        args['typical_sensitivity'] = kwargs.get('typical_sensitivity', S0)
+        args['mean_sensitivity'] = kwargs.get('mean_sensitivity', S0)
         return args
 
 
@@ -290,14 +312,14 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
                                       'distribution with correlations, yet')
         
         if self.sigma == 0:
-            return DeterministicDistribution(self.typical_sensitivity)
+            return DeterministicDistribution(self.mean_sensitivity)
         else:
-            return lognorm_mean(self.typical_sensitivity, self.sigma)
+            return lognorm_mean(self.mean_sensitivity, self.sigma)
 
 
     def sensitivity_stats(self):
         """ returns statistics of the sensitivity distribution """
-        S0 = self.typical_sensitivity
+        S0 = self.mean_sensitivity
         var = S0**2 * (np.exp(self.sigma**2) - 1)
         covar = S0**2 * (np.exp(self.correlation * self.sigma**2) - 1)
         return {'mean': S0, 'var': var, 'covar': covar}
@@ -327,17 +349,17 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             
         elif fixed_parameter == 'S0':
             # keep the typical sensitivity fixed and determine the other params 
-            S0_opt = self.typical_sensitivity
+            S0_opt = self.mean_sensitivity
             
-            arg = (ctot_mean**2 * self.typical_sensitivity**2 - 1)/ctot_cv2
+            arg = (ctot_mean**2 * self.mean_sensitivity**2 - 1)/ctot_cv2
             sigma_opt = np.sqrt(np.log(arg))
-            std_opt = self.typical_sensitivity * np.sqrt(arg - 1)
+            std_opt = self.mean_sensitivity * np.sqrt(arg - 1)
             
         else:
             raise ValueError('Parameter `%s` is unknown or cannot be held '
                              'fixed' % fixed_parameter) 
         
-        return {'typical_sensitivity': S0_opt, 'sigma': sigma_opt,
+        return {'mean_sensitivity': S0_opt, 'sigma': sigma_opt,
                 'standard_deviation': std_opt}
     
     
@@ -349,7 +371,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         """
         library_opt = self.get_optimal_parameters(fixed_parameter)
         return {'distribution': 'log_normal', 'sigma': library_opt['sigma'],
-                'typical_sensitivity': library_opt['typical_sensitivity'],
+                'mean_sensitivity': library_opt['mean_sensitivity'],
                 'correlation': 0}
                 
 
@@ -360,7 +382,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
 
 
     def __init__(self, num_substrates, num_receptors, sigma=1,
-                 typical_sensitivity=1, parameters=None):
+                 mean_sensitivity=1, parameters=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the width of the
         distribution `sigma`, and the typical sensitivity or magnitude S0 of the
@@ -368,7 +390,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         super(LibrarySparseLogUniform, self).__init__(num_substrates,
                                                       num_receptors, parameters)
         self.sigma = sigma
-        self.typical_sensitivity = typical_sensitivity
+        self.mean_sensitivity = mean_sensitivity
 
 
     @property
@@ -376,7 +398,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogUniform, self).repr_params
         params.append('sigma=%g' % self.sigma)
-        params.append('S0=%g' % self.typical_sensitivity)
+        params.append('S0=%g' % self.mean_sensitivity)
         return params
 
 
@@ -386,7 +408,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         it by calling the __init__ method with these arguments """
         args = super(LibrarySparseLogUniform, self).init_arguments
         args['sigma'] = self.sigma
-        args['typical_sensitivity'] = self.typical_sensitivity
+        args['mean_sensitivity'] = self.mean_sensitivity
         return args
 
 
@@ -396,7 +418,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         args = super(LibrarySparseLogUniform, cls).get_random_arguments(**kwargs)
         args['sigma'] = kwargs.get('sigma', np.random.random() + 0.1)
         S0 = np.random.random() + 0.5
-        args['typical_sensitivity'] = kwargs.get('typical_sensitivity', S0)
+        args['mean_sensitivity'] = kwargs.get('mean_sensitivity', S0)
         return args
 
 
@@ -404,14 +426,14 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     def sensitivity_distribution(self):
         """ returns the sensitivity distribution """
         if self.sigma == 0:
-            return DeterministicDistribution(self.typical_sensitivity)
+            return DeterministicDistribution(self.mean_sensitivity)
         else:
-            return loguniform_mean(self.typical_sensitivity, np.exp(self.sigma))
+            return loguniform_mean(self.mean_sensitivity, np.exp(self.sigma))
 
 
     def sensitivity_stats(self):
         """ returns statistics of the sensitivity distribution """
-        S0 = self.typical_sensitivity
+        S0 = self.mean_sensitivity
         sigma = self.sigma
         
         # calculate the unscaled variance
@@ -441,7 +463,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         S0_opt = np.sqrt(1 + ctot_var/ctot_mean**2 * term) / ctot_mean 
         
         return {'distribution': 'log_normal',
-                'typical_sensitivity': S0_opt, 'sigma': sigma_opt}
+                'mean_sensitivity': S0_opt, 'sigma': sigma_opt}
         
         
         

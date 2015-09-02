@@ -62,12 +62,12 @@ class TestLibraryContinuous(unittest.TestCase):
                                    places=5)
     
             # test the optimal sensitivity calculation
-            obj1.typical_sensitivity = \
+            obj1.mean_sensitivity = \
                     obj1.get_optimal_typical_sensitivity(approximation=approx)
-            obj2.typical_sensitivity = \
+            obj2.mean_sensitivity = \
                     obj2.get_optimal_typical_sensitivity(approximation=approx)
-            self.assertAlmostEqual(obj1.typical_sensitivity,
-                                   obj2.typical_sensitivity,
+            self.assertAlmostEqual(obj1.mean_sensitivity,
+                                   obj2.mean_sensitivity,
                                    places=5)
              
             self.assertAlmostEqual(obj1.receptor_activity_estimate(approx), 0.5)

@@ -110,45 +110,45 @@ class LibrarySparseNumeric(LibrarySparseBase):
         return obj
     
 
-    def choose_interaction_matrix(self, distribution, typical_sensitivity=1,
+    def choose_interaction_matrix(self, distribution, mean_sensitivity=1,
                                   ensure_mean=False, **kwargs):
         """ creates a interaction matrix with the given properties
             `distribution` determines the distribution from which we choose the
                 entries of the sensitivity matrix
-            `typical_sensitivity` should in principle set the mean sensitivity,
+            `mean_sensitivity` should in principle set the mean sensitivity,
                 although there are some exceptional distributions. For instance,
-                for binary distributions `typical_sensitivity` sets the
+                for binary distributions `mean_sensitivity` sets the
                 magnitude of the entries that are non-zero.
             Some distributions might accept additional parameters.
         """
         shape = (self.Nr, self.Ns)
 
-        assert typical_sensitivity > 0
+        assert mean_sensitivity > 0
         
         int_mat_params = {'distribution': distribution,
-                          'typical_sensitivity': typical_sensitivity,
+                          'mean_sensitivity': mean_sensitivity,
                           'ensure_mean': ensure_mean}
 
         if distribution == 'const':
             # simple constant matrix
-            self.int_mat = np.full(shape, typical_sensitivity)
+            self.int_mat = np.full(shape, mean_sensitivity)
 
         elif distribution == 'binary':
             # choose a binary matrix with a typical scale
-            S_mean2 = typical_sensitivity ** 2
             if 'standard_deviation' in kwargs:
                 standard_deviation = kwargs.pop('standard_deviation')
-                cv = standard_deviation / typical_sensitivity
+                S_mean2 = mean_sensitivity ** 2
                 density = S_mean2 / (S_mean2 + standard_deviation**2)
-                if density > 1:
-                    raise ValueError('Standard deviation is too large.')
-            elif 'sigma' in kwargs:
-                density = kwargs.pop('density', 0)
-                standard_deviation = np.sqrt(S_mean2 * density * (1 - density))
+            elif 'density' in kwargs:
+                density = kwargs.pop('density')
+                standard_deviation = mean_sensitivity * np.sqrt(1/density - 1)
             else:
+                standard_deviation = 1
+                S_mean2 = mean_sensitivity ** 2
                 density = S_mean2 / (S_mean2 + standard_deviation**2)
-                if density > 1:
-                    raise ValueError('Standard deviation is too large.')
+
+            if density > 1:
+                raise ValueError('Standard deviation is too large.')
                 
             int_mat_params['standard_deviation'] = standard_deviation
             
@@ -158,29 +158,28 @@ class LibrarySparseNumeric(LibrarySparseBase):
                 
             elif density >= 1:
                 # simple case of full matrix
-                self.int_mat = np.full(shape, typical_sensitivity)
+                self.int_mat = np.full(shape, mean_sensitivity)
                 
             else:
                 # choose receptor substrate interaction randomly and don't worry
                 # about correlations
-                S_scale = typical_sensitivity / density
+                S_scale = mean_sensitivity / density
                 nonzeros = (np.random.random(shape) < density)
                 self.int_mat = S_scale * nonzeros 
-                                
 
         elif distribution == 'log_normal':
             # log normal distribution
             if 'standard_deviation' in kwargs:
                 standard_deviation = kwargs.pop('standard_deviation')
-                cv = standard_deviation / typical_sensitivity 
+                cv = standard_deviation / mean_sensitivity 
                 sigma = np.sqrt(np.log(cv**2 + 1))
             elif 'sigma' in kwargs:
                 sigma = kwargs.pop('sigma')
                 cv = np.sqrt(np.exp(sigma**2) - 1)
-                standard_deviation = typical_sensitivity * cv
+                standard_deviation = mean_sensitivity * cv
             else:
                 standard_deviation = 1
-                cv = standard_deviation / typical_sensitivity
+                cv = standard_deviation / mean_sensitivity
                 sigma = np.sqrt(np.log(cv**2 + 1))
 
             correlation = kwargs.pop('correlation', 0)
@@ -189,11 +188,11 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
             if sigma == 0 and correlation == 0:
                 # edge case without randomness
-                self.int_mat = np.full(shape, typical_sensitivity)
+                self.int_mat = np.full(shape, mean_sensitivity)
 
             elif correlation != 0:
                 # correlated receptors
-                mu = np.log(typical_sensitivity) - 0.5 * sigma**2
+                mu = np.log(mean_sensitivity) - 0.5 * sigma**2
                 mean = np.full(self.Nr, mu)
                 cov = np.full((self.Nr, self.Nr), correlation * sigma**2)
                 np.fill_diagonal(cov, sigma**2)
@@ -202,7 +201,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
             else:
                 # uncorrelated receptors
-                dist = lognorm_mean(typical_sensitivity, sigma)
+                dist = lognorm_mean(mean_sensitivity, sigma)
                 self.int_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
@@ -211,9 +210,9 @@ class LibrarySparseNumeric(LibrarySparseBase):
             int_mat_params['sigma'] = sigma
 
             if sigma == 0:
-                self.int_mat = np.full(shape, typical_sensitivity)
+                self.int_mat = np.full(shape, mean_sensitivity)
             else:
-                dist = loguniform_mean(typical_sensitivity, np.exp(sigma))
+                dist = loguniform_mean(mean_sensitivity, np.exp(sigma))
                 self.int_mat = dist.rvs(shape)
             
         elif distribution == 'log_gamma':
@@ -228,11 +227,11 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
             if sigma == 0 and correlation == 0:
                 # edge case without randomness
-                self.int_mat = np.full(shape, typical_sensitivity)
+                self.int_mat = np.full(shape, mean_sensitivity)
                 
             elif correlation != 0:
                 # correlated receptors
-                mean = np.full(self.Nr, typical_sensitivity)
+                mean = np.full(self.Nr, mean_sensitivity)
                 cov = np.full((self.Nr, self.Nr), correlation * sigma**2)
                 np.fill_diagonal(cov, sigma**2)
                 if not is_pos_semidef(cov):
@@ -244,7 +243,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
             else:
                 # uncorrelated receptors
-                self.int_mat = np.random.normal(loc=typical_sensitivity,
+                self.int_mat = np.random.normal(loc=mean_sensitivity,
                                                 scale=sigma,
                                                 size=shape)
             
@@ -255,7 +254,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             raise ValueError('Unknown distribution `%s`' % distribution)
             
         if ensure_mean:
-            self.int_mat *= typical_sensitivity / self.int_mat.mean()
+            self.int_mat *= mean_sensitivity / self.int_mat.mean()
             
         # save the parameters determining this matrix
         self.parameters['interaction_matrix_params'] = int_mat_params

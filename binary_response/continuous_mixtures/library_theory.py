@@ -22,14 +22,14 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     parameters that characterizes this library is the density of entries. """
 
 
-    def __init__(self, num_substrates, num_receptors, typical_sensitivity=1,
+    def __init__(self, num_substrates, num_receptors, mean_sensitivity=1,
                  sigma=0.1, parameters=None):
         """ represents a theoretical receptor library where the entries of the
         sensitivity matrix are drawn from a log-normal distribution """
         super(LibraryContinuousLogNormal, self).__init__(num_substrates,
                                                          num_receptors,
                                                          parameters)
-        self.typical_sensitivity = typical_sensitivity
+        self.mean_sensitivity = mean_sensitivity
         self.sigma = sigma
 
         
@@ -38,7 +38,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibraryContinuousLogNormal, self).repr_params
         params.append('sigma=%g' % self.sigma)
-        params.append('S0=%g' % self.typical_sensitivity)
+        params.append('S0=%g' % self.mean_sensitivity)
         return params
 
         
@@ -46,9 +46,9 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     def int_mat_distribution(self):
         """ returns the probability distribution for the interaction matrix """
         if self.sigma == 0:
-            return DeterministicDistribution(loc=self.typical_sensitivity)
+            return DeterministicDistribution(loc=self.mean_sensitivity)
         else:
-            return lognorm_mean(self.typical_sensitivity, self.sigma)
+            return lognorm_mean(self.mean_sensitivity, self.sigma)
 
 
     @property
@@ -56,7 +56,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
         args = super(LibraryContinuousLogNormal, self).init_arguments
-        args['typical_sensitivity'] = self.typical_sensitivity
+        args['mean_sensitivity'] = self.mean_sensitivity
         args['sigma'] = self.sigma
         return args
 
@@ -66,7 +66,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         """ create random arguments for creating test instances """
         args = super(LibraryContinuousLogNormal, cls).get_random_arguments(**kwargs)
         I0 = np.random.random() + 0.5
-        args['typical_sensitivity'] = kwargs.get('typical_sensitivity', I0)
+        args['mean_sensitivity'] = kwargs.get('mean_sensitivity', I0)
         args['sigma'] = kwargs.get('sigma', 0.1*np.random.random())
         return args
 
@@ -79,9 +79,9 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         # set parameters
         kwargs = {'parameters': parameters}
         if typical_sensitivity is not None:
-            kwargs['typical_sensitivity'] = typical_sensitivity
+            kwargs['mean_sensitivity'] = typical_sensitivity
         elif numeric_model.int_mat is not None:
-            kwargs['typical_sensitivity'] = numeric_model.int_mat.mean()
+            kwargs['mean_sensitivity'] = numeric_model.int_mat.mean()
         if sigma is not None:
             kwargs['sigma'] = sigma
         
@@ -101,13 +101,13 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         
         if self.sigma == 0:
             # simple case in which the interaction matrix elements are the same:
-            #     I_ai = self.typical_sensitivity
+            #     I_ai = self.mean_sensitivity
             # this is the limiting case
             if self.is_homogeneous:
                 # evaluate the full integral for the case where all substrates
                 # are equally likely
                 dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
-                prob_a0 = dist.cdf(1/self.typical_sensitivity)
+                prob_a0 = dist.cdf(1/self.mean_sensitivity)
                 
             else:
                 # the probability of the total concentration c_tot is given
@@ -117,7 +117,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                               'the results cannot be trusted.')
                 c_means = self.get_concentration_means()
                 cdf_ctot = HypoExponentialDistribution(c_means).cdf
-                prob_a0 = cdf_ctot(1/self.typical_sensitivity)
+                prob_a0 = cdf_ctot(1/self.mean_sensitivity)
 
         else:
             # finite-width distribution of interaction matrix elements
@@ -150,7 +150,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
 
             if self.sigma == 0:
                 # simple case in which all matrix elements are the same:
-                #     I_ai = self.typical_sensitivity
+                #     I_ai = self.mean_sensitivity
                 # this is the limiting case
     
                 # get the moments of the hypoexponential distribution
@@ -159,18 +159,18 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 # these values directly parameterize the normal distribution
 
                 # evaluate the fraction of values that exceeds the threshold
-                # value given by c_min = 1/self.typical_sensitivity. We thus
+                # value given by c_min = 1/self.mean_sensitivity. We thus
                 # evaluate the integral from c_min to infinity, which equals
                 #     1/2 Erfc[(cmin - ctot_mean)/Sqrt[2 * ctot_var]]
                 # according to Mathematica
-                c_min = 1/self.typical_sensitivity
+                c_min = 1/self.mean_sensitivity
                 arg = (c_min - ctot_mean) / np.sqrt(2*ctot_var)
                 prob_a1 = 0.5 * special.erfc(arg)
                 
             else:
                 # more complicated case where the distribution of interaction
                 # matrix elements has a finite width
-                I0 = self.typical_sensitivity
+                I0 = self.mean_sensitivity
                 sigma2 = self.sigma**2
                 
                 # we first determine the mean and the variance of the
@@ -199,7 +199,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
              
             if self.sigma == 0:
                 # simple case in which the matrix elements are the same:
-                #     I_ai = self.typical_sensitivity
+                #     I_ai = self.mean_sensitivity
                 # this is the limiting case
     
                 # get the moments of the hypoexponential distribution
@@ -211,17 +211,17 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 beta = ctot_var / ctot_mean
                 
                 # evaluate the fraction of values that exceeds the threshold
-                # value given by c_min = 1/self.typical_sensitivity. We thus
+                # value given by c_min = 1/self.mean_sensitivity. We thus
                 # evaluate the integral from c_min to infinity, which equals
                 #     Gamma[\[Alpha], cMin/\[Beta]]/Gamma[\[Alpha]]
                 # according to Mathematica
-                c_min = 1/self.typical_sensitivity
+                c_min = 1/self.mean_sensitivity
                 prob_a1 = special.gammaincc(alpha, c_min/beta)
             
             else:
                 # more complicated case where the distribution of interaction
                 # matrix elements has a finite width
-                I0 = self.typical_sensitivity
+                I0 = self.mean_sensitivity
                 sigma2 = self.sigma**2
                 
                 # we first determine the mean and the variance of the
@@ -265,7 +265,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         c_mean = self.concentration_means.mean()
         I0 = np.exp(-0.5 * sigma**2)/(self.Ns * c_mean)
         return {'distribution': 'log_normal',
-                'typical_sensitivity': I0, 'sigma': sigma}
+                'mean_sensitivity': I0, 'sigma': sigma}
 
 
     def get_optimal_sigma(self):    
@@ -280,7 +280,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             c_mean = self.concentration_means.mean()
             estimate = np.exp(-0.5 * self.sigma**2)/(self.Ns * c_mean)
         
-        # find best typical_sensitivity by optimizing until the average receptor
+        # find best mean_sensitivity by optimizing until the average receptor
         # activity is 0.5
         obj = self.copy() #< copy of the current object for optimization
         
@@ -290,7 +290,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             result = None
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
-                obj.typical_sensitivity = I0
+                obj.mean_sensitivity = I0
                 return 0.5 - obj.receptor_activity()
             
         elif approximation == 'estimate':
@@ -302,7 +302,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             result = None
             def opt_goal(I0):
                 """ helper function to find optimum numerically """ 
-                obj.typical_sensitivity = I0
+                obj.mean_sensitivity = I0
                 return 0.5 - obj.receptor_activity_estimate(approximation)
 
         if result is None:        

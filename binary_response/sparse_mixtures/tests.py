@@ -135,14 +135,25 @@ class TestLibrarySparse(unittest.TestCase):
 
     def test_theory_distributions(self):
         """ test the distributions of the theoretical cases """
-        theories = (LibrarySparseLogNormal.create_test_instance(),
+        theories = (LibrarySparseBinary.create_test_instance(),
+                    LibrarySparseLogNormal.create_test_instance(),
                     LibrarySparseLogUniform.create_test_instance())
         
         for theory in theories:
-            dist = theory.sensitivity_distribution
             stats = theory.sensitivity_stats()
-            self.assertAlmostEqual(dist.mean(), stats['mean'])
-            self.assertAlmostEqual(dist.var(), stats['var'])
+            mean, var = stats['mean'], stats['var']
+
+            if not isinstance(theory, LibrarySparseBinary):            
+                dist = theory.sensitivity_distribution
+                self.assertAlmostEqual(dist.mean(), mean)
+                self.assertAlmostEqual(dist.var(), var)
+            
+            if not isinstance(theory, LibrarySparseLogUniform):
+                theory2 = theory.__class__(theory.Ns, theory.Nr,
+                                           mean_sensitivity=mean,
+                                           standard_deviation=np.sqrt(var))
+                theory2.commonness = theory.commonness
+                self.assertDictAllClose(stats, theory2.sensitivity_stats())
 
         
     def test_theory_limiting(self):
@@ -150,9 +161,7 @@ class TestLibrarySparse(unittest.TestCase):
         # prepare a random log-normal library
         th1 = LibrarySparseLogNormal.create_test_instance(sigma=0.001)
         lib_opt = th1.get_optimal_library(fixed_parameter='sigma')
-        th1.typical_sensitivity = lib_opt['typical_sensitivity']
-        
-        # prepare equivalent binary library
+        th1.mean_sensitivity = lib_opt['mean_sensitivity']
         args = th1.init_arguments
         del args['sigma']
         del args['correlation']
@@ -176,7 +185,7 @@ class TestLibrarySparse(unittest.TestCase):
             lib_opt1 = th1.get_optimal_library(fixed_parameter=a)
             th2 = LibrarySparseLogNormal.from_other(
                 th1,
-                typical_sensitivity=lib_opt1['typical_sensitivity'],
+                mean_sensitivity=lib_opt1['mean_sensitivity'],
                 sigma=lib_opt1['sigma']
             )
             lib_opt2 = th2.get_optimal_library(fixed_parameter=b)
