@@ -189,7 +189,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         """ returns True if the mixture is homogeneous """
         h_i = self.commonness
         d_i = self.concentrations
-        return np.allclose(h_i, h_i[0]) and np.allclose(d_i, d_i[0])
+        return np.allclose(h_i, h_i.mean()) and np.allclose(d_i, d_i.mean())
             
     
     def set_concentrations(self, scheme, mean_concentration, **kwargs):

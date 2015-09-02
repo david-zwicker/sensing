@@ -233,7 +233,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
 
 class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     """ represents a single receptor library with random entries drawn from a
-    lognormal distribution """
+    log-normal distribution """
 
 
     def __init__(self, num_substrates, num_receptors, mean_sensitivity=1,
@@ -322,7 +322,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         S0 = self.mean_sensitivity
         var = S0**2 * (np.exp(self.spread**2) - 1)
         covar = S0**2 * (np.exp(self.correlation * self.spread**2) - 1)
-        return {'mean': S0, 'var': var, 'covar': covar}
+        return {'mean': S0, 'std': np.sqrt(var), 'var': var, 'covar': covar}
 
 
     def get_optimal_parameters(self, fixed_parameter='S0'):
@@ -436,13 +436,13 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         S0 = self.mean_sensitivity
         spread = self.spread
         
-        # calculate the unscaled variance
         if spread == 0:
-            var_S1 = 0
+            var = 0
         else:
             exp_s2 = np.exp(spread)**2
-            var_S1 = (1 - exp_s2 + (1 + exp_s2)*spread)/(exp_s2 - 1)
-        return {'mean': S0, 'var': S0**2 * var_S1, 'covar': 0}
+            var = S0**2 * (1 - exp_s2 + (1 + exp_s2)*spread)/(exp_s2 - 1)
+            
+        return {'mean': S0, 'var': var, 'covar': 0}
     
 
     def get_optimal_library(self, spread_opt=2):
