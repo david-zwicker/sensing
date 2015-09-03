@@ -7,6 +7,7 @@ Created on Apr 1, 2015
 from __future__ import division
 
 import numpy as np
+from scipy import linalg
 
 from ..library_base import LibraryBase
 
@@ -360,14 +361,22 @@ class LibraryBinaryBase(LibraryBase):
         `magnitude` determines the magnitude of the correlations, which are
         drawn from the random distribution indicated by `scheme`: 
             `const`: all correlations are equally to magnitude
+            `block_uniform`: block diagonal form with uniform block size
+                distribution determined by the parameter `count`, which sets
+                the number of blocks
             `random_binary`: the correlations are drawn from a binary
-                distribution which is either 1 or -1 times magnitude.
+                distribution which is either 1 or -1 times magnitude
             `random_uniform`: the correlations are drawn from a uniform
                 distribution from [-magnitude, magnitude]
             `random_normal`: the correlations are drawn from a normal
                 distribution with standard deviation `magnitude`
+            `random_sparse` sparse correlations matrix, where the density is
+                set by the parameter `density`
         """
         shape = (self.Ns, self.Ns)
+
+        corr_params = {'scheme': scheme, 'magnitude': magnitude,
+                       'diagonal_zero': diagonal_zero}
 
         if magnitude == 0:
             Jij = np.zeros(shape)
@@ -375,6 +384,19 @@ class LibraryBinaryBase(LibraryBase):
         elif scheme == 'const':
             # all correlations are equal
             Jij = np.full(shape, magnitude)
+            
+        elif scheme == 'blocks_uniform':
+            # choose block diagonal form with uniform block sizes
+            count = kwargs.pop('count', self.Ns)
+            corr_params['count'] = count
+            if count >= self.Ns:
+                Jij = np.eye(self.Ns) * magnitude
+            else:
+                # create `count` blocks of almost even size
+                sizes = np.full(count, self.Ns // count, np.int)
+                sizes[:self.Ns % count] += 1
+                blocks = [np.ones((size, size)) for size in sizes]
+                Jij = linalg.block_diag(*blocks)
         
         elif scheme == 'random_binary':
             # all correlations are binary times magnitude
@@ -389,7 +411,8 @@ class LibraryBinaryBase(LibraryBase):
             Jij = np.random.normal(scale=magnitude, size=shape)
         
         elif scheme == 'random_sparse':
-            density = kwargs.get('density', 0.5)
+            density = kwargs.pop('density', 0.5)
+            corr_params['density'] = density
             Jij = magnitude * (np.random.random(shape) < density)
             
         else:
@@ -404,7 +427,10 @@ class LibraryBinaryBase(LibraryBase):
         self.correlations = Jij
         
         # we additionally store the parameters that were used for this function
-        corr_params = {'scheme': scheme, 'magnitude': magnitude,
-                       'diagonal_zero': diagonal_zero}
         self.parameters['correlation_parameters'] = corr_params  
+        
+        # raise an error if keyword arguments have not been used
+        if len(kwargs) > 0:
+            raise ValueError('The following keyword arguments have not been '
+                             'used: %s' % str(kwargs))         
 
