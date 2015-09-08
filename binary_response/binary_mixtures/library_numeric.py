@@ -320,79 +320,12 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return self.get_steps('metropolis')
 
 
-    def _sample_mixtures(self):
+    def _sample_mixtures(self, steps=None, dtype=np.uint):
         """ sample mixtures with uniform probability yielding single mixtures """
-                
-        mixture_size = self.parameters['fixed_mixture_size']
-                
-        if not self.correlated_mixture and mixture_size is None:
-            # use simple monte carlo algorithm
-            prob_s = self.substrate_probabilities
-            
-            for _ in range(self._sample_steps):
-                # choose a mixture vector according to substrate probabilities
-                yield (np.random.random(self.Ns) < prob_s)
-
-        elif mixture_size == 0:
-            # special case which is not covered by the iteration below
-            c_zero = np.zeros(self.Ns)
-            for _ in range(self._sample_steps):
-                yield c_zero
-
-        elif mixture_size == self.Ns:
-            # special case which is not covered by the iteration below
-            c_ones = np.ones(self.Ns)
-            for _ in range(self._sample_steps):
-                yield c_ones
-           
-        else:            
-            # use metropolis algorithm
-            hi = self.commonness
-            Jij = self.correlations
-
-            if mixture_size is None:
-                # go through all mixtures and don't keep the size constant
-                
-                # start with a random concentration vector 
-                c = np.random.random_integers(0, 1, self.Ns)
-                E_last = -np.dot(np.dot(Jij, c) + hi, c)
-                
-                for _ in range(self._sample_steps):
-                    i = random.randrange(self.Ns)
-                    c[i] = 1 - c[i] #< switch the entry
-                    Ei = -np.dot(np.dot(Jij, c) + hi, c)
-                    if Ei < E_last or random.random() < np.exp(E_last - Ei):
-                        # accept the new state
-                        E_last = Ei
-                    else:
-                        # reject the new state and revert to the last one
-                        c[i] = 1 - c[i]
-                
-                    yield c
-                            
-            else:
-                # go through mixtures with keeping their size constant
-
-                # create random concentration vector with fixed substrate count
-                c = np.r_[np.ones(mixture_size, np.uint),
-                          np.zeros(self.Ns - mixture_size, np.uint)]
-                np.random.shuffle(c)
-                E_last = -np.dot(np.dot(Jij, c) + hi, c)
-                
-                for _ in range(self._sample_steps):
-                    # find the next mixture by swapping two items
-                    i0 = random.choice(np.flatnonzero(c == 0)) #< find 0
-                    i1 = random.choice(np.flatnonzero(c))      #< find 1
-                    c[i0], c[i1] = 1, 0 #< swap entries
-                    Ei = -np.dot(np.dot(Jij, c) + hi, c)
-                    if Ei < E_last or random.random() < np.exp(E_last - Ei):
-                        # accept the new state
-                        E_last = Ei
-                    else:
-                        # reject the new state and revert to the last one
-                        c[i0], c[i1] = 0, 1
-                
-                    yield c
+        if steps is None:
+            steps = self._sample_steps
+        
+        return _sample_binary_mixtures(self, steps, dtype)
                         
             
     def mixture_statistics(self):
@@ -1171,6 +1104,87 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return MI, state, annealer.info
         else:
             return MI, state    
+
+
+
+def _sample_binary_mixtures(model, steps, dtype=np.uint):
+    """ generator function that samples mixtures according to the `model`.
+        `steps` determines how many mixtures are sampled
+        `dtype` determines the dtype of the resulting concentration vector
+    """
+    mixture_size = model.parameters['fixed_mixture_size']
+            
+    if not model.correlated_mixture and mixture_size is None:
+        # use simple monte carlo algorithm
+        prob_s = model.substrate_probabilities
+        
+        for _ in range(steps):
+            # choose a mixture vector according to substrate probabilities
+            yield (np.random.random(model.Ns) < prob_s).astype(dtype)
+
+    elif mixture_size is None:
+        # go through all mixtures and don't keep the size constant
+
+        # use metropolis algorithm
+        hi = model.commonness
+        Jij = model.correlations
+        
+        # start with a random concentration vector 
+        c = np.random.random_integers(0, 1, model.Ns).astype(dtype)
+        E_last = -np.dot(np.dot(Jij, c) + hi, c)
+        
+        for _ in range(steps):
+            i = random.randrange(model.Ns)
+            c[i] = 1 - c[i] #< switch the entry
+            Ei = -np.dot(np.dot(Jij, c) + hi, c)
+            if Ei < E_last or random.random() < np.exp(E_last - Ei):
+                # accept the new state
+                E_last = Ei
+            else:
+                # reject the new state and revert to the last one
+                c[i] = 1 - c[i]
+        
+            yield c
+            
+    elif mixture_size == 0:
+        # special case which is not covered by the iteration below
+        c_zero = np.zeros(model.Ns, dtype)
+        for _ in range(model._sample_steps):
+            yield c_zero
+
+    elif mixture_size == model.Ns:
+        # special case which is not covered by the iteration below
+        c_ones = np.ones(model.Ns, dtype)
+        for _ in range(steps):
+            yield c_ones
+                    
+    else:
+        # go through mixtures with keeping their size constant
+
+        # use metropolis algorithm
+        hi = model.commonness
+        Jij = model.correlations
+
+        # create random concentration vector with fixed substrate count
+        c = np.r_[np.ones(mixture_size, dtype),
+                  np.zeros(model.Ns - mixture_size, dtype)]
+        np.random.shuffle(c)
+        E_last = -np.dot(np.dot(Jij, c) + hi, c)
+        
+        for _ in range(steps):
+            # find the next mixture by swapping two items
+            i0 = random.choice(np.flatnonzero(c == 0)) #< find 0
+            i1 = random.choice(np.flatnonzero(c))      #< find 1
+            c[i0], c[i1] = 1, 0 #< swap entries
+            Ei = -np.dot(np.dot(Jij, c) + hi, c)
+            if Ei < E_last or random.random() < np.exp(E_last - Ei):
+                # accept the new state
+                E_last = Ei
+            else:
+                # reject the new state and revert to the last one
+                c[i0], c[i1] = 0, 1
+        
+            yield c
 
 
 

@@ -39,7 +39,8 @@ class TestLibrarySparse(unittest.TestCase):
         for k, v in a.iteritems():
             # create a message if non was given
             if msg is None:
-                submsg = 'Dictionaries differ for key `%s`' % k
+                submsg = ('Dictionaries differ for key `%s` (%s != %s)'
+                          % (k, v, b[k]))
             else:
                 submsg = msg
                 

@@ -9,11 +9,11 @@ from __future__ import division
 import logging
 
 import numpy as np
-from six.moves import range
 
 from utils.math_distributions import lognorm_mean, loguniform_mean
 from utils.misc import is_pos_semidef
 from .library_base import LibrarySparseBase  # @UnresolvedImport
+from ..binary_mixtures.library_numeric import _sample_binary_mixtures
 
 
 
@@ -26,6 +26,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         'max_steps': 1e7,                  #< maximal number of steps 
         'interaction_matrix': None,        #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
+        'fixed_mixture_size': None,     #< fixed m or None
         'monte_carlo_steps': 'auto',       #< default steps for monte carlo
         'monte_carlo_steps_min': 1e4,      #< minimal steps for monte carlo
         'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
@@ -41,6 +42,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         super(LibrarySparseNumeric, self).__init__(num_substrates,
                                                    num_receptors,
                                                    parameters)        
+        return
 
         initialize_state = self.parameters['initialize_state']
         
@@ -101,11 +103,14 @@ class LibrarySparseNumeric(LibrarySparseBase):
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        obj = super(LibrarySparseNumeric, cls).create_test_instance(**kwargs)
+        parent = super(LibrarySparseNumeric, cls)
+        obj_base = parent.create_test_instance(**kwargs)
 
         # determine optimal parameters for the interaction matrix
-        from .library_theory import LibrarySparseBinary  # @UnresolvedImport
-        theory = LibrarySparseBinary.from_other(obj)     # @UndefinedVariable
+        from .library_theory import LibrarySparseBinary  
+        theory = LibrarySparseBinary.from_other(obj_base) 
+        
+        obj = cls.from_other(obj_base)
         obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
     
@@ -271,22 +276,44 @@ class LibrarySparseNumeric(LibrarySparseBase):
         return self.monte_carlo_steps
 
 
-    def _sample_mixtures(self):
+    def _sample_mixtures(self, steps=None):
         """ sample mixtures with uniform probability yielding single mixtures """
-        # use simple monte carlo algorithm
-        p_i = self.substrate_probabilities
+        
+        if steps is None:
+            steps = self._sample_steps
+        
         d_i = self.concentrations
         
-        for _ in range(self._sample_steps):
-            # choose a mixture vector according to substrate probabilities
+        for b in _sample_binary_mixtures(self, steps=steps, dtype=np.bool):
+            # b is a vector containing 1's for the ligands that are present
+            
+            # choose concentrations for the ligands
             c = np.random.exponential(size=self.Ns) * d_i
             
-            # choose ligands that are _not_ in a mixture
-            b_not = (np.random.random(self.Ns) >= p_i)
-            c[b_not] = 0
+            # set concentration of ligands that are not present to zero 
+            c[~b] = 0
             
             yield c
-            
+
+
+    def mixture_statistics(self):
+        """ calculates mixture statistics using a metropolis algorithm """
+        count = 0
+        hist1d = np.zeros(self.Ns)
+        hist2d = np.zeros((self.Ns, self.Ns))
+
+        # sample mixtures uniformly        
+        for c in self._sample_mixtures():
+            count += 1
+            hist1d += c
+            hist2d += np.outer(c, c)
+        
+        # calculate the frequency and the correlations 
+        ci_mean = hist1d/count
+        cij_corr = hist2d/count - np.outer(ci_mean, ci_mean)
+        
+        return ci_mean, cij_corr
+    
     
     def excitation_statistics_estimate(self):
         """ calculates the statistics of the excitation of the receptors.

@@ -378,10 +378,7 @@ class LibraryBinaryBase(LibraryBase):
         corr_params = {'scheme': scheme, 'magnitude': magnitude,
                        'diagonal_zero': diagonal_zero}
 
-        if magnitude == 0:
-            Jij = np.zeros(shape)
-        
-        elif scheme == 'const':
+        if scheme == 'const':
             # all correlations are equal
             Jij = np.full(shape, magnitude)
             
