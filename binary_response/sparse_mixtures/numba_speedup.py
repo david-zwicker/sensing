@@ -62,7 +62,8 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(self, ret_correlations=Fa
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.correlated_mixture:
-        raise NotImplementedError('Not implemented for correlated mixtures')
+        raise NotImplementedError('Not implemented for correlated mixtures '
+                                  'Try using the pure-python method.')
 
     # prevent integer overflow in collecting activity patterns
     assert self.Nr <= self.parameters['max_num_receptors'] <= 63
@@ -143,7 +144,8 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.correlated_mixture:
-        raise NotImplementedError('Not implemented for correlated mixtures')
+        raise NotImplementedError('Not implemented for correlated mixtures. '
+                                  'Try using the pure-python method.')
 
     # prevent integer overflow in collecting activity patterns
     assert self.Nr <= self.parameters['max_num_receptors'] <= 63

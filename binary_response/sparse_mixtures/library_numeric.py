@@ -285,7 +285,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         d_i = self.concentrations
         
         for b in _sample_binary_mixtures(self, steps=steps, dtype=np.bool):
-            # b is a vector containing 1's for the ligands that are present
+            # boolean b vector is True for the ligands that are present
             
             # choose concentrations for the ligands
             c = np.random.exponential(size=self.Ns) * d_i
@@ -353,9 +353,6 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
     def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """ 
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
         # prevent integer overflow in collecting activity patterns
         assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
@@ -453,9 +450,6 @@ class LibrarySparseNumeric(LibrarySparseBase):
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
-        if self.correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
         # prevent integer overflow in collecting activity patterns
         assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
@@ -498,6 +492,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         q_n, q_nm = self.receptor_crosstalk_estimate(ret_receptor_activity=True,
                                                      approx_prob=approx_prob,
                                                      clip=clip)
+        
         # calculate the approximate mutual information
         return self._estimate_mutual_information_from_q_values(
                                            q_n, q_nm, use_polynom=use_polynom)

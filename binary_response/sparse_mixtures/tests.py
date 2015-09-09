@@ -36,13 +36,15 @@ class TestLibrarySparse(unittest.TestCase):
         
     def assertDictAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
         """ compares all the entries of the dictionaries a and b """
+        if msg is None:
+            msg = ''
+        else:
+            msg += '\n'
+        
         for k, v in a.iteritems():
             # create a message if non was given
-            if msg is None:
-                submsg = ('Dictionaries differ for key `%s` (%s != %s)'
-                          % (k, v, b[k]))
-            else:
-                submsg = msg
+            submsg = msg + ('Dictionaries differ for key `%s` (%s != %s)'
+                            % (k, v, b[k]))
                 
             # try comparing as numpy arrays and fall back if that doesn't work
             try:
@@ -190,7 +192,9 @@ class TestLibrarySparse(unittest.TestCase):
                 spread=lib_opt1['spread']
             )
             lib_opt2 = th2.get_optimal_library(fixed_parameter=b)
-            self.assertDictAllClose(lib_opt1, lib_opt2)
+            
+            msg = 'kept_fixed = (%s, %s)' % (a, b)
+            self.assertDictAllClose(lib_opt1, lib_opt2, msg=msg)
     
             
     def test_concentration_statistics(self):

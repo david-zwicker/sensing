@@ -120,7 +120,7 @@ class NumbaPatcher(object):
         
             
     @contextmanager
-    def as_distabled(self):
+    def as_disabled(self):
         """ context manager for temporarily disabling the patcher and restoring
         the previous state afterwards """
         if self.enabled:
