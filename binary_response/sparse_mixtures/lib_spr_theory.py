@@ -10,7 +10,7 @@ import numpy as np
 
 from utils.math_distributions import (lognorm_mean, loguniform_mean,
                                       DeterministicDistribution)
-from .library_base import LibrarySparseBase  # @UnresolvedImport
+from .lib_spr_base import LibrarySparseBase  # @UnresolvedImport
 
 
 

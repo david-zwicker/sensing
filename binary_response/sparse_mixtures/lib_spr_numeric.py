@@ -12,8 +12,8 @@ import numpy as np
 
 from utils.math_distributions import lognorm_mean, loguniform_mean
 from utils.misc import is_pos_semidef
-from .library_base import LibrarySparseBase  # @UnresolvedImport
-from ..binary_mixtures.library_numeric import _sample_binary_mixtures
+from .lib_spr_base import LibrarySparseBase  # @UnresolvedImport
+from ..binary_mixtures.lib_bin_numeric import _sample_binary_mixtures
 
 
 
@@ -107,7 +107,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         obj_base = parent.create_test_instance(**kwargs)
 
         # determine optimal parameters for the interaction matrix
-        from .library_theory import LibrarySparseBinary  
+        from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseBinary  
         theory = LibrarySparseBinary.from_other(obj_base) 
         
         obj = cls.from_other(obj_base)

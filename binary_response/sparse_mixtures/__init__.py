@@ -1,5 +1,5 @@
-from .library_numeric import LibrarySparseNumeric
-from .library_theory import (LibrarySparseBinary, LibrarySparseLogNormal,
+from .lib_spr_numeric import LibrarySparseNumeric
+from .lib_spr_theory import (LibrarySparseBinary, LibrarySparseLogNormal,
                              LibrarySparseLogUniform)
 
 __all__ = ['LibrarySparseNumeric', 'LibrarySparseBinary',

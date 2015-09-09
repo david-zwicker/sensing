@@ -13,7 +13,7 @@ from scipy import stats, integrate, optimize, special
 
 from utils.math_distributions import (lognorm_mean, DeterministicDistribution,
                                       HypoExponentialDistribution) 
-from .library_base import LibraryContinuousBase
+from .lib_con_base import LibraryContinuousBase
 
 
 

@@ -14,9 +14,9 @@ import numpy as np
 from scipy import misc
 from six.moves import zip_longest
 
-from .library_base import LibrarySparseBase
-from .library_numeric import LibrarySparseNumeric
-from .library_theory import (LibrarySparseBinary, LibrarySparseLogNormal,
+from .lib_spr_base import LibrarySparseBase
+from .lib_spr_numeric import LibrarySparseNumeric
+from .lib_spr_theory import (LibrarySparseBinary, LibrarySparseLogNormal,
                              LibrarySparseLogUniform)
 from .numba_speedup import numba_patcher
 from utils.misc import arrays_close

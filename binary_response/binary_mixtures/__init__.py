@@ -1,5 +1,5 @@
-from .library_numeric import LibraryBinaryNumeric
-from .library_theory import LibraryBinaryUniform
+from .lib_bin_numeric import LibraryBinaryNumeric
+from .lib_bin_theory import LibraryBinaryUniform
 
 # provide deprecated classes for compatibility
 from utils.misc import DeprecationHelper

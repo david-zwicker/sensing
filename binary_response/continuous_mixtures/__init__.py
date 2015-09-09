@@ -1,5 +1,5 @@
-from .library_numeric import LibraryContinuousNumeric
-from .library_theory import LibraryContinuousLogNormal
+from .lib_con_numeric import LibraryContinuousNumeric
+from .lib_con_theory import LibraryContinuousLogNormal
 
 __all__ = ['LibraryContinuousNumeric', 'LibraryContinuousLogNormal']
 

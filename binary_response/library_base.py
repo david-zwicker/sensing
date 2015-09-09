@@ -209,6 +209,37 @@ class LibraryBase(object):
       
     
 
+class LibraryNumericMixin(object):
+    """ Mixin class that defines functions that are useful for numerical 
+    calculations """
+    
+    
+    def receptor_activity_monte_carlo(self, ret_correlations=False):
+        """ calculates the average activity of each receptor """
+        # prevent integer overflow in collecting activity patterns
+        assert self.Nr <= self.parameters['max_num_receptors'] <= 63
+
+        S_ni = self.int_mat
+
+        r_n = np.zeros(self.Nr)
+        if ret_correlations:
+            r_nm = np.zeros((self.Nr, self.Nr))
+        
+        for c_i in self._sample_mixtures():
+            a_n = (np.dot(S_ni, c_i) >= 1)
+            r_n[a_n] += 1
+            if ret_correlations:
+                r_nm[np.outer(a_n, a_n)] += 1
+            
+        r_n /= self._sample_steps
+        if ret_correlations:
+            r_nm /= self._sample_steps
+            return r_n, r_nm
+        else:
+            return r_n        
+ 
+
+
 def _ensemble_average_job(args):
     """ helper function for calculating ensemble averages using
     multiprocessing """

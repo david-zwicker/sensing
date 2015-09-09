@@ -9,7 +9,7 @@ from __future__ import division
 import numpy as np
 from scipy import stats, special
 
-from ..binary_mixtures.library_base import LibraryBinaryBase
+from ..binary_mixtures.lib_bin_base import LibraryBinaryBase
 
 
 

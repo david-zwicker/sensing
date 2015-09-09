@@ -12,7 +12,7 @@ import numpy as np
 import scipy.stats
 
 from . import LibraryContinuousLogNormal
-from .library_base import LibraryContinuousBase
+from .lib_con_base import LibraryContinuousBase
 from .numba_speedup import numba_patcher
 
 

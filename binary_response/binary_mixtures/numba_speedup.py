@@ -13,7 +13,7 @@ import numba
 import numpy as np
 
 # these methods are used in getattr calls
-from . import library_numeric
+from . import lib_bin_numeric
 from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
                                  check_return_value_exact)
 
@@ -22,7 +22,7 @@ NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
 NUMBA_NOGIL = True
 
 # initialize the numba patcher and add methods one by one
-numba_patcher = NumbaPatcher(module=library_numeric)
+numba_patcher = NumbaPatcher(module=lib_bin_numeric)
 
 
 

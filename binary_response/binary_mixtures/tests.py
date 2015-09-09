@@ -13,8 +13,8 @@ import unittest
 import numpy as np
 from scipy import misc
 
-from .library_base import LibraryBinaryBase
-from .library_numeric import LibraryBinaryNumeric
+from .lib_bin_base import LibraryBinaryBase
+from .lib_bin_numeric import LibraryBinaryNumeric
 from .numba_speedup import numba_patcher
       
       

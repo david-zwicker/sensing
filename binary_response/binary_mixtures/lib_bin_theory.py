@@ -8,7 +8,7 @@ from __future__ import division
 
 import numpy as np
 
-from .library_base import LibraryBinaryBase
+from .lib_bin_base import LibraryBinaryBase
 
 
 LN2 = np.log(2)

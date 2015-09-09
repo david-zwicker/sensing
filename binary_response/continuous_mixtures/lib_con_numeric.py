@@ -13,7 +13,7 @@ from scipy import linalg
 from six.moves import range
 
 from utils.math_distributions import lognorm_mean
-from .library_base import LibraryContinuousBase
+from .lib_con_base import LibraryContinuousBase
 
 
 class LibraryContinuousNumeric(LibraryContinuousBase):
@@ -91,7 +91,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         obj = super(LibraryContinuousNumeric, cls).create_test_instance(**kwargs)
 
         # determine optimal parameters for the interaction matrix
-        from .library_theory import LibraryContinuousLogNormal
+        from .lib_con_theory import LibraryContinuousLogNormal
         theory = LibraryContinuousLogNormal.from_other(obj)
         obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj

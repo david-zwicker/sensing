@@ -31,7 +31,7 @@ import numpy as np
 import scipy.misc
 from six.moves import range, zip
 
-from .library_base import LibraryBinaryBase
+from .lib_bin_base import LibraryBinaryBase
 
 
 
@@ -189,7 +189,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         if density == 'auto':
             # determine optimal parameters for the interaction matrix
-            from .library_theory import LibraryBinaryUniform
+            from binary_response.binary_mixtures.lib_bin_theory import LibraryBinaryUniform
             theory = LibraryBinaryUniform.from_other(self)
             density = theory.get_optimal_library()['density']
             

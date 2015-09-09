@@ -13,7 +13,7 @@ import numba
 import numpy as np
 
 # these methods are used in getattr calls
-from . import library_numeric  # @UnresolvedImport
+from . import lib_spr_numeric
 from utils.numba_patcher import NumbaPatcher, check_return_value_approx
 
 
@@ -21,7 +21,7 @@ NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
 NUMBA_NOGIL = True
 
 # initialize the numba patcher and add methods one by one
-numba_patcher = NumbaPatcher(module=library_numeric)
+numba_patcher = NumbaPatcher(module=lib_spr_numeric)
 
 
 
