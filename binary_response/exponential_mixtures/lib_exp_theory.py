@@ -11,13 +11,13 @@ import warnings
 import numpy as np
 from scipy import stats, integrate, optimize, special
 
+from .lib_exp_base import LibraryExponentialBase
 from utils.math_distributions import (lognorm_mean, DeterministicDistribution,
                                       HypoExponentialDistribution) 
-from .lib_con_base import LibraryContinuousBase
 
 
 
-class LibraryContinuousLogNormal(LibraryContinuousBase):
+class LibraryExponentialLogNormal(LibraryExponentialBase):
     """ represents a single receptor library with random entries. The only
     parameters that characterizes this library is the density of entries. """
 
@@ -26,9 +26,9 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                  sigma=0.1, parameters=None):
         """ represents a theoretical receptor library where the entries of the
         sensitivity matrix are drawn from a log-normal distribution """
-        super(LibraryContinuousLogNormal, self).__init__(num_substrates,
-                                                         num_receptors,
-                                                         parameters)
+        super(LibraryExponentialLogNormal, self).__init__(num_substrates,
+                                                          num_receptors,
+                                                          parameters)
         self.mean_sensitivity = mean_sensitivity
         self.sigma = sigma
 
@@ -36,7 +36,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     @property
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
-        params = super(LibraryContinuousLogNormal, self).repr_params
+        params = super(LibraryExponentialLogNormal, self).repr_params
         params.append('sigma=%g' % self.sigma)
         params.append('S0=%g' % self.mean_sensitivity)
         return params
@@ -55,7 +55,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     def init_arguments(self):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
-        args = super(LibraryContinuousLogNormal, self).init_arguments
+        args = super(LibraryExponentialLogNormal, self).init_arguments
         args['mean_sensitivity'] = self.mean_sensitivity
         args['sigma'] = self.sigma
         return args
@@ -64,7 +64,8 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        args = super(LibraryContinuousLogNormal, cls).get_random_arguments(**kwargs)
+        parent_cls = super(LibraryExponentialLogNormal, cls)
+        args = parent_cls.get_random_arguments(**kwargs)
         S0 = np.random.random() + 0.5
         args['mean_sensitivity'] = kwargs.get('mean_sensitivity', S0)
         args['sigma'] = kwargs.get('sigma', 0.1*np.random.random())
@@ -97,9 +98,6 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     def receptor_activity(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        if self.is_correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
         p_i = self.concentrations
         
         if self.sigma == 0:
@@ -146,9 +144,6 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     def receptor_activity_estimate(self, method='normal'):
         """ return the probability with which a single receptor is activated 
         by typical mixtures using an gaussian approximation """
-        if self.is_correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
-
         p_i = self.concentrations
 
         if method == 'normal':

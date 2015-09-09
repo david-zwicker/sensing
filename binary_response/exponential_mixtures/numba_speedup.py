@@ -13,7 +13,7 @@ import numba
 import numpy as np
 
 # these methods are used in getattr calls
-from . import lib_con_numeric
+from . import lib_exp_numeric
 from utils.numba_patcher import NumbaPatcher, check_return_value_approx
 
 
@@ -21,12 +21,12 @@ NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
 NUMBA_NOGIL = True
 
 # initialize the numba patcher and add methods one by one
-numba_patcher = NumbaPatcher(module=lib_con_numeric)
+numba_patcher = NumbaPatcher(module=lib_exp_numeric)
 
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibraryContinuousNumeric_receptor_activity_numba(Ns, Nr, steps, int_mat,
+def LibraryExponentialNumeric_receptor_activity_numba(Ns, Nr, steps, int_mat,
                                                      c_means, alpha, count_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
@@ -47,14 +47,14 @@ def LibraryContinuousNumeric_receptor_activity_numba(Ns, Nr, steps, int_mat,
                 count_a[a] += 1
     
 
-def LibraryContinuousNumeric_receptor_activity(self):
+def LibraryExponentialNumeric_receptor_activity(self):
     """ calculate the mutual information by constructing all possible
     mixtures """
     count_a = np.zeros(self.Nr, np.uint32) 
     steps = self._sample_steps
  
     # call the jitted function
-    LibraryContinuousNumeric_receptor_activity_numba(
+    LibraryExponentialNumeric_receptor_activity_numba(
         self.Ns, self.Nr, self._sample_steps, self.int_mat,
         self.concentration_means, #< c_means
         np.empty(self.Nr, np.double), #< alpha
@@ -65,15 +65,15 @@ def LibraryContinuousNumeric_receptor_activity(self):
 
 
 numba_patcher.register_method(
-    'LibraryContinuousNumeric.receptor_activity',
-    LibraryContinuousNumeric_receptor_activity,
+    'LibraryExponentialNumeric.receptor_activity',
+    LibraryExponentialNumeric_receptor_activity,
     check_return_value_approx
 )
 
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibraryContinuousNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
+def LibraryExponentialNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
                                                       c_means, alpha, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
@@ -111,13 +111,13 @@ def LibraryContinuousNumeric_mutual_information_numba(Ns, Nr, steps, int_mat,
     return MI
     
 
-def LibraryContinuousNumeric_mutual_information(self, ret_prob_activity=False):
+def LibraryExponentialNumeric_mutual_information(self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     prob_a = np.zeros(2**self.Nr) 
  
     # call the jitted function
-    MI = LibraryContinuousNumeric_mutual_information_numba(
+    MI = LibraryExponentialNumeric_mutual_information_numba(
         self.Ns, self.Nr, self._sample_steps, 
         self.int_mat,
         self.concentration_means, #< c_means
@@ -132,8 +132,8 @@ def LibraryContinuousNumeric_mutual_information(self, ret_prob_activity=False):
 
 
 numba_patcher.register_method(
-    'LibraryContinuousNumeric.mutual_information',
-    LibraryContinuousNumeric_mutual_information,
+    'LibraryExponentialNumeric.mutual_information',
+    LibraryExponentialNumeric_mutual_information,
     check_return_value_approx
 )
 

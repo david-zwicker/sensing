@@ -13,7 +13,7 @@ from ..library_base import LibraryBase
 
 
 
-class LibraryContinuousBase(LibraryBase):
+class LibraryExponentialBase(LibraryBase):
     """ represents a single receptor library. This is a base class that provides
     general functionality and parameter management.
     
@@ -26,8 +26,6 @@ class LibraryContinuousBase(LibraryBase):
     parameters_default = {
         'concentrations_vector': None,     #< chosen substrate concentration
         'concentrations_parameters': None, #< parameters for substrate concentration
-        'correlation_matrix': None,       #< chosen substrate correlations
-        'correlation_parameters': None,   #< parameters for substrate correlation
     }
 
 
@@ -35,25 +33,22 @@ class LibraryContinuousBase(LibraryBase):
         """ initialize a receptor library by setting the number of receptors,
         the number of substrates it can respond to, and optional additional
         parameters in the parameter dictionary """
-        super(LibraryContinuousBase, self).__init__(num_substrates,
-                                                    num_receptors,
-                                                    parameters)
+        super(LibraryExponentialBase, self).__init__(num_substrates,
+                                                     num_receptors,
+                                                     parameters)
 
         initialize_state = self.parameters['initialize_state'] 
         if initialize_state is None:
             # do not initialize with anything
             self.concentrations = None
-            self.correlations = None
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
             self.concentrations = self.parameters['concentrations_vector']
-            self.correlations = self.parameters['correlation_matrix']
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
             self.choose_concentrations(**self.parameters['concentrations_parameters'])
-            self.choose_correlations(**self.parameters['correlation_parameters'])
             
         elif initialize_state == 'auto':
             # use exact values if saved or ensemble properties otherwise
@@ -62,11 +57,6 @@ class LibraryContinuousBase(LibraryBase):
             else:
                 self.choose_concentrations(**self.parameters['concentrations_parameters'])
                 
-            if self.parameters['correlation_parameters'] is None:
-                self.correlations = self.parameters['correlation_matrix']
-            else:
-                self.choose_correlations(**self.parameters['correlation_parameters'])
-        
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              initialize_state)
@@ -75,32 +65,22 @@ class LibraryContinuousBase(LibraryBase):
     @property
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
-        params = super(LibraryContinuousBase, self).repr_params
+        params = super(LibraryExponentialBase, self).repr_params
         params.append('<c_i>=%g' % self.concentration_means)
         return params
 
 
     @classmethod
-    def get_random_arguments(cls, homogeneous_mixture=False, 
-                             mixture_correlated=False, **kwargs):
+    def get_random_arguments(cls, homogeneous_mixture=False,  **kwargs):
         """ create random arguments for creating test instances """
-        args = super(LibraryContinuousBase, cls).get_random_arguments(**kwargs)
-        Ns = args['num_substrates']
+        args = super(LibraryExponentialBase, cls).get_random_arguments(**kwargs)
         
         if homogeneous_mixture:
             p_i = np.full(args['num_substrates'], np.random.random() + 0.5)
         else:
             p_i = np.random.random(args['num_substrates']) + 0.5
             
-        if mixture_correlated:
-            p_ij = np.random.normal(size=(Ns, Ns))
-            np.fill_diagonal(p_ij, 0)
-            # the matrix will be symmetrize when it is set on the instance 
-        else:
-            p_ij = np.zeros((Ns, Ns))
-            
-        args['parameters'] = {'commonness_vector': p_i,
-                              'correlation_matrix': p_ij}
+        args['parameters'] = {'commonness_vector': p_i}
         return args
 
 
@@ -183,37 +163,5 @@ class LibraryContinuousBase(LibraryBase):
         c_params = {'scheme': scheme, 'total_concentration': total_concentration}
         c_params.update(kwargs)
         self.parameters['concentrations_parameters'] = c_params  
-        
-
-    @property
-    def correlations(self):
-        """ return the correlation matrix """
-        return self._pij
-    
-    @correlations.setter
-    def correlations(self, pij):
-        """ sets the correlations """
-        if pij is None:
-            # initialize with default values, but don't save the parameters
-            self._pij = np.zeros((self.Ns, self.Ns))
-            
-        else:
-            if pij.shape != (self.Ns, self.Ns):
-                raise ValueError('Dimension of the correlation matrix must be '
-                                 'Ns x Ns, where Ns is the number of '
-                                 'substrates.')
-            self._pij = np.asarray(pij)
-            
-            # symmetrize the matrix
-            self._pij = np.tril(pij) + np.tril(pij, -1).T
-        
-            # save the values, since they were set explicitly 
-            self.parameters['correlation_matrix'] = self._pij
-    
-    
-    @property 
-    def is_correlated_mixture(self):
-        """ returns True if the mixture has correlations """
-        offdiag = ~np.eye(self.Ns, dtype=np.bool)
-        return np.count_nonzero(self.correlations[offdiag]) > 0        
+   
 

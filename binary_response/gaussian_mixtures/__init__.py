@@ -1,7 +1,6 @@
-from .lib_con_numeric import LibraryContinuousNumeric
-from .lib_con_theory import LibraryContinuousLogNormal
+from .lib_gau_numeric import LibraryGaussianNumeric
 
-__all__ = ['LibraryContinuousNumeric', 'LibraryContinuousLogNormal']
+__all__ = ['LibraryGaussianNumeric']
 
 # try importing numba for speeding up calculations
 try:

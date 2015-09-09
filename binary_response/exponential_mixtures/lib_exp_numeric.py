@@ -9,15 +9,14 @@ from __future__ import division
 import logging
 
 import numpy as np
-from scipy import linalg
 from six.moves import range
 
-from .lib_con_base import LibraryContinuousBase
+from .lib_exp_base import LibraryExponentialBase
 from ..library_base import LibraryNumericMixin
 from utils.math_distributions import lognorm_mean
 
 
-class LibraryContinuousNumeric(LibraryContinuousBase, LibraryNumericMixin):
+class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
     """ represents a single receptor library that handles continuous mixtures,
     which are defined by their concentration mean and variance """
 
@@ -38,7 +37,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase, LibraryNumericMixin):
         parameters in the parameter dictionary """
         # the call to the inherited method also sets the default parameters from
         # this class
-        super(LibraryContinuousNumeric, self).__init__(num_substrates,
+        super(LibraryExponentialNumeric, self).__init__(num_substrates,
                                                        num_receptors,
                                                        parameters)        
 
@@ -90,11 +89,11 @@ class LibraryContinuousNumeric(LibraryContinuousBase, LibraryNumericMixin):
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
-        obj = super(LibraryContinuousNumeric, cls).create_test_instance(**kwargs)
+        obj = super(LibraryExponentialNumeric, cls).create_test_instance(**kwargs)
 
         # determine optimal parameters for the interaction matrix
-        from .lib_con_theory import LibraryContinuousLogNormal
-        theory = LibraryContinuousLogNormal.from_other(obj)
+        from .lib_exp_theory import LibraryExponentialLogNormal
+        theory = LibraryExponentialLogNormal.from_other(obj)
         obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
     
@@ -121,21 +120,9 @@ class LibraryContinuousNumeric(LibraryContinuousBase, LibraryNumericMixin):
         
         c_means = self.concentration_means
         
-        if self.is_correlated_mixture:
-            
-            # pre-calculations
-            lower = True #< we use the lower triangular matrix to store data
-            Lij = linalg.cholesky(self.correlations, lower)
-            li = linalg.solve_triangular(Lij, self.concentrations, lower=lower)
-            
-            for _ in range(steps):
-                # TODO: try using exponential random numbers
-                yield np.dot(Lij, np.random.randn(self.Ns) + li)
-        
-        else:
-            for _ in range(steps):
-                # choose a mixture vector according to substrate probabilities
-                yield np.random.exponential(size=self.Ns) * c_means
+        for _ in range(steps):
+            # choose a mixture vector according to substrate probabilities
+            yield np.random.exponential(size=self.Ns) * c_means
 
 
     def choose_interaction_matrix(self, distribution, mean_sensitivity=1,

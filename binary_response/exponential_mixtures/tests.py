@@ -11,8 +11,8 @@ import unittest
 import numpy as np
 import scipy.stats
 
-from . import LibraryContinuousLogNormal
-from .lib_con_base import LibraryContinuousBase
+from .lib_exp_base import LibraryExponentialBase
+from .lib_exp_theory import LibraryExponentialLogNormal
 from .numba_speedup import numba_patcher
 from ..tests import TestBase
 
@@ -27,7 +27,7 @@ class TestLibraryContinuous(TestBase):
     def test_base(self):
         """ consistency tests on the base class """
         # construct random model
-        model = LibraryContinuousBase.create_test_instance()
+        model = LibraryExponentialBase.create_test_instance()
         
         # probability of having d_s components in a mixture for h_i = h
         c_means = model.concentration_means
@@ -42,7 +42,7 @@ class TestLibraryContinuous(TestBase):
         for homogeneous, approx in [(True, 'normal'), (False, 'normal'),
                                     (True, 'gamma')]:
             # create random object
-            obj1 = LibraryContinuousLogNormal.create_test_instance(
+            obj1 = LibraryExponentialLogNormal.create_test_instance(
                                                homogeneous_mixture=homogeneous)
             obj2 = obj1.copy()
             
