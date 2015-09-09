@@ -119,23 +119,25 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         if steps is None:
             steps = self._sample_steps
         
-        c_means = self.concentration_means
-        
         if self.is_correlated_mixture:
+            # yield correlated Gaussian variables
             
+            ci_means = self.concentrations
+
             # pre-calculations
-            lower = True #< we use the lower triangular matrix to store data
-            Lij = linalg.cholesky(self.correlations, lower)
-            li = linalg.solve_triangular(Lij, self.concentrations, lower=lower)
+            Lij = linalg.cholesky(self.correlations, lower=True)
             
             for _ in range(steps):
-                # TODO: try using exponential random numbers
-                yield np.dot(Lij, np.random.randn(self.Ns) + li)
+                yield np.dot(Lij, np.random.randn(self.Ns)) + ci_means
         
         else:
+            # yield independent Gaussian variables
+            ci_stats = self.concentration_statistics()
+            ci_mean = ci_stats['mean']
+            ci_var = ci_stats['var']
+            
             for _ in range(steps):
-                # choose a mixture vector according to substrate probabilities
-                yield np.random.exponential(size=self.Ns) * c_means
+                yield np.random.randn(self.Ns) * ci_var + ci_mean
 
 
     def choose_interaction_matrix(self, distribution, mean_sensitivity=1,

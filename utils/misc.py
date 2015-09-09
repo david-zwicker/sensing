@@ -33,16 +33,20 @@ xlog2x = np.vectorize(xlog2x, otypes='d')
 
 def arrays_close(arr1, arr2, rtol=1e-05, atol=1e-08, equal_nan=False):
     """ compares two arrays using a relative and an absolute tolerance """
-    arr1 = np.asanyarray(arr1)
-    arr2 = np.asanyarray(arr2)
+    arr1 = np.atleast_1d(arr1)
+    arr2 = np.atleast_1d(arr2)
     
     if arr1.shape != arr2.shape:
         # arrays with different shape are always unequal
         return False
-    
+        
     if equal_nan:
         # skip entries where both arrays are nan
         idx = ~(np.isnan(arr1) & np.isnan(arr2))
+        if idx.sum() == 0:
+            # occurs when both arrays are full of NaNs
+            return True
+
         arr1 = arr1[idx]
         arr2 = arr2[idx]
     
