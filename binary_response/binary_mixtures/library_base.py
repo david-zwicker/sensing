@@ -392,7 +392,7 @@ class LibraryBinaryBase(LibraryBase):
                 # create `count` blocks of almost even size
                 sizes = np.full(count, self.Ns // count, np.int)
                 sizes[:self.Ns % count] += 1
-                blocks = [np.ones((size, size)) for size in sizes]
+                blocks = [magnitude * np.ones((size, size)) for size in sizes]
                 Jij = linalg.block_diag(*blocks)
         
         elif scheme == 'random_binary':

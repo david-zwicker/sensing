@@ -300,7 +300,7 @@ class TestLibraryBinary(unittest.TestCase):
             else:
                 msg = ("Optimization inconsistent (%g != %g) for %s"
                        % (MI_ref, MI, str(test_parameters)))
-                self.assertAllClose(MI, MI_ref, rtol=5e-2, atol=5e-2, msg=msg)
+                self.assertAllClose(MI, MI_ref, rtol=.1, atol=.1, msg=msg)
         
         
 

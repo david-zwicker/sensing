@@ -314,10 +314,92 @@ class LibrarySparseNumeric(LibrarySparseBase):
         
         return ci_mean, cij_corr
     
+
+    def excitation_statistics(self, method='auto', ret_correlations=True):
+        """ calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.excitation_statistics_monte_carlo(ret_correlations)
+        
+        elif method == 'estimate':
+            return self.excitation_statistics_estimate()
+        
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+                        
+                            
+    def excitation_statistics_monte_carlo(self, ret_correlations=False):
+        """
+        calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+        
+        The algorithms used here have been taken from
+            https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+        """
+        # prevent integer overflow in collecting activity patterns
+        assert self.Nr <= self.parameters['max_num_receptors'] <= 63
+
+        S_ni = self.int_mat
+
+        if ret_correlations:
+            # calculate the mean and the covariance matrix
+    
+            # prepare variables holding the necessary data
+            en_mean = np.zeros(self.Nr)
+            enm_cov = np.zeros((self.Nr, self.Nr))
+            
+            # sample mixtures and safe the requested data
+            for count, c_i in enumerate(self._sample_mixtures(), 1):
+                e_n = np.dot(S_ni, c_i)
+                delta = (e_n - en_mean) / count
+                en_mean += delta
+                enm_cov += (count - 1) * np.outer(delta, delta) - enm_cov / count
+                
+            # calculate the requested statistics
+            if count < 2:
+                enm_cov.fill(np.nan)
+            else:
+                enm_cov *= count / (count - 1)
+            
+            en_var = np.diag(enm_cov)
+            
+            return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                    'covar': enm_cov}
+            
+        else:
+            # only calculate the mean and the variance
+    
+            # prepare variables holding the necessary data
+            en_mean = np.zeros(self.Nr)
+            en_square = np.zeros(self.Nr)
+            
+            # sample mixtures and safe the requested data
+            for count, c_i in enumerate(self._sample_mixtures(), 1):
+                e_n = np.dot(S_ni, c_i)
+                delta = e_n - en_mean
+                en_mean += delta / count
+                en_square += delta*(e_n - en_mean)
+                
+            # calculate the requested statistics
+            if count < 2:
+                en_var.fill(np.nan)
+            else:
+                en_var = en_square / (count - 1)
+    
+            return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var}
+            
     
     def excitation_statistics_estimate(self):
-        """ calculates the statistics of the excitation of the receptors.
-        Returns the mean exciation, the variance, and the covariance matrix """
+        """
+        calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+        """
         if self.correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
@@ -395,7 +477,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
 
             return r_n, r_nm
         else:
-            return r_nm
+            return r_n
                
  
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
@@ -446,8 +528,27 @@ class LibrarySparseNumeric(LibrarySparseBase):
         else:
             return q_nm        
         
-                           
-    def mutual_information(self, ret_prob_activity=False):
+        
+    def mutual_information(self, method='auto', ret_prob_activity=False,
+                           **kwargs):
+        """ calculate the mutual information of the receptor array.
+
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.mutual_information_monte_carlo(ret_prob_activity)
+        
+        elif method == 'estimate':
+            return self.mutual_information_estimate(ret_prob_activity, **kwargs)
+        
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+        
+                                   
+    def mutual_information_monte_carlo(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
         # prevent integer overflow in collecting activity patterns
@@ -469,19 +570,19 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 
-        prob_a = count_a / count_a.sum()
+        q_n = count_a / count_a.sum()
         
         # calculate the mutual information from the result pattern
-        MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
+        MI = -sum(q*np.log2(q) for q in q_n if q != 0)
 
         if ret_prob_activity:
-            return MI, prob_a
+            return MI, q_n
         else:
             return MI
 
                     
     def mutual_information_estimate(self, approx_prob=False, clip=True,
-                                    use_polynom=False):
+                                    use_polynom=False, ret_prob_activity=False):
         """ returns a simple estimate of the mutual information.
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
@@ -494,7 +595,12 @@ class LibrarySparseNumeric(LibrarySparseBase):
                                                      clip=clip)
         
         # calculate the approximate mutual information
-        return self._estimate_mutual_information_from_q_values(
+        MI = self._estimate_mutual_information_from_q_values(
                                            q_n, q_nm, use_polynom=use_polynom)
+        
+        if ret_prob_activity:
+            return MI, q_n
+        else:
+            return MI
         
             

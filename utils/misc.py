@@ -31,6 +31,27 @@ xlog2x = np.vectorize(xlog2x, otypes='d')
 
 
 
+def arrays_close(arr1, arr2, rtol=1e-05, atol=1e-08, equal_nan=False):
+    """ compares two arrays using a relative and an absolute tolerance """
+    arr1 = np.asanyarray(arr1)
+    arr2 = np.asanyarray(arr2)
+    
+    if arr1.shape != arr2.shape:
+        # arrays with different shape are always unequal
+        return False
+    
+    if equal_nan:
+        # skip entries where both arrays are nan
+        idx = ~(np.isnan(arr1) & np.isnan(arr2))
+        arr1 = arr1[idx]
+        arr2 = arr2[idx]
+    
+    # get the scale of the first array
+    scale = np.linalg.norm(arr1.flat, np.inf)
+    return np.any(np.abs(arr1 - arr2) <= (atol + rtol * scale))
+
+
+
 def is_pos_semidef(x):
     """ checks whether the correlation matrix is positive semi-definite """
     return np.all(np.linalg.eigvals(x) >= 0)

@@ -12,12 +12,14 @@ import unittest
 
 import numpy as np
 from scipy import misc
+from six.moves import zip_longest
 
-from .library_base import LibrarySparseBase  # @UnresolvedImport
+from .library_base import LibrarySparseBase
 from .library_numeric import LibrarySparseNumeric
 from .library_theory import (LibrarySparseBinary, LibrarySparseLogNormal,
                              LibrarySparseLogUniform)
-from .numba_speedup import numba_patcher  # @UnresolvedImport
+from .numba_speedup import numba_patcher
+from utils.misc import arrays_close
 
       
       
@@ -27,11 +29,32 @@ class TestLibrarySparse(unittest.TestCase):
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
     
     
-    def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
+    def assertAllClose(self, arr1, arr2, rtol=1e-05, atol=1e-08, msg=None):
         """ compares all the entries of the arrays a and b """
-        is_close = (np.allclose(a, b, rtol, atol) or
-                    (np.isnan(a) and np.isnan(b)))
-        self.assertTrue(is_close, msg)
+        try:
+            # try to convert to numpy arrays
+            arr1 = np.asanyarray(arr1)
+            arr2 = np.asanyarray(arr2)
+            
+        except ValueError:
+            # try iterating explicitly
+            try:
+                for v1, v2 in zip_longest(arr1, arr2):
+                    self.assertAllClose(v1, v2, rtol, atol, msg)
+            except TypeError:
+                if msg is None:
+                    msg = ""
+                else:
+                    msg += "; "
+                raise TypeError(msg + "Don't know how to compare %s and %s"
+                                % (arr1, arr2))
+                
+        else:
+            if msg is None:
+                msg = 'Values are not equal'
+            msg += '\n%s !=\n%s)' % (arr1, arr2)
+            is_close = arrays_close(arr1, arr2, rtol, atol, equal_nan=True)
+            self.assertTrue(is_close, msg)
 
         
     def assertDictAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg=None):
@@ -218,11 +241,33 @@ class TestLibrarySparse(unittest.TestCase):
                 
                 self.assertAllClose(r_n, q_n, rtol=5e-2, atol=5e-2,
                                     msg='Receptor activities: ' + error_msg)
-                # r_nm_calc = np.clip(np.outer(q_n, q_n) + q_nm, 0, 1)
+
                 r_nm_calc = np.outer(q_n, q_n) + q_nm
                 self.assertAllClose(r_nm, r_nm_calc, rtol=0, atol=0.5,
                                     msg='Receptor correlations: ' + error_msg)
                 
+    
+    def test_estimates(self):
+        """ tests the estimates """
+        methods = ['excitation_statistics', 'receptor_activity']
+        
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
+            # check for known exception where the method are not implemented 
+            for method_name in methods:
+                method = getattr(model, method_name)
+                res_mc = method('monte_carlo')
+                res_est = method('estimate')
+                
+                msg = '%s, Method `%s`' % (error_msg, method_name)
+                if method_name == 'excitation_statistics':
+                    self.assertDictAllClose(res_mc, res_est, rtol=0.1, atol=0.5,
+                                            msg=msg)
+                else:
+                    self.assertAllClose(res_mc, res_est, rtol=0.1, atol=0.5,
+                                        msg=msg)
+                                        
                                 
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """
