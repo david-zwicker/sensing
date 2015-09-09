@@ -35,11 +35,11 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
         
         # calculate statistics of the sum s_n = S_ni * c_i        
         en_mean = S_mean * ctot_stats['mean']
-        en_var = (S_mean**2 + S_stats['var']) * ctot_stats['var']
-        enm_covar = (S_mean**2 + S_stats['covar']) * ctot_stats['var']
+        en_var  = (S_mean**2 + S_stats['var']) * ctot_stats['var']
+        enm_cov = (S_mean**2 + S_stats['cov']) * ctot_stats['var']
 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                'covar': enm_covar}
+                'cov': enm_cov}
         
     
     def receptor_activity(self, approx_prob=False, ret_correlations=False,
@@ -183,7 +183,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         """ returns statistics of the sensitivity distribution """
         S0 = self.mean_sensitivity
         var = S0**2 * (1/self.density - 1)
-        return {'mean': S0, 'var': var, 'std': np.sqrt(var), 'covar': 0}
+        return {'mean': S0, 'var': var, 'std': np.sqrt(var), 'cov': 0}
 
 
     def density_optimal(self, assume_homogeneous=False):
@@ -322,7 +322,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         S0 = self.mean_sensitivity
         var = S0**2 * (np.exp(self.spread**2) - 1)
         covar = S0**2 * (np.exp(self.correlation * self.spread**2) - 1)
-        return {'mean': S0, 'std': np.sqrt(var), 'var': var, 'covar': covar}
+        return {'mean': S0, 'std': np.sqrt(var), 'var': var, 'cov': covar}
 
 
     def get_optimal_parameters(self, fixed_parameter='S0'):
@@ -442,7 +442,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
             exp_s2 = np.exp(spread)**2
             var = S0**2 * (1 - exp_s2 + (1 + exp_s2)*spread)/(exp_s2 - 1)
             
-        return {'mean': S0, 'var': var, 'covar': 0}
+        return {'mean': S0, 'var': var, 'cov': 0}
     
 
     def get_optimal_library(self, spread_opt=2):

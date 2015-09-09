@@ -295,8 +295,16 @@ class LibrarySparseNumeric(LibrarySparseBase):
             
             yield c
 
+    
+    def concentration_statistics(self):
+        """ returns statistics for each individual substrate """
+        if self.is_correlated_mixture:
+            return self.concentration_statistics_monte_carlo()
+        else:
+            return super(LibrarySparseNumeric, self).concentration_statistics()
 
-    def mixture_statistics(self):
+
+    def concentration_statistics_monte_carlo(self):
         """ calculates mixture statistics using a metropolis algorithm """
         count = 0
         hist1d = np.zeros(self.Ns)
@@ -312,7 +320,9 @@ class LibrarySparseNumeric(LibrarySparseBase):
         ci_mean = hist1d/count
         cij_corr = hist2d/count - np.outer(ci_mean, ci_mean)
         
-        return ci_mean, cij_corr
+        c_vars = np.diag(cij_corr)
+        return {'mean': ci_mean, 'std': np.sqrt(c_vars), 'var': c_vars,
+                'cov': cij_corr}
     
 
     def excitation_statistics(self, method='auto', ret_correlations=True):
@@ -370,7 +380,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
             en_var = np.diag(enm_cov)
             
             return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                    'covar': enm_cov}
+                    'cov': enm_cov}
             
         else:
             # only calculate the mean and the variance
@@ -409,10 +419,10 @@ class LibrarySparseNumeric(LibrarySparseBase):
         S_ni = self.int_mat
         en_mean = np.dot(S_ni, c_stats['mean'])
         enm_covar = np.einsum('ni,mi,i->nm', S_ni, S_ni, c_stats['var'])
-        en_var = np.diag(enm_covar) #< en_var = np.dot(S_ni**2, c_stats['var'])
+        en_var = np.diag(enm_covar)
         
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                'covar': enm_covar}
+                'cov': enm_covar}
             
         
     def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
