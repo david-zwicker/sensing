@@ -11,7 +11,7 @@ import unittest
 import numpy as np
 from six.moves import zip_longest
 
-from library_base import LibraryBase  # @UnresolvedImport
+from .library_base import LibraryBase
 from utils.misc import arrays_close
 
       
@@ -54,7 +54,7 @@ class TestBase(unittest.TestCase):
         else:
             msg += '\n'
         
-        for k, v in a.iteritems():
+        for k, v in a.items():
             # create a message if non was given
             submsg = msg + ('Dictionaries differ for key `%s` (%s != %s)'
                             % (k, v, b[k]))

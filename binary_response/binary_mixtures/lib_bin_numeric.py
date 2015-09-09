@@ -432,7 +432,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             observations[np.dot(c, base)] += 1
         
         # estimate entropy from the histogram
-        counts = np.array(observations.values(), np.double)
+        counts = np.fromiter(observations.values(), np.double,
+                             len(observations))
         
         # Naive implementation of measuring the entropy is
         #    ps = counts / self._sample_steps

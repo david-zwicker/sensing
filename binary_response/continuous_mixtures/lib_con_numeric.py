@@ -18,7 +18,8 @@ from utils.math_distributions import lognorm_mean
 
 
 class LibraryContinuousNumeric(LibraryContinuousBase, LibraryNumericMixin):
-    """ represents a single receptor library that handles continuous mixtures """
+    """ represents a single receptor library that handles continuous mixtures,
+    which are defined by their concentration mean and variance """
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
