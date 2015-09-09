@@ -12,11 +12,12 @@ import numpy as np
 from scipy import linalg
 from six.moves import range
 
-from utils.math_distributions import lognorm_mean
 from .lib_con_base import LibraryContinuousBase
+from ..library_base import LibraryNumericMixin
+from utils.math_distributions import lognorm_mean
 
 
-class LibraryContinuousNumeric(LibraryContinuousBase):
+class LibraryContinuousNumeric(LibraryContinuousBase, LibraryNumericMixin):
     """ represents a single receptor library that handles continuous mixtures """
 
     # default parameters that are used to initialize a class if not overwritten
@@ -197,46 +198,14 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         self.parameters['interaction_matrix_params'] = int_mat_params 
 
 
-    def receptor_activity(self):
+    def receptor_activity(self, ret_correlations=False):
         """ calculates the average activity of each receptor """ 
-        count_a = np.zeros(self.Nr)
-        for c in self._sample_mixtures():
-            # get the associated output ...
-            alpha = (np.dot(self.int_mat, c) >= 1)
-            
-            count_a[alpha] += 1
-            
-        return count_a / self._sample_steps
+        return self.receptor_activity_monte_carlo(ret_correlations)
 
     
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
-                
-        base = 2 ** np.arange(0, self.Nr)
-
-        # sample mixtures according to the probabilities of finding
-        # substrates
-        count_a = np.zeros(2**self.Nr)
-        for c in self._sample_mixtures():
-            # get the associated output ...
-            alpha = (np.dot(self.int_mat, c) >= 1)
-            
-            # ... and represent it as a single integer
-            alpha_id = np.dot(base, alpha)
-            # increment counter for this output
-            count_a[alpha_id] += 1
-            
-        # count_a contains the number of times output pattern a was observed.
-        # We can thus construct P_a(a) from count_a. 
-        prob_a = count_a / self._sample_steps
-        
-        # calculate the mutual information from the result pattern
-        MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
-
-        if ret_prob_activity:
-            return MI, prob_a
-        else:
-            return MI
-
-            
+        return self.mutual_information_monte_carlo(ret_prob_activity)
+    
+    

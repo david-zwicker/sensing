@@ -32,6 +32,7 @@ import scipy.misc
 from six.moves import range, zip
 
 from .lib_bin_base import LibraryBinaryBase
+from ..library_base import LibraryNumericMixin
 
 
 
@@ -39,7 +40,7 @@ LN2 = np.log(2)
 
 
 
-class LibraryBinaryNumeric(LibraryBinaryBase):
+class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
     """ represents a single receptor library that handles binary mixtures """
     
     # default parameters that are used to initialize a class if not overwritten
@@ -338,17 +339,17 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         if self.is_correlated_mixture or fixed_mixture_size is not None:
             # mixture has correlations => we do Metropolis sampling
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
-                ci_mean, cij_corr = self.mixture_statistics_brute_force()
+                return self.mixture_statistics_brute_force()
             else:
-                ci_mean, cij_corr = self.mixture_statistics_monte_carlo()
+                return self.mixture_statistics_monte_carlo()
                 
         else:
             # mixture does not have correlations => we can calculated the
             # statistics directly
             ci_mean = self.substrate_probabilities
-            cij_corr = np.diag(ci_mean - ci_mean**2)
-            
-        return ci_mean, cij_corr
+            ci_var = ci_mean - ci_mean**2
+            return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
+                    'cov': np.diag(ci_var)}
     
     
     def mixture_statistics_brute_force(self):
@@ -369,28 +370,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         cij = hist2d / Z
         cij_corr = cij - np.outer(ci_mean, ci_mean)
         
-        return ci_mean, cij_corr  
+        ci_var = np.diag(cij_corr)
+        return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
+                'cov': cij_corr}
     
     
     def mixture_statistics_monte_carlo(self):
         """ calculates mixture statistics using a metropolis algorithm """
-       
-        count = 0
-        hist1d = np.zeros(self.Ns, np.int)
-        hist2d = np.zeros((self.Ns, self.Ns), np.int)
-
-        # sample mixtures uniformly        
-        for c in self._sample_mixtures():
-            count += 1
-            hist1d += c
-            hist2d += np.outer(c, c)
-        
-        # calculate the frequency and the correlations 
-        ci_mean = hist1d / count
-        cij = hist2d / count
-        cij_corr = cij - np.outer(ci_mean, ci_mean)
-        
-        return ci_mean, cij_corr
+        return self.concentration_statistics_monte_carlo()
     
     
     def mixture_entropy(self):
@@ -568,30 +555,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
             return r_n, r_nm
         else:
             return r_n
-
-            
-    def receptor_activity_monte_carlo(self, ret_correlations=False):
-        """ calculates the average activity of each receptor """
-        S_ni = self.int_mat
-        r_n = np.zeros(self.Nr)
-        if ret_correlations:
-            r_nm = np.zeros((self.Nr, self.Nr))
-            
-        for c in self._sample_mixtures():
-            # get the activity vector associated with the mixture
-            a_n = (np.dot(S_ni, c) >= 1)
-            
-            r_n[a_n] += 1
-            if ret_correlations:
-                r_nm[np.outer(a_n, a_n)] += 1
-            
-        # return the normalized output
-        r_n /= self._sample_steps
-        if ret_correlations:
-            r_nm /= self._sample_steps
-            return r_n, r_nm
-        else:
-            return r_n
  
  
     def receptor_activity_estimate(self, ret_correlations=False,
@@ -688,56 +651,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         else:
             return MI
             
-            
-    def mutual_information_monte_carlo(self, ret_error=False,
-                                       ret_prob_activity=False,
-                                       bias_correction=False):
-        """ calculate the mutual information using a Monte Carlo strategy. """
-        base = 2 ** np.arange(0, self.Nr)
-
-        steps = self._sample_steps
-
-        # sample mixtures according to the probabilities of finding
-        # substrates
-        count_a = np.zeros(2**self.Nr)
-        for c in self._sample_mixtures():
-            # get the associated output ...
-            a = np.dot(self.int_mat, c).astype(np.bool)
-            # ... and represent it as a single integer
-            a = np.dot(base, a)
-            # increment counter for this output
-            count_a[a] += 1
-        
-        # count_a contains the number of times output pattern a was observed.
-        # We can thus construct P_a(a) from count_a. 
-        prob_a = count_a / steps
-        # count_a_err = prob_a * np.sqrt(steps)
-        # prob_a_err = count_a_err / steps = prob_a / np.sqrt(steps) / steps
-        
-        # calculate the mutual information from the result pattern
-        MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
-        
-        if bias_correction:
-            # add entropy bias correction
-            MI += (np.count_nonzero(prob_a) - 1)/(2*steps)
-        
-        if ret_error:
-            # estimate the error of the mutual information calculation
-            MI_err = sum(np.abs(1/np.log(2) + np.log2(pa)) * pa
-                         for pa in prob_a if pa != 0) / np.sqrt(steps)
-
-            if ret_prob_activity:
-                return MI, MI_err, prob_a
-            else:
-                return MI, MI_err
-
-        else:
-            # error should not be calculated       
-            if ret_prob_activity:
-                return MI, prob_a
-            else:
-                return MI
-        
         
     def mutual_information_monte_carlo_extrapolate(self, ret_prob_activity=False):
         """ calculate the mutual information using a Monte Carlo strategy. """

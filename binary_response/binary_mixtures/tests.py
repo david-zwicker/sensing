@@ -16,21 +16,15 @@ from scipy import misc
 from .lib_bin_base import LibraryBinaryBase
 from .lib_bin_numeric import LibraryBinaryNumeric
 from .numba_speedup import numba_patcher
-      
+from ..tests import TestBase 
+
       
 
-class TestLibraryBinary(unittest.TestCase):
+class TestLibraryBinary(TestBase):
     """ unit tests for the binary library """
     
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
     
-    
-    def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg='The two '
-                       'arrays do not agree within the given tolerance:'):
-        """ compares all the entries of the arrays a and b """
-        if not np.allclose(a, b, rtol, atol):
-            self.fail(msg + '\nlhs = %s\nrhs = %s' % (a, b))
-
 
     def _create_test_models(self):
         """ helper method for creating test models """
@@ -135,18 +129,17 @@ class TestLibraryBinary(unittest.TestCase):
             error_msg = model.error_msg
             
             # check the mixture statistics
-            ci_1, cij_1 = model.mixture_statistics_brute_force()
+            c_stats_1 = model.mixture_statistics_brute_force()
             if not model.is_correlated_mixture:
-                ci_2, cij_2 = model.mixture_statistics()
-                self.assertAllClose(ci_1, ci_2, rtol=5e-2, atol=5e-2,
+                c_stats_2 = model.mixture_statistics()
+                self.assertDictAllClose(c_stats_1, c_stats_2,
+                                        rtol=5e-2, atol=5e-2,
+                                        msg='Mixture statistics: ' + error_msg)
+
+            c_stats_3 = model.mixture_statistics_monte_carlo()
+            self.assertDictAllClose(c_stats_1, c_stats_3,
+                                    rtol=5e-2, atol=5e-2,
                                     msg='Mixture statistics: ' + error_msg)
-                self.assertAllClose(cij_1, cij_2, rtol=5e-2, atol=5e-2,
-                                    msg='Mixture statistics: ' + error_msg)
-            ci_2, cij_2 = model.mixture_statistics_monte_carlo()
-            self.assertAllClose(ci_1, ci_2, rtol=5e-2, atol=5e-2,
-                                msg='Mixture statistics: ' + error_msg)
-            self.assertAllClose(cij_1, cij_2, rtol=5e-2, atol=5e-2,
-                                msg='Mixture statistics: ' + error_msg)
                 
                 
     def test_receptor_crosstalk(self):

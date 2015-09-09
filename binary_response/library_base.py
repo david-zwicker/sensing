@@ -211,9 +211,97 @@ class LibraryBase(object):
 
 class LibraryNumericMixin(object):
     """ Mixin class that defines functions that are useful for numerical 
-    calculations """
+    calculations.
+    
+    The iteration over mixtures must be implemented in the subclass. Here, we 
+    expect the methods `_sample_mixtures` and `_sample_steps` to exist, which
+    are a generator of mixtures and its expected length, respectively.    
+    """
     
     
+    def concentration_statistics_monte_carlo(self):
+        """ calculates mixture statistics using a metropolis algorithm """
+        count = 0
+        hist1d = np.zeros(self.Ns)
+        hist2d = np.zeros((self.Ns, self.Ns))
+
+        # sample mixtures uniformly
+        # FIXME: use better online algorithm that is less prone to canceling
+        for c in self._sample_mixtures():
+            count += 1
+            hist1d += c
+            hist2d += np.outer(c, c)
+        
+        # calculate the frequency and the correlations 
+        ci_mean = hist1d/count
+        cij_corr = hist2d/count - np.outer(ci_mean, ci_mean)
+        
+        ci_var = np.diag(cij_corr)
+        return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
+                'cov': cij_corr}
+        
+
+    def excitation_statistics_monte_carlo(self, ret_correlations=False):
+        """
+        calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+        
+        The algorithms used here have been taken from
+            https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+        """
+        # prevent integer overflow in collecting activity patterns
+        assert self.Nr <= self.parameters['max_num_receptors'] <= 63
+
+        S_ni = self.int_mat
+
+        if ret_correlations:
+            # calculate the mean and the covariance matrix
+    
+            # prepare variables holding the necessary data
+            en_mean = np.zeros(self.Nr)
+            enm_cov = np.zeros((self.Nr, self.Nr))
+            
+            # sample mixtures and safe the requested data
+            for count, c_i in enumerate(self._sample_mixtures(), 1):
+                e_n = np.dot(S_ni, c_i)
+                delta = (e_n - en_mean) / count
+                en_mean += delta
+                enm_cov += (count - 1) * np.outer(delta, delta) - enm_cov / count
+                
+            # calculate the requested statistics
+            if count < 2:
+                enm_cov.fill(np.nan)
+            else:
+                enm_cov *= count / (count - 1)
+            
+            en_var = np.diag(enm_cov)
+            
+            return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                    'cov': enm_cov}
+            
+        else:
+            # only calculate the mean and the variance
+    
+            # prepare variables holding the necessary data
+            en_mean = np.zeros(self.Nr)
+            en_square = np.zeros(self.Nr)
+            
+            # sample mixtures and safe the requested data
+            for count, c_i in enumerate(self._sample_mixtures(), 1):
+                e_n = np.dot(S_ni, c_i)
+                delta = e_n - en_mean
+                en_mean += delta / count
+                en_square += delta*(e_n - en_mean)
+                
+            # calculate the requested statistics
+            if count < 2:
+                en_var.fill(np.nan)
+            else:
+                en_var = en_square / (count - 1)
+    
+            return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var}
+        
+            
     def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """
         # prevent integer overflow in collecting activity patterns
@@ -237,7 +325,40 @@ class LibraryNumericMixin(object):
             return r_n, r_nm
         else:
             return r_n        
- 
+         
+                                   
+    def mutual_information_monte_carlo(self, ret_prob_activity=False):
+        """ calculate the mutual information using a monte carlo strategy. The
+        number of steps is given by the model parameter 'monte_carlo_steps' """
+        # prevent integer overflow in collecting activity patterns
+        assert self.Nr <= self.parameters['max_num_receptors'] <= 63
+
+        base = 2 ** np.arange(0, self.Nr)
+
+        # sample mixtures according to the probabilities of finding
+        # substrates
+        count_a = np.zeros(2**self.Nr)
+        for c in self._sample_mixtures():
+            # get the activity vector ...
+            a = (np.dot(self.int_mat, c) >= 1)
+            
+            # ... and represent it as a single integer
+            a_id = np.dot(base, a)
+            # increment counter for this output
+            count_a[a_id] += 1
+            
+        # count_a contains the number of times output pattern a was observed.
+        # We can thus construct P_a(a) from count_a. 
+        q_n = count_a / count_a.sum()
+        
+        # calculate the mutual information from the result pattern
+        MI = -sum(q*np.log2(q) for q in q_n if q != 0)
+
+        if ret_prob_activity:
+            return MI, q_n
+        else:
+            return MI
+        
 
 
 def _ensemble_average_job(args):
