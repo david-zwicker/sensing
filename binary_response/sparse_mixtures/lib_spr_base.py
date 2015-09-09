@@ -89,14 +89,14 @@ class LibrarySparseBase(LibraryBinaryBase):
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-            self.set_concentrations(**self.parameters['concentration_parameters'])
+            self.choose_concentrations(**self.parameters['concentration_parameters'])
             
         elif initialize_state == 'auto':
             # use exact values if saved or ensemble properties otherwise
             if self.parameters['concentration_parameters'] is None:
                 self.concentrations = self.parameters['concentration_vector']
             else:
-                self.set_concentrations(**self.parameters['concentration_parameters'])
+                self.choose_concentrations(**self.parameters['concentration_parameters'])
         
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
@@ -194,7 +194,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         return np.allclose(h_i, h_i.mean()) and np.allclose(d_i, d_i.mean())
             
     
-    def set_concentrations(self, scheme, mean_concentration, **kwargs):
+    def choose_concentrations(self, scheme, mean_concentration, **kwargs):
         """ picks a commonness vector according to the supplied parameters:
         `total_concentration` sets the total concentration to expect for the
             mixture on average.

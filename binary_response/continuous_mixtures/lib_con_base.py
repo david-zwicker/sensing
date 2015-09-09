@@ -19,7 +19,7 @@ class LibraryContinuousBase(LibraryBase):
     
     For instance, the class provides a framework for calculating ensemble
     averages, where each time new concentration vectors are chosen randomly
-    according to the parameters of the last call to `set_concentrations`.  
+    according to the parameters of the last call to `choose_concentrations`.  
     """
 
     # default parameters that are used to initialize a class if not overwritten
@@ -52,20 +52,20 @@ class LibraryContinuousBase(LibraryBase):
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-            self.set_concentrations(**self.parameters['concentrations_parameters'])
-            self.set_correlations(**self.parameters['correlation_parameters'])
+            self.choose_concentrations(**self.parameters['concentrations_parameters'])
+            self.choose_correlations(**self.parameters['correlation_parameters'])
             
         elif initialize_state == 'auto':
             # use exact values if saved or ensemble properties otherwise
             if self.parameters['concentrations_parameters'] is None:
                 self.concentrations = self.parameters['concentrations_vector']
             else:
-                self.set_concentrations(**self.parameters['concentrations_parameters'])
+                self.choose_concentrations(**self.parameters['concentrations_parameters'])
                 
             if self.parameters['correlation_parameters'] is None:
                 self.correlations = self.parameters['correlation_matrix']
             else:
-                self.set_correlations(**self.parameters['correlation_parameters'])
+                self.choose_correlations(**self.parameters['correlation_parameters'])
         
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
@@ -157,7 +157,7 @@ class LibraryContinuousBase(LibraryBase):
         return np.allclose(p_i, p_i.mean())
             
     
-    def set_concentrations(self, scheme, total_concentration, **kwargs):
+    def choose_concentrations(self, scheme, total_concentration, **kwargs):
         """ picks a concentration vector according to the supplied parameters:
         `total_concentration` sets the total concentration to expect for the
             mixture on average.

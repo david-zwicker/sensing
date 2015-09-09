@@ -19,7 +19,7 @@ class LibraryBinaryBase(LibraryBase):
     
     For instance, the class provides a framework for calculating ensemble
     averages, where each time new commonness vectors are chosen randomly
-    according to the parameters of the last call to `set_commonness`.  
+    according to the parameters of the last call to `choose_commonness`.  
     """
 
     # default parameters that are used to initialize a class if not overwritten
@@ -51,20 +51,20 @@ class LibraryBinaryBase(LibraryBase):
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-            self.set_commonness(**self.parameters['commonness_parameters'])
-            self.set_correlations(**self.parameters['correlation_parameters'])
+            self.choose_commonness(**self.parameters['commonness_parameters'])
+            self.choose_correlations(**self.parameters['correlation_parameters'])
             
         elif initialize_state == 'auto':
             # use exact values if saved or ensemble properties otherwise
             if self.parameters['commonness_parameters'] is None:
                 self.commonness = self.parameters['commonness_vector']
             else:
-                self.set_commonness(**self.parameters['commonness_parameters'])
+                self.choose_commonness(**self.parameters['commonness_parameters'])
                 
             if self.parameters['correlation_parameters'] is None:
                 self.correlations = self.parameters['correlation_matrix']
             else:
-                self.set_correlations(**self.parameters['correlation_parameters'])
+                self.choose_correlations(**self.parameters['correlation_parameters'])
         
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
@@ -231,7 +231,7 @@ class LibraryBinaryBase(LibraryBase):
         return -np.sum(pi*np.log2(pi) + (1 - pi)*np.log2(1 - pi))
 
     
-    def set_commonness(self, scheme, mean_mixture_size, **kwargs):
+    def choose_commonness(self, scheme, mean_mixture_size, **kwargs):
         """ picks a commonness vector according to the supplied parameters:
         `mean_mixture_size` determines the mean number of components in each
         mixture. The commonness vector is then chosen according to the given  
@@ -357,7 +357,7 @@ class LibraryBinaryBase(LibraryBase):
         self.parameters['commonness_parameters'] = c_params  
 
 
-    def set_correlations(self, scheme, magnitude, diagonal_zero=True, **kwargs):
+    def choose_correlations(self, scheme, magnitude, diagonal_zero=True, **kwargs):
         """ picks a correlation matrix according to the supplied parameters:
         `magnitude` determines the magnitude of the correlations, which are
         drawn from the random distribution indicated by `scheme`: 

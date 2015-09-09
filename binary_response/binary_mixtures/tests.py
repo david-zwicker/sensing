@@ -102,7 +102,7 @@ class TestLibraryBinary(TestBase):
             size1 = np.random.randint(1, model.Ns//2 + 1)
             size2 = np.random.randint(1, model.Ns//3 + 1) + model.Ns//2
             for mean_mixture_size in (size1, size2):
-                model.set_commonness(scheme, mean_mixture_size, **params)
+                model.choose_commonness(scheme, mean_mixture_size, **params)
                 self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
                 
