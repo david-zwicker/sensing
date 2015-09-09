@@ -65,39 +65,42 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
         args = super(LibraryContinuousLogNormal, cls).get_random_arguments(**kwargs)
-        I0 = np.random.random() + 0.5
-        args['mean_sensitivity'] = kwargs.get('mean_sensitivity', I0)
+        S0 = np.random.random() + 0.5
+        args['mean_sensitivity'] = kwargs.get('mean_sensitivity', S0)
         args['sigma'] = kwargs.get('sigma', 0.1*np.random.random())
         return args
 
 
-    @classmethod
-    def from_numeric(cls, numeric_model, typical_sensitivity=None, sigma=None,
-                     parameters=None):
-        """ creates an instance of this class by using parameters from a related
-        numeric instance """
-        # set parameters
-        kwargs = {'parameters': parameters}
-        if typical_sensitivity is not None:
-            kwargs['mean_sensitivity'] = typical_sensitivity
-        elif numeric_model.int_mat is not None:
-            kwargs['mean_sensitivity'] = numeric_model.int_mat.mean()
-        if sigma is not None:
-            kwargs['sigma'] = sigma
-        
-        # create the object
-        obj = cls(numeric_model.Ns, numeric_model.Nr, **kwargs)
-        
-        # copy the commonness from the numeric model
-        obj.commonness = numeric_model.commonness
-        
-        return obj
+#     @classmethod
+#     def from_numeric(cls, numeric_model, typical_sensitivity=None, sigma=None,
+#                      parameters=None):
+#         """ creates an instance of this class by using parameters from a related
+#         numeric instance """
+#         # set parameters
+#         kwargs = {'parameters': parameters}
+#         if typical_sensitivity is not None:
+#             kwargs['mean_sensitivity'] = typical_sensitivity
+#         elif numeric_model.int_mat is not None:
+#             kwargs['mean_sensitivity'] = numeric_model.int_mat.mean()
+#         if sigma is not None:
+#             kwargs['sigma'] = sigma
+#         
+#         # create the object
+#         obj = cls(numeric_model.Ns, numeric_model.Nr, **kwargs)
+#         
+#         # copy the commonness from the numeric model
+#         obj.concentration = numeric_model.commonness
+#         
+#         return obj
 
 
     def receptor_activity(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        hs = self.commonness
+        if self.is_correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
+        p_i = self.concentrations
         
         if self.sigma == 0:
             # simple case in which the interaction matrix elements are the same:
@@ -106,7 +109,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             if self.is_homogeneous_mixture:
                 # evaluate the full integral for the case where all substrates
                 # are equally likely
-                dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
+                dist = stats.gamma(a=self.Ns, scale=p_i)
                 prob_a0 = dist.cdf(1/self.mean_sensitivity)
                 
             else:
@@ -124,7 +127,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             if self.is_homogeneous_mixture:
                 # FIXME: this is the result for the simple case where all
                 # I_ai are equal for a given a
-                dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
+                dist = stats.gamma(a=self.Ns, scale=p_i[0])
                 cdf = self.int_mat_distribution.cdf
                 integrand = lambda c: cdf(1/c) * dist.pdf(c)
                 prob_a0 = integrate.quad(integrand, 0, np.inf)[0]
@@ -143,7 +146,10 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
     def receptor_activity_estimate(self, method='normal'):
         """ return the probability with which a single receptor is activated 
         by typical mixtures using an gaussian approximation """
-        hs = self.commonness
+        if self.is_correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
+        p_i = self.concentrations
 
         if method == 'normal':
             # use a normal distribution for approximations
@@ -154,8 +160,8 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 # this is the limiting case
     
                 # get the moments of the hypoexponential distribution
-                ctot_mean = -np.sum(1/hs)
-                ctot_var = np.sum(1/hs**2)
+                ctot_mean = p_i.sum()
+                ctot_var = np.sum(p_i**2)
                 # these values directly parameterize the normal distribution
 
                 # evaluate the fraction of values that exceeds the threshold
@@ -170,15 +176,15 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             else:
                 # more complicated case where the distribution of interaction
                 # matrix elements has a finite width
-                I0 = self.mean_sensitivity
+                S0 = self.mean_sensitivity
                 sigma2 = self.sigma**2
                 
                 # we first determine the mean and the variance of the
                 # distribution of z = I_ai * c_i, which is the distribution for
                 # a single matrix element I_ai multiplied the concentration of a
                 # single substrate
-                zi_mean = -I0/hs * np.exp(0.5*sigma2)
-                zi_var = (I0/hs)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
+                zi_mean = p_i*S0 * np.exp(0.5*sigma2)
+                zi_var = (S0*p_i)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
                 # these values directly parameterize the normal distribution
 
                 # add up all the N_s distributions to find the probability
@@ -203,8 +209,8 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 # this is the limiting case
     
                 # get the moments of the hypoexponential distribution
-                ctot_mean = -np.sum(1/hs)
-                ctot_var = np.sum(1/hs**2)
+                ctot_mean = p_i.sum()
+                ctot_var = np.sum(p_i**2)
                 
                 # calculate the parameters of the associated gamma distribution
                 alpha = ctot_mean**2 / ctot_var
@@ -221,16 +227,16 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             else:
                 # more complicated case where the distribution of interaction
                 # matrix elements has a finite width
-                I0 = self.mean_sensitivity
+                S0 = self.mean_sensitivity
                 sigma2 = self.sigma**2
                 
                 # we first determine the mean and the variance of the
                 # distribution of z = I_ai * c_i, which is the distribution for
                 # a single matrix element I_ai multiplied the concentration of a
                 # single substrate
-                h_mean = hs.mean()
-                z_mean = -I0/h_mean * np.exp(0.5*sigma2)
-                z_var = (I0/h_mean)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
+                c_mean = p_i.mean()
+                z_mean = S0*c_mean * np.exp(0.5*sigma2)
+                z_var = (S0*c_mean)**2 * (2*np.exp(sigma2) - 1) * np.exp(sigma2)
                 
                 # calculate the parameters of the associated gamma distribution
                 alpha = z_mean**2 / z_var
@@ -263,9 +269,9 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         interaction matrices """
         sigma = np.pi / np.sqrt(6)
         c_mean = self.concentration_means.mean()
-        I0 = np.exp(-0.5 * sigma**2)/(self.Ns * c_mean)
+        S0 = np.exp(-0.5 * sigma**2)/(self.Ns * c_mean)
         return {'distribution': 'log_normal',
-                'mean_sensitivity': I0, 'sigma': sigma}
+                'mean_sensitivity': S0, 'sigma': sigma}
 
 
     def get_optimal_sigma(self):    
@@ -288,9 +294,9 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         if approximation is None or approximation == 'none':
             # optimize using true activity calculations
             result = None
-            def opt_goal(I0):
+            def opt_goal(S0):
                 """ helper function to find optimum numerically """ 
-                obj.mean_sensitivity = I0
+                obj.mean_sensitivity = S0
                 return 0.5 - obj.receptor_activity()
             
         elif approximation == 'estimate':
@@ -300,9 +306,9 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
         else:
             # optimize using approximate activity estimates
             result = None
-            def opt_goal(I0):
+            def opt_goal(S0):
                 """ helper function to find optimum numerically """ 
-                obj.mean_sensitivity = I0
+                obj.mean_sensitivity = S0
                 return 0.5 - obj.receptor_activity_estimate(approximation)
 
         if result is None:        

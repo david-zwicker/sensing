@@ -18,17 +18,16 @@ class LibraryContinuousBase(LibraryBase):
     general functionality and parameter management.
     
     For instance, the class provides a framework for calculating ensemble
-    averages, where each time new commonness vectors are chosen randomly
-    according to the parameters of the last call to `set_commonness`.  
+    averages, where each time new concentration vectors are chosen randomly
+    according to the parameters of the last call to `set_concentrations`.  
     """
 
     # default parameters that are used to initialize a class if not overwritten
-    #FIXME: rename commonness to `concentration` or something more useful
     parameters_default = {
-        'commonness_vector': None,     #< chosen substrate commonness
-        'commonness_parameters': None, #< parameters for substrate commonness
-        'correlation_matrix': None,     #< chosen substrate correlations
-        'correlation_parameters': None, #< parameters for substrate correlations
+        'concentrations_vector': None,     #< chosen substrate concentration
+        'concentrations_parameters': None, #< parameters for substrate concentration
+        'correlation_matrix': None,       #< chosen substrate correlations
+        'correlation_parameters': None,   #< parameters for substrate correlation
     }
 
 
@@ -43,25 +42,25 @@ class LibraryContinuousBase(LibraryBase):
         initialize_state = self.parameters['initialize_state'] 
         if initialize_state is None:
             # do not initialize with anything
-            self.commonness = None
+            self.concentrations = None
             self.correlations = None
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
-            self.commonness = self.parameters['commonness_vector']
+            self.concentrations = self.parameters['concentrations_vector']
             self.correlations = self.parameters['correlation_matrix']
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-            self.set_commonness(**self.parameters['commonness_parameters'])
+            self.set_concentrations(**self.parameters['concentrations_parameters'])
             self.set_correlations(**self.parameters['correlation_parameters'])
             
         elif initialize_state == 'auto':
             # use exact values if saved or ensemble properties otherwise
-            if self.parameters['commonness_parameters'] is None:
-                self.commonness = self.parameters['commonness_vector']
+            if self.parameters['concentrations_parameters'] is None:
+                self.concentrations = self.parameters['concentrations_vector']
             else:
-                self.set_commonness(**self.parameters['commonness_parameters'])
+                self.set_concentrations(**self.parameters['concentrations_parameters'])
                 
             if self.parameters['correlation_parameters'] is None:
                 self.correlations = self.parameters['correlation_matrix']
@@ -77,64 +76,79 @@ class LibraryContinuousBase(LibraryBase):
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibraryContinuousBase, self).repr_params
-        params.append('<d>=%g' % self.concentration_means)
+        params.append('<c_i>=%g' % self.concentration_means)
         return params
 
 
     @classmethod
     def get_random_arguments(cls, **kwargs):
-        """ create random args for creating test instances """
+        """ create random arguments for creating test instances """
+        # extract the parameters
+        homogeneous_mixture = kwargs.pop('homogeneous_mixture', False)
+        mixture_correlated = kwargs.pop('mixture_correlated', False)
+
         args = super(LibraryContinuousBase, cls).get_random_arguments(**kwargs)
-        if kwargs.get('homogeneous_mixture', False):
-            hs = np.full(args['num_substrates'], np.random.random() - 1.5)
+        Ns = args['num_substrates']
+        
+        if homogeneous_mixture:
+            p_i = np.full(args['num_substrates'], np.random.random() + 0.5)
         else:
-            hs = np.random.random(args['num_substrates']) - 1.5
-        args['parameters'] = {'commonness_vector': hs}
+            p_i = np.random.random(args['num_substrates']) + 0.5
+            
+        if mixture_correlated:
+            p_ij = np.random.normal(size=(Ns, Ns))
+            np.fill_diagonal(p_ij, 0)
+            # the matrix will be symmetrize when it is set on the instance 
+        else:
+            p_ij = np.zeros((Ns, Ns))
+            
+        args['parameters'] = {'commonness_vector': p_i,
+                              'correlation_matrix': p_ij}
         return args
 
 
     @property
-    def commonness(self):
-        """ return the commonness vector """
-        return self._hs
+    def concentrations(self):
+        """ return the concentrations vector """
+        return self._pi
     
-    @commonness.setter
-    def commonness(self, hs):
-        """ sets the commonness and the associated substrate probability """
-        if hs is None:
+    @concentrations.setter
+    def concentrations(self, p_i):
+        """ sets the concentrations and the associated substrate probability """
+        if p_i is None:
             # initialize with default values, but don't save the parameters
-            self._hs = -np.ones(self.Ns)
+            self._pi = np.ones(self.Ns)
             
         else:
-            if len(hs) != self.Ns:
-                raise ValueError('Length of the commonness vector must match '
+            if len(p_i) != self.Ns:
+                raise ValueError('Length of the concentrations vector must match '
                                  'the number of substrates.')
-            if any(hs >= 0):
-                raise ValueError('Commonness vector must only contain negative '
-                                 'entries.')
-            self._hs = np.asarray(hs)
+            if any(p_i < 0):
+                raise ValueError('Concentration vector must only contain '
+                                 'non-negative entries.')
+            self._pi = np.asarray(p_i)
             
             # save the values, since they were set explicitly 
-            self.parameters['commonness_vector'] = self._hs
+            self.parameters['concentrations_vector'] = self._pi
 
     
     @property
     def concentration_means(self):
-        """ returns the mean concentration with which each substrate is
+        """ returns the mean concentrations with which each substrate is
         expected """
-        return -1/self.commonness
+        return self.concentrations
     
     
     def get_concentration_distribution(self, i):
-        """ returns the concentration distribution for component i """
-        return stats.expon(scale=-1/self.commonness[i])
+        """ returns the concentrations distribution for component i """
+        return stats.expon(scale=self.concentrations[i])
 
     
     def concentration_statistics(self):
         """ returns statistics for each individual substrate """
-        hi = self.commonness
-        c_means = -1/hi
-        c_vars = 1/(hi*hi)
+        p_i = self.concentrations
+        c_means = p_i
+        c_vars = p_i**2
         # return the results in a dictionary to be able to extend it later
         return {'mean': c_means, 'std': np.sqrt(c_vars), 'var': c_vars}
     
@@ -142,12 +156,12 @@ class LibraryContinuousBase(LibraryBase):
     @property
     def is_homogeneous_mixture(self):
         """ returns True if the mixture is homogeneous """
-        h_i = self.commonness
-        return np.allclose(h_i, h_i[0])
+        p_i = self.concentrations
+        return np.allclose(p_i, p_i.mean())
             
     
-    def set_commonness(self, scheme, total_concentration, **kwargs):
-        """ picks a commonness vector according to the supplied parameters:
+    def set_concentrations(self, scheme, total_concentration, **kwargs):
+        """ picks a concentration vector according to the supplied parameters:
         `total_concentration` sets the total concentration to expect for the
             mixture on average.
         """
@@ -155,28 +169,23 @@ class LibraryContinuousBase(LibraryBase):
         
         if scheme == 'const':
             # all substrates are equally likely
-            if total_concentration == 0:
-                hs = np.full(self.Ns, -np.inf)
-            else:
-                hs = np.full(self.Ns, -1/mean_concentration)
+            p_i = np.full(self.Ns, mean_concentration)
                 
         elif scheme == 'random_uniform':
             # draw the mean probabilities from a uniform distribution
-            c_means = np.random.uniform(0, 2*mean_concentration, self.Ns)
+            p_i = np.random.uniform(0, 2*mean_concentration, self.Ns)
             # make sure that the mean concentration is correct
-            c_means *= total_concentration/c_means.sum()
-            # convert this to commonness values
-            hs = -1/c_means
+            p_i *= total_concentration / p_i.sum()
             
         else:
-            raise ValueError('Unknown commonness scheme `%s`' % scheme)
+            raise ValueError('Unknown concentration scheme `%s`' % scheme)
         
-        self.commonness = hs
+        self.concentrations = p_i
         
         # we additionally store the parameters that were used for this function
         c_params = {'scheme': scheme, 'total_concentration': total_concentration}
         c_params.update(kwargs)
-        self.parameters['commonness_parameters'] = c_params  
+        self.parameters['concentrations_parameters'] = c_params  
         
 
     @property

@@ -128,6 +128,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase, LibraryNumericMixin):
             li = linalg.solve_triangular(Lij, self.concentrations, lower=lower)
             
             for _ in range(steps):
+                # TODO: try using exponential random numbers
                 yield np.dot(Lij, np.random.randn(self.Ns) + li)
         
         else:

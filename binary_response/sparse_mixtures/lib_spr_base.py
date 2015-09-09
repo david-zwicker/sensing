@@ -114,11 +114,15 @@ class LibrarySparseBase(LibraryBinaryBase):
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random args for creating test instances """
+        homogeneous_mixture = kwargs.get('homogeneous_mixture', False)
+        
         args = super(LibrarySparseBase, cls).get_random_arguments(**kwargs)
-        if kwargs.get('homogeneous_mixture', False):
+        
+        if homogeneous_mixture:
             ds = np.full(args['num_substrates'], np.random.random() + 0.5)
         else:
             ds = np.random.random(args['num_substrates']) + 0.5
+            
         args['parameters'] = {'concentration_vector': ds}
         return args
     

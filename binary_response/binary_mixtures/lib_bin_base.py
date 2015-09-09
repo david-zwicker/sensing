@@ -81,15 +81,19 @@ class LibraryBinaryBase(LibraryBase):
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
+        # extract the parameters
+        homogeneous_mixture = kwargs.pop('homogeneous_mixture', False)
+        mixture_correlated = kwargs.pop('mixture_correlated', False)
+        
         args = super(LibraryBinaryBase, cls).get_random_arguments(**kwargs)
         Ns = args['num_substrates']
         
-        if kwargs.get('homogeneous_mixture', False):
+        if homogeneous_mixture:
             hs = np.full(Ns, np.random.random())
         else:
             hs = np.random.random(Ns)
             
-        if kwargs.get('is_correlated_mixture', False):
+        if mixture_correlated:
             Jij = np.random.normal(size=(Ns, Ns))
             np.fill_diagonal(Jij, 0)
             # the matrix will be symmetrize when it is set on the instance 

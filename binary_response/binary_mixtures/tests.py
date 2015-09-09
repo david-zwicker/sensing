@@ -48,7 +48,7 @@ class TestLibraryBinary(TestBase):
             
             # create test object
             model = LibraryBinaryNumeric.create_test_instance(
-                        is_correlated_mixture=setting['mixture_correlated'],
+                        mixture_correlated=setting['mixture_correlated'],
                         fixed_mixture_size=setting['fixed_mixture_size']
                     )
 
@@ -243,7 +243,6 @@ class TestLibraryBinary(TestBase):
         settings = collections.OrderedDict()
         settings['mixture_correlated'] = (True, False)
         settings['fixed_mixture_size'] = (None, 2)
-        settings['bias_correction'] = (True, False)
         
         # create all combinations of all settings
         setting_comb = [dict(zip(settings.keys(), items))
@@ -260,8 +259,6 @@ class TestLibraryBinary(TestBase):
                          ', '.join("%s=%s" % v for v in setting.items()))
             # test the number class
             for name in numba_methods:
-                if name.endswith('brute_force') and setting['bias_correction']:
-                    continue
                 consistent = numba_patcher.test_function_consistency(
                                     name, repeat=2, instance_parameters=setting)
                 if not consistent:

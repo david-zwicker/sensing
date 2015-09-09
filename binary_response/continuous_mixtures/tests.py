@@ -14,21 +14,15 @@ import scipy.stats
 from . import LibraryContinuousLogNormal
 from .lib_con_base import LibraryContinuousBase
 from .numba_speedup import numba_patcher
+from ..tests import TestBase
 
 
 
-class TestLibraryContinuous(unittest.TestCase):
+class TestLibraryContinuous(TestBase):
     """ unit tests for the continuous library """
 
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
-
     
-    def assertAllClose(self, a, b, rtol=1e-05, atol=1e-08, msg='The two '
-                       'arrays do not agree within the given tolerance:'):
-        """ compares all the entries of the arrays a and b """
-        if not np.allclose(a, b, rtol, atol):
-            self.fail(msg + '\nlhs = %s\nrhs = %s' % (a, b))
-
 
     def test_base(self):
         """ consistency tests on the base class """

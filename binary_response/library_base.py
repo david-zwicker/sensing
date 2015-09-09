@@ -89,8 +89,17 @@ class LibraryBase(object):
     @classmethod
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
-        return {'num_substrates': kwargs.get('Ns', np.random.randint(3, 6)),
-                'num_receptors': kwargs.get('Nr', np.random.randint(2, 4))}
+        # extract the parameters or choose them randomly
+        Ns = kwargs.pop('num_substrates', np.random.randint(3, 6))
+        Nr = kwargs.pop('num_receptors', np.random.randint(2, 4))
+        
+        # raise an error if keyword arguments have not been used
+        if len(kwargs) > 0:
+            raise ValueError('The following keyword arguments have not been '
+                             'used: %s' % str(kwargs)) 
+
+        # return the dictionary
+        return {'num_substrates': Ns, 'num_receptors': Nr}
 
 
     @classmethod
