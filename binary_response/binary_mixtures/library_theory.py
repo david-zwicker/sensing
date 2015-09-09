@@ -11,7 +11,6 @@ import numpy as np
 from .library_base import LibraryBinaryBase
 
 
-
 LN2 = np.log(2)
 
 
@@ -93,9 +92,10 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             q_nm = np.clip(q_nm, 0, 1)
 
         else:
-            # use better formulas for calculating the probabilities 
-            q_n = 1 - np.prod(1 - self.density * p_i)
-            q_nm = 1 - np.prod(1 - self.density**2 * p_i)
+            # use better formulas for calculating the probabilities
+            xi = self.density 
+            q_n = 1 - np.prod(1 - xi * p_i)
+            q_nm = np.prod(1 - (2*xi - xi**2) * p_i) - np.prod(1 - xi * p_i)**2
                 
         if ret_receptor_activity:
             return q_n, q_nm
@@ -103,17 +103,21 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             return q_nm
 
         
-    def mutual_information(self, approx_prob=False, use_polynom=False):
+    def mutual_information(self, method='logarithm', approx_prob=False,
+                           clip=True):
         """ return a theoretical estimate of the mutual information between
         input and output.
+            `method` determines which method is used to approximate the mutual
+                information. Possible values are `polynom`, `logarithm`, and
+                `overlap`, in increasing order of accuracy.
             `approx_prob` determines whether a linear approximation should be
                 used to calculate the probabilities that receptors are active
             `use_polynom` determines whether a polynomial approximation for the
                 mutual information should be used
         """
-        if use_polynom:
+        if method == 'polynom' or method =='logarithm':
             # use the expansion of the mutual information around the optimal
-            # point to calculate an approximation of the mututal information
+            # point to calculate an approximation of the mutual information
             
             # determine the probabilities of receptor activations        
             q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True,
@@ -121,9 +125,9 @@ class LibraryBinaryUniform(LibraryBinaryBase):
     
             # calculate mutual information from this
             MI = self._estimate_mutual_information_from_q_stats(
-                                                q_n, q_nm, use_polynom=True)
+                                q_n, q_nm, use_polynom=(method == 'polynom'))
 
-        else:
+        elif method == 'overlap':
             # calculate the MI assuming that receptors are independent.
             # This expression assumes that each receptor provides a fractional 
             # information H_r/N_s. Some of the information will be overlapping
@@ -141,9 +145,15 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             # overlap between independent receptors  
             H_r = MI / self.Nr
             MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
+            
+        else:
+            raise ValueError('Unknown method `%s`' % method)
         
-        # limit the MI to the mixture entropy
-        return min(MI, self.mixture_entropy())
+        if clip:
+            # limit the MI to the mixture entropy
+            return np.clip(MI, 0, self.mixture_entropy())
+        else:
+            return MI
         
         
     def density_optimal(self, assume_homogeneous=False):
@@ -157,19 +167,13 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             homogeneous system with the same average number of substrates is
             used instead.
         """
-        if not assume_homogeneous and len(np.unique(self.commonness)) > 1:
-            # mixture is heterogeneous
-            raise RuntimeError('The estimate only works for homogeneous '
-                               'mixtures so far.')
-                
-        # mean probability of finding a specific substrate in a mixture
-        p_mean = self.substrate_probabilities.mean()
+        # mean substrate size
+        m = self.substrate_probabilities.sum()
             
-        # calculate the fraction for the homogeneous case
-        if p_mean == 0:
+        if m < 0.5:
             return 1
         else:
-            return np.clip((1 - 2**(-1/self.Ns)) / p_mean, 0, 1)
+            return 0.5 / m
     
     
     def get_optimal_library(self):

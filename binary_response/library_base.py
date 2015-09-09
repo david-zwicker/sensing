@@ -10,8 +10,11 @@ import multiprocessing as mp
 
 import numpy as np
 
+from utils.misc import xlog2x
+
 
 LN2 = np.log(2)
+
 
 
 class LibraryBase(object):
@@ -169,8 +172,8 @@ class LibraryBase(object):
             MI = Nr - 0.5/LN2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
             
         else:
-            # calculate the information assuming receptors are independent            
-            MI = -Nr * (q_n*np.log2(q_n) + (1 - q_n)*np.log2(1 - q_n))
+            # ise             
+            MI = -Nr * (xlog2x(q_n) + xlog2x(1 - q_n))
         
         # add the effect of crosstalk
         MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)

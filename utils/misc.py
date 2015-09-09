@@ -19,6 +19,17 @@ import numpy as np
 from scipy.stats import itemfreq
 
 
+def xlog2x(x):
+    """ calculates x*np.log2(x) """
+    if x == 0:
+        return 0
+    else:
+        return x * np.log2(x)
+
+# vectorize the function above
+xlog2x = np.vectorize(xlog2x, otypes='d')
+
+
 
 def is_pos_semidef(x):
     """ checks whether the correlation matrix is positive semi-definite """
