@@ -310,7 +310,8 @@ class LibrarySparseNumeric(LibrarySparseBase):
         hist1d = np.zeros(self.Ns)
         hist2d = np.zeros((self.Ns, self.Ns))
 
-        # sample mixtures uniformly        
+        # sample mixtures uniformly
+        # FIXME: use better online algorithm that is less prone to canceling
         for c in self._sample_mixtures():
             count += 1
             hist1d += c
@@ -418,11 +419,11 @@ class LibrarySparseNumeric(LibrarySparseBase):
         # calculate statistics of the sum s_n = S_ni * c_i        
         S_ni = self.int_mat
         en_mean = np.dot(S_ni, c_stats['mean'])
-        enm_covar = np.einsum('ni,mi,i->nm', S_ni, S_ni, c_stats['var'])
-        en_var = np.diag(enm_covar)
+        enm_cov = np.einsum('ni,mi,i->nm', S_ni, S_ni, c_stats['var'])
+        en_var = np.diag(enm_cov)
         
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                'cov': enm_covar}
+                'cov': enm_cov}
             
         
     def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):

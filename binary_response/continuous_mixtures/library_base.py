@@ -23,9 +23,12 @@ class LibraryContinuousBase(LibraryBase):
     """
 
     # default parameters that are used to initialize a class if not overwritten
+    #FIXME: rename commonness to `concentration` or something more useful
     parameters_default = {
         'commonness_vector': None,     #< chosen substrate commonness
         'commonness_parameters': None, #< parameters for substrate commonness
+        'correlation_matrix': None,     #< chosen substrate correlations
+        'correlation_parameters': None, #< parameters for substrate correlations
     }
 
 
@@ -41,14 +44,17 @@ class LibraryContinuousBase(LibraryBase):
         if initialize_state is None:
             # do not initialize with anything
             self.commonness = None
+            self.correlations = None
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
             self.commonness = self.parameters['commonness_vector']
+            self.correlations = self.parameters['correlation_matrix']
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
             self.set_commonness(**self.parameters['commonness_parameters'])
+            self.set_correlations(**self.parameters['correlation_parameters'])
             
         elif initialize_state == 'auto':
             # use exact values if saved or ensemble properties otherwise
@@ -56,6 +62,11 @@ class LibraryContinuousBase(LibraryBase):
                 self.commonness = self.parameters['commonness_vector']
             else:
                 self.set_commonness(**self.parameters['commonness_parameters'])
+                
+            if self.parameters['correlation_parameters'] is None:
+                self.correlations = self.parameters['correlation_matrix']
+            else:
+                self.set_correlations(**self.parameters['correlation_parameters'])
         
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
@@ -166,4 +177,37 @@ class LibraryContinuousBase(LibraryBase):
         c_params = {'scheme': scheme, 'total_concentration': total_concentration}
         c_params.update(kwargs)
         self.parameters['commonness_parameters'] = c_params  
+        
+
+    @property
+    def correlations(self):
+        """ return the correlation matrix """
+        return self._pij
+    
+    @correlations.setter
+    def correlations(self, pij):
+        """ sets the correlations """
+        if pij is None:
+            # initialize with default values, but don't save the parameters
+            self._pij = np.zeros((self.Ns, self.Ns))
+            
+        else:
+            if pij.shape != (self.Ns, self.Ns):
+                raise ValueError('Dimension of the correlation matrix must be '
+                                 'Ns x Ns, where Ns is the number of '
+                                 'substrates.')
+            self._pij = np.asarray(pij)
+            
+            # symmetrize the matrix
+            self._pij = np.tril(pij) + np.tril(pij, -1).T
+        
+            # save the values, since they were set explicitly 
+            self.parameters['correlation_matrix'] = self._pij
+    
+    
+    @property 
+    def is_correlated_mixture(self):
+        """ returns True if the mixture has correlations """
+        offdiag = ~np.eye(self.Ns, dtype=np.bool)
+        return np.count_nonzero(self.correlations[offdiag]) > 0        
 

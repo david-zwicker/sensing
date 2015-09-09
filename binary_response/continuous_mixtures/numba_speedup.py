@@ -51,11 +51,11 @@ def LibraryContinuousNumeric_receptor_activity(self):
     """ calculate the mutual information by constructing all possible
     mixtures """
     count_a = np.zeros(self.Nr, np.uint32) 
-    steps = int(self.parameters['monte_carlo_steps'])
+    steps = self._sample_steps
  
     # call the jitted function
     LibraryContinuousNumeric_receptor_activity_numba(
-        self.Ns, self.Nr, steps, self.int_mat,
+        self.Ns, self.Nr, self._sample_steps, self.int_mat,
         self.concentration_means, #< c_means
         np.empty(self.Nr, np.double), #< alpha
         count_a
@@ -118,7 +118,7 @@ def LibraryContinuousNumeric_mutual_information(self, ret_prob_activity=False):
  
     # call the jitted function
     MI = LibraryContinuousNumeric_mutual_information_numba(
-        self.Ns, self.Nr, int(self.parameters['monte_carlo_steps']), 
+        self.Ns, self.Nr, self._sample_steps, 
         self.int_mat,
         self.concentration_means, #< c_means
         np.empty(self.Nr, np.double), #< alpha

@@ -9,6 +9,7 @@ from __future__ import division
 import logging
 
 import numpy as np
+from scipy import linalg
 from six.moves import range
 
 from utils.math_distributions import lognorm_mean
@@ -23,7 +24,9 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         'max_num_receptors': 28,    #< prevents memory overflows
         'interaction_matrix': None, #< will be calculated if not given
         'interaction_matrix_params': None, #< parameters determining I_ai
-        'monte_carlo_steps': 1e5,   #< default number of monte carlo steps
+        'monte_carlo_steps': 'auto',       #< default steps for monte carlo
+        'monte_carlo_steps_min': 1e4,      #< minimal steps for monte carlo
+        'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
     }
     
 
@@ -92,6 +95,44 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
         theory = LibraryContinuousLogNormal.from_other(obj)
         obj.choose_interaction_matrix(**theory.get_optimal_library())
         return obj
+    
+
+    @property
+    def _sample_steps(self):
+        """ returns the number of steps that are sampled """
+        if self.parameters['monte_carlo_steps'] == 'auto':
+            steps_min = self.parameters['monte_carlo_steps_min']
+            steps_max = self.parameters['monte_carlo_steps_max']
+            steps = np.clip(10 * 2**self.Nr, steps_min, steps_max) 
+            # Here, the factor 10 is an arbitrary scaling factor
+        else:
+            steps = self.parameters['monte_carlo_steps']
+            
+        return int(steps)
+    
+        
+    def _sample_mixtures(self, steps=None):
+        """ sample mixtures with uniform probability yielding single mixtures """
+            
+        if steps is None:
+            steps = self._sample_steps
+        
+        c_means = self.concentration_means
+        
+        if self.is_correlated_mixture:
+            
+            # pre-calculations
+            lower = True #< we use the lower triangular matrix to store data
+            Lij = linalg.cholesky(self.correlations, lower)
+            li = linalg.solve_triangular(Lij, self.concentrations, lower=lower)
+            
+            for _ in range(steps):
+                yield np.dot(Lij, np.random.randn(self.Ns) + li)
+        
+        else:
+            for _ in range(steps):
+                # choose a mixture vector according to substrate probabilities
+                yield np.random.exponential(size=self.Ns) * c_means
 
 
     def choose_interaction_matrix(self, distribution, mean_sensitivity=1,
@@ -158,21 +199,14 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
 
     def receptor_activity(self):
         """ calculates the average activity of each receptor """ 
-        steps = int(self.parameters['monte_carlo_steps'])        
-    
-        c_means = self.concentration_means
-    
         count_a = np.zeros(self.Nr)
-        for _ in range(steps):
-            # choose a mixture vector according to substrate probabilities
-            c = np.random.exponential(size=self.Ns) * c_means
-            
+        for c in self._sample_mixtures():
             # get the associated output ...
             alpha = (np.dot(self.int_mat, c) >= 1)
             
             count_a[alpha] += 1
             
-        return count_a/steps
+        return count_a / self._sample_steps
 
     
     def mutual_information(self, ret_prob_activity=False):
@@ -181,17 +215,10 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
                 
         base = 2 ** np.arange(0, self.Nr)
 
-        steps = int(self.parameters['monte_carlo_steps'])
-        
-        c_means = self.concentration_means
-
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
-        for _ in range(steps):
-            # choose a mixture vector according to substrate probabilities
-            c = np.random.exponential(size=self.Ns) * c_means
-            
+        for c in self._sample_mixtures():
             # get the associated output ...
             alpha = (np.dot(self.int_mat, c) >= 1)
             
@@ -202,7 +229,7 @@ class LibraryContinuousNumeric(LibraryContinuousBase):
             
         # count_a contains the number of times output pattern a was observed.
         # We can thus construct P_a(a) from count_a. 
-        prob_a = count_a / steps
+        prob_a = count_a / self._sample_steps
         
         # calculate the mutual information from the result pattern
         MI = -sum(pa*np.log2(pa) for pa in prob_a if pa != 0)
