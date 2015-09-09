@@ -162,7 +162,7 @@ class LibrarySparseBase(LibraryBinaryBase):
     
     def concentration_statistics(self):
         """ returns statistics for each individual substrate """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         pi = self.substrate_probabilities
@@ -185,7 +185,7 @@ class LibrarySparseBase(LibraryBinaryBase):
 
     
     @property
-    def is_homogeneous(self):
+    def is_homogeneous_mixture(self):
         """ returns True if the mixture is homogeneous """
         h_i = self.commonness
         d_i = self.concentrations

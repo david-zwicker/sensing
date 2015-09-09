@@ -400,7 +400,7 @@ class LibrarySparseNumeric(LibrarySparseBase):
         calculates the statistics of the excitation of the receptors.
         Returns the mean excitation, the variance, and the covariance matrix.
         """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
         c_stats = self.concentration_statistics()

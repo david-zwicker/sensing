@@ -103,7 +103,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
             # simple case in which the interaction matrix elements are the same:
             #     I_ai = self.mean_sensitivity
             # this is the limiting case
-            if self.is_homogeneous:
+            if self.is_homogeneous_mixture:
                 # evaluate the full integral for the case where all substrates
                 # are equally likely
                 dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
@@ -121,7 +121,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
 
         else:
             # finite-width distribution of interaction matrix elements
-            if self.is_homogeneous:
+            if self.is_homogeneous_mixture:
                 # FIXME: this is the result for the simple case where all
                 # I_ai are equal for a given a
                 dist = stats.gamma(a=self.Ns, scale=-1/hs[0])
@@ -241,7 +241,7 @@ class LibraryContinuousLogNormal(LibraryContinuousBase):
                 alpha *= self.Ns
                 # this assumes that beta is the same for all individual
                 # substrates, which is only the case for homogeneous mixtures
-                if not self.is_homogeneous:
+                if not self.is_homogeneous_mixture:
                     warnings.warn('The estimate using gamma distributions '
                                   'currently assumes that all substrates have '
                                   'the same distribution.')

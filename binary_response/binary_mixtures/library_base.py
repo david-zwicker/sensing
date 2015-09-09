@@ -89,7 +89,7 @@ class LibraryBinaryBase(LibraryBase):
         else:
             hs = np.random.random(Ns)
             
-        if kwargs.get('correlated_mixture', False):
+        if kwargs.get('is_correlated_mixture', False):
             Jij = np.random.normal(size=(Ns, Ns))
             np.fill_diagonal(Jij, 0)
             # the matrix will be symmetrize when it is set on the instance 
@@ -149,7 +149,7 @@ class LibraryBinaryBase(LibraryBase):
             
     
     @property
-    def is_homogeneous(self):
+    def is_homogeneous_mixture(self):
         """ returns True if the mixture is homogeneous """
         h_i = self.commonness
         return np.allclose(h_i, h_i[0])
@@ -182,7 +182,7 @@ class LibraryBinaryBase(LibraryBase):
     
     
     @property 
-    def correlated_mixture(self):
+    def is_correlated_mixture(self):
         """ returns True if the mixture has correlations """
         return np.count_nonzero(self.correlations) > 0
     
@@ -192,7 +192,7 @@ class LibraryBinaryBase(LibraryBase):
         number of components. Returns an array of length Ns + 1 of probabilities
         for finding mixtures with the number of components given by the index
         into the array """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
         res = np.zeros(self.Ns + 1)
@@ -209,7 +209,7 @@ class LibraryBinaryBase(LibraryBase):
     def mixture_size_statistics(self):
         """ calculates the mean and the standard deviation of the number of
         components in mixtures """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         # calculate basic statistics
@@ -223,7 +223,7 @@ class LibraryBinaryBase(LibraryBase):
 
     def mixture_entropy(self):
         """ return the entropy in the mixture distribution """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         pi = self.substrate_probabilities

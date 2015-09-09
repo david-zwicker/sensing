@@ -314,7 +314,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
     def _sample_steps(self):
         """ returns the number of steps that are sampled """
         mixture_size = self.parameters['fixed_mixture_size']
-        if not self.correlated_mixture and mixture_size is None:
+        if not self.is_correlated_mixture and mixture_size is None:
             return self.get_steps('monte_carlo')
         else:
             return self.get_steps('metropolis')
@@ -335,7 +335,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         fixed_mixture_size = self.parameters['fixed_mixture_size']
         
-        if self.correlated_mixture or fixed_mixture_size is not None:
+        if self.is_correlated_mixture or fixed_mixture_size is not None:
             # mixture has correlations => we do Metropolis sampling
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 ci_mean, cij_corr = self.mixture_statistics_brute_force()
@@ -398,7 +398,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
         mixture_size = self.parameters['fixed_mixture_size']
                 
-        if self.correlated_mixture or mixture_size is not None:
+        if self.is_correlated_mixture or mixture_size is not None:
             # complicated case => run brute force or monte carlo
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
                 return self.mixture_entropy_brute_force()
@@ -496,7 +496,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `approx_prob` determines whether the probabilities of encountering
             ligands in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         S_ni = self.int_mat
@@ -600,7 +600,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         S_ni = self.int_mat
@@ -741,7 +741,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase):
         
     def mutual_information_monte_carlo_extrapolate(self, ret_prob_activity=False):
         """ calculate the mutual information using a Monte Carlo strategy. """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
                 
         base = 2 ** np.arange(0, self.Nr)
@@ -1114,7 +1114,7 @@ def _sample_binary_mixtures(model, steps, dtype=np.uint):
     """
     mixture_size = model.parameters['fixed_mixture_size']
             
-    if not model.correlated_mixture and mixture_size is None:
+    if not model.is_correlated_mixture and mixture_size is None:
         # use simple monte carlo algorithm
         prob_s = model.substrate_probabilities
         

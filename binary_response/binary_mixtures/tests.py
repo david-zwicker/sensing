@@ -54,7 +54,7 @@ class TestLibraryBinary(unittest.TestCase):
             
             # create test object
             model = LibraryBinaryNumeric.create_test_instance(
-                        correlated_mixture=setting['mixture_correlated'],
+                        is_correlated_mixture=setting['mixture_correlated'],
                         fixed_mixture_size=setting['fixed_mixture_size']
                     )
 
@@ -136,7 +136,7 @@ class TestLibraryBinary(unittest.TestCase):
             
             # check the mixture statistics
             ci_1, cij_1 = model.mixture_statistics_brute_force()
-            if not model.correlated_mixture:
+            if not model.is_correlated_mixture:
                 ci_2, cij_2 = model.mixture_statistics()
                 self.assertAllClose(ci_1, ci_2, rtol=5e-2, atol=5e-2,
                                     msg='Mixture statistics: ' + error_msg)
@@ -196,7 +196,7 @@ class TestLibraryBinary(unittest.TestCase):
             
             # check for known exception where the method are not implemented 
             fixed_mixture = model.parameters['fixed_mixture_size'] is not None
-            if model.correlated_mixture:
+            if model.is_correlated_mixture:
                 self.assertRaises(NotImplementedError,
                                   model.receptor_activity_estimate)
                 

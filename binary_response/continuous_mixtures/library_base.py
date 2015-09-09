@@ -129,7 +129,7 @@ class LibraryContinuousBase(LibraryBase):
     
     
     @property
-    def is_homogeneous(self):
+    def is_homogeneous_mixture(self):
         """ returns True if the mixture is homogeneous """
         h_i = self.commonness
         return np.allclose(h_i, h_i[0])

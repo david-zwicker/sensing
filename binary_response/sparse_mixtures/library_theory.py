@@ -26,7 +26,7 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
     def excitation_statistics(self):
         """ calculates the statistics of the excitation of the receptors.
         Returns the mean exciation, the variance, and the covariance matrix """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
         ctot_stats = self.ctot_statistics()
@@ -197,7 +197,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
             homogeneous system with the same average number of substrates is
             used instead.
         """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         if assume_homogeneous:
@@ -219,7 +219,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
     def get_optimal_library(self):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         m = self.mixture_size_statistics()['mean']
@@ -331,7 +331,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             `fixed_parameter` determines which parameter is kept fixed during
                 the optimization procedure
         """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         ctot_stats = self.ctot_statistics()
@@ -448,7 +448,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     def get_optimal_library(self, spread_opt=2):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices """
-        if self.correlated_mixture:
+        if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         ctot_stats = self.ctot_statistics()
