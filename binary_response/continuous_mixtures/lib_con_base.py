@@ -81,12 +81,9 @@ class LibraryContinuousBase(LibraryBase):
 
 
     @classmethod
-    def get_random_arguments(cls, **kwargs):
+    def get_random_arguments(cls, homogeneous_mixture=False, 
+                             mixture_correlated=False, **kwargs):
         """ create random arguments for creating test instances """
-        # extract the parameters
-        homogeneous_mixture = kwargs.pop('homogeneous_mixture', False)
-        mixture_correlated = kwargs.pop('mixture_correlated', False)
-
         args = super(LibraryContinuousBase, cls).get_random_arguments(**kwargs)
         Ns = args['num_substrates']
         

@@ -48,7 +48,15 @@ def arrays_close(arr1, arr2, rtol=1e-05, atol=1e-08, equal_nan=False):
     
     # get the scale of the first array
     scale = np.linalg.norm(arr1.flat, np.inf)
-    return np.any(np.abs(arr1 - arr2) <= (atol + rtol * scale))
+    
+    # try to compare the arrays
+    with np.errstate(invalid='raise'):
+        try:
+            is_close = np.any(np.abs(arr1 - arr2) <= (atol + rtol * scale))
+        except FloatingPointError:
+            is_close = False
+        
+    return is_close
 
 
 

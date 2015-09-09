@@ -137,10 +137,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
 
 
     @classmethod
-    def get_random_arguments(cls, **kwargs):
+    def get_random_arguments(cls, fixed_mixture_size=None, **kwargs):
         """ create random arguments for creating test instances """
-        fixed_mixture_size = kwargs.pop('fixed_mixture_size', None)
-        
         args = super(LibraryBinaryNumeric, cls).get_random_arguments(**kwargs)
         
         if fixed_mixture_size is not None:

@@ -295,17 +295,18 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
 
 
     @classmethod
-    def get_random_arguments(cls, **kwargs):
+    def get_random_arguments(cls, mean_sensitivity=None, spread=None, **kwargs):
         """ create random arguments for creating test instances """
-        # extract parameters
-        spread = kwargs.pop('spread', np.random.random() + 0.5)
-        mean_sensitivity = kwargs.get('mean_sensitivity',
-                                      np.random.random() + 0.5)
-        
         args = super(LibrarySparseLogNormal, cls).get_random_arguments(**kwargs)
-        
-        args['spread'] = spread 
-        args['mean_sensitivity'] = mean_sensitivity
+
+        if spread is None:
+            args['spread'] = np.random.random() + 0.5
+        else:
+            args['spread'] = spread
+        if mean_sensitivity is None:
+            args['mean_sensitivity'] = np.random.random() + 0.5
+        else: 
+            args['mean_sensitivity'] = mean_sensitivity
         return args
 
 
