@@ -23,21 +23,21 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
 
 
     def __init__(self, num_substrates, num_receptors, mean_sensitivity=1,
-                 sigma=0.1, parameters=None):
+                 spread=0.1, parameters=None):
         """ represents a theoretical receptor library where the entries of the
         sensitivity matrix are drawn from a log-normal distribution """
         super(LibraryExponentialLogNormal, self).__init__(num_substrates,
                                                           num_receptors,
                                                           parameters)
         self.mean_sensitivity = mean_sensitivity
-        self.sigma = sigma
+        self.spread = spread
 
         
     @property
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibraryExponentialLogNormal, self).repr_params
-        params.append('sigma=%g' % self.sigma)
+        params.append('spread=%g' % self.spread)
         params.append('S0=%g' % self.mean_sensitivity)
         return params
 
@@ -45,10 +45,10 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
     @property
     def sens_mat_distribution(self):
         """ returns the probability distribution for the interaction matrix """
-        if self.sigma == 0:
+        if self.spread == 0:
             return DeterministicDistribution(loc=self.mean_sensitivity)
         else:
-            return lognorm_mean(self.mean_sensitivity, self.sigma)
+            return lognorm_mean(self.mean_sensitivity, self.spread)
 
 
     @property
@@ -57,7 +57,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
         it by calling the __init__ method with these arguments """
         args = super(LibraryExponentialLogNormal, self).init_arguments
         args['mean_sensitivity'] = self.mean_sensitivity
-        args['sigma'] = self.sigma
+        args['spread'] = self.spread
         return args
 
 
@@ -68,12 +68,12 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
         args = parent_cls.get_random_arguments(**kwargs)
         S0 = np.random.random() + 0.5
         args['mean_sensitivity'] = kwargs.get('mean_sensitivity', S0)
-        args['sigma'] = kwargs.get('sigma', 0.1*np.random.random())
+        args['spread'] = kwargs.get('spread', 0.1*np.random.random())
         return args
 
 
 #     @classmethod
-#     def from_numeric(cls, numeric_model, typical_sensitivity=None, sigma=None,
+#     def from_numeric(cls, numeric_model, typical_sensitivity=None, spread=None,
 #                      parameters=None):
 #         """ creates an instance of this class by using parameters from a related
 #         numeric instance """
@@ -83,8 +83,8 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
 #             kwargs['mean_sensitivity'] = typical_sensitivity
 #         elif numeric_model.sens_mat is not None:
 #             kwargs['mean_sensitivity'] = numeric_model.sens_mat.mean()
-#         if sigma is not None:
-#             kwargs['sigma'] = sigma
+#         if spread is not None:
+#             kwargs['spread'] = spread
 #         
 #         # create the object
 #         obj = cls(numeric_model.Ns, numeric_model.Nr, **kwargs)
@@ -100,7 +100,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
         by typical mixtures """
         p_i = self.concentrations
         
-        if self.sigma == 0:
+        if self.spread == 0:
             # simple case in which the interaction matrix elements are the same:
             #     I_ai = self.mean_sensitivity
             # this is the limiting case
@@ -149,7 +149,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
         if method == 'normal':
             # use a normal distribution for approximations
 
-            if self.sigma == 0:
+            if self.spread == 0:
                 # simple case in which all matrix elements are the same:
                 #     I_ai = self.mean_sensitivity
                 # this is the limiting case
@@ -172,7 +172,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
                 # more complicated case where the distribution of interaction
                 # matrix elements has a finite width
                 S0 = self.mean_sensitivity
-                sigma2 = self.sigma**2
+                sigma2 = self.spread**2
                 
                 # we first determine the mean and the variance of the
                 # distribution of z = I_ai * c_i, which is the distribution for
@@ -198,7 +198,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
         elif method == 'gamma':
             # use a gamma distribution for approximations
              
-            if self.sigma == 0:
+            if self.spread == 0:
                 # simple case in which the matrix elements are the same:
                 #     I_ai = self.mean_sensitivity
                 # this is the limiting case
@@ -223,7 +223,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
                 # more complicated case where the distribution of interaction
                 # matrix elements has a finite width
                 S0 = self.mean_sensitivity
-                sigma2 = self.sigma**2
+                sigma2 = self.spread**2
                 
                 # we first determine the mean and the variance of the
                 # distribution of z = I_ai * c_i, which is the distribution for
@@ -266,7 +266,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
         c_mean = self.concentration_means.mean()
         S0 = np.exp(-0.5 * sigma**2)/(self.Ns * c_mean)
         return {'distribution': 'log_normal',
-                'mean_sensitivity': S0, 'sigma': sigma}
+                'mean_sensitivity': S0, 'spread': sigma}
 
 
     def get_optimal_sigma(self):    
@@ -279,7 +279,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
         elements """  
         if estimate is None:
             c_mean = self.concentration_means.mean()
-            estimate = np.exp(-0.5 * self.sigma**2)/(self.Ns * c_mean)
+            estimate = np.exp(-0.5 * self.spread**2)/(self.Ns * c_mean)
         
         # find best mean_sensitivity by optimizing until the average receptor
         # activity is 0.5

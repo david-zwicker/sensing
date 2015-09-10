@@ -13,7 +13,7 @@ from six.moves import range
 
 from .lib_exp_base import LibraryExponentialBase
 from ..library_base import LibraryNumericMixin
-from utils.math_distributions import lognorm_mean
+from ..sensitivity_matrices import get_sensitivity_matrix
 
 
 class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
@@ -127,64 +127,14 @@ class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
 
     def choose_sensitivity_matrix(self, distribution, mean_sensitivity=1,
                                   **kwargs):
-        """ creates a interaction matrix with the given properties
-            `distribution` determines the distribution from which we choose the
-                entries of the sensitivity matrix
-            `mean_sensitivity` should in principle set the mean sensitivity,
-                although there are some exceptional distributions. For instance,
-                for binary distributions `mean_sensitivity` sets the
-                magnitude of the entries that are non-zero.
-            Some distributions might accept additional parameters.
-        """
-        shape = (self.Nr, self.Ns)
+        """ chooses the sensitivity matrix """
+        self.sens_mat, sens_mat_params = get_sensitivity_matrix(
+                  self.Nr, self.Ns, distribution, mean_sensitivity, **kwargs)
 
-        assert mean_sensitivity > 0 
-
-        if distribution == 'const':
-            # simple constant matrix
-            self.sens_mat = np.full(shape, mean_sensitivity)
-
-        elif distribution == 'binary':
-            # choose a binary matrix with a typical scale
-            kwargs.setdefault('density', 0)
-            if kwargs['density'] == 0:
-                # simple case of empty matrix
-                self.sens_mat = np.zeros(shape)
-            elif kwargs['density'] >= 1:
-                # simple case of full matrix
-                self.sens_mat = np.full(shape, mean_sensitivity)
-            else:
-                # choose receptor substrate interaction randomly and don't worry
-                # about correlations
-                self.sens_mat = (mean_sensitivity * 
-                                (np.random.random(shape) < kwargs['density']))
-
-        elif distribution == 'log_normal':
-            # log normal distribution
-            kwargs.setdefault('sigma', 1)
-            if kwargs['sigma'] == 0:
-                self.sens_mat = np.full(shape, mean_sensitivity)
-            else:
-                dist = lognorm_mean(mean_sensitivity, kwargs['sigma'])
-                self.sens_mat = dist.rvs(shape)
-                
-        elif distribution == 'log_uniform':
-            raise NotImplementedError
-            
-        elif distribution == 'log_gamma':
-            raise NotImplementedError
-            
-        elif distribution == 'gamma':
-            raise NotImplementedError
-            
-        else:
-            raise ValueError('Unknown distribution `%s`' % distribution)
-            
         # save the parameters determining this matrix
-        sens_mat_params = {'distribution': distribution,
-                          'mean_sensitivity': mean_sensitivity}
-        sens_mat_params.update(kwargs)
-        self.parameters['sensitivity_matrix_params'] = sens_mat_params 
+        self.parameters['sensitivity_matrix_params'] = sens_mat_params
+
+    choose_sensitivity_matrix.__doc__ = get_sensitivity_matrix.__doc__  
 
 
     def receptor_activity(self, ret_correlations=False):
