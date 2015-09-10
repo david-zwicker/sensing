@@ -6,11 +6,13 @@ Created on Mar 31, 2015
 
 from __future__ import division
 
+import logging
+
 import numpy as np
 
+from .lib_spr_base import LibrarySparseBase
 from utils.math_distributions import (lognorm_mean, loguniform_mean,
                                       DeterministicDistribution)
-from .lib_spr_base import LibrarySparseBase  # @UnresolvedImport
 
 
 
@@ -25,7 +27,7 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
     
     def excitation_statistics(self):
         """ calculates the statistics of the excitation of the receptors.
-        Returns the mean exciation, the variance, and the covariance matrix """
+        Returns the mean excitation, the variance, and the covariance matrix """
         if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
@@ -304,7 +306,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         else:
             args['spread'] = spread
         if mean_sensitivity is None:
-            args['mean_sensitivity'] = np.random.random() + 0.5
+            args['mean_sensitivity'] = np.random.random() + 1
         else: 
             args['mean_sensitivity'] = mean_sensitivity
         return args
@@ -358,8 +360,14 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             S0_opt = self.mean_sensitivity
             
             arg = (ctot_mean**2 * self.mean_sensitivity**2 - 1)/ctot_cv2
-            spread_opt = np.sqrt(np.log(arg))
-            std_opt = self.mean_sensitivity * np.sqrt(arg - 1)
+            if arg >= 1:
+                spread_opt = np.sqrt(np.log(arg))
+                std_opt = self.mean_sensitivity * np.sqrt(arg - 1)
+            else:
+                logging.warn('Given mean sensitivity is too small to find a '
+                             'suitable spread parameter')
+                spread_opt = 0
+                std_opt = 0
             
         else:
             raise ValueError('Parameter `%s` is unknown or cannot be held '

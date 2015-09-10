@@ -160,8 +160,24 @@ class LibraryBase(object):
         else:
             result = np.array(result)
             return result.mean(axis=0), result.std(axis=0)
+
+
+    def ctot_statistics(self, **kwargs):
+        """ returns the statistics for the total concentration. All arguments
+        are passed to the call to `self.concentration_statistics` """
+        # get the statistics of the individual substrates
+        c_stats = self.concentration_statistics(**kwargs)
         
+        # calculate the statistics of their sum
+        ctot_mean = c_stats['mean'].sum()
+        if c_stats.get('cov_is_diagonal', False):
+            ctot_var = c_stats['var'].sum()
+        else:
+            ctot_var = c_stats['cov'].sum()
         
+        return {'mean': ctot_mean, 'std': np.sqrt(ctot_var), 'var': ctot_var}
+    
+            
     def _estimate_qn_from_en(self, en_stats, excitation_model='default'):
         """ estimates probability q_n that a receptor is activated by a mixture
         based on the statistics of the excitations en """
@@ -463,7 +479,7 @@ class LibraryNumericMixin(object):
         if ret_correlations:
             # calculate the correlated activity 
             q_nm = self._estimate_qnm_from_en(en_stats)
-            r_nm = r_n**2 + q_nm
+            r_nm = np.outer(r_n, r_n) + q_nm
             if clip:
                 np.clip(r_nm, 0, 1, r_nm)
 

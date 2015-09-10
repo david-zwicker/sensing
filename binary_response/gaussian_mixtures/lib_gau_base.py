@@ -267,10 +267,12 @@ class LibraryGaussianBase(LibraryBase):
             
         elif scheme == 'random_factors':
             # simple random scheme based on a number of factors
+            correlation = kwargs.pop('correlation', 0)
             count = kwargs.pop('count', 5)
+            cov_params['correlation'] = correlation
             cov_params['count'] = count
 
-            W = np.random.randn(self.Ns, count)
+            W = correlation * np.random.randn(self.Ns, count)
             p_ij = np.dot(W, W.T) + np.diag(np.random.random(self.Ns))
             
             # variance normalization:
