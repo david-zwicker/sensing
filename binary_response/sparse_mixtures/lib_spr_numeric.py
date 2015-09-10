@@ -152,108 +152,11 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             
             yield c
 
-    
-    def concentration_statistics(self, method='auto'):
-        """ returns statistics for each individual substrate """
-        if method == 'auto':
-            if self.is_correlated_mixture:
-                method = 'monte_carlo'
-            else:
-                method = 'estimate'
-
-        if method == 'estimate':            
-            return super(LibrarySparseNumeric, self).concentration_statistics()
-        elif method == 'monte_carlo' or method == 'monte-carlo':
-            return self.concentration_statistics_monte_carlo()
-        else:
-            raise ValueError('Unknown method `%s`.' % method)
-
-
-    def excitation_statistics(self, method='auto', ret_correlations=True):
-        """ calculates the statistics of the excitation of the receptors.
-        Returns the mean excitation, the variance, and the covariance matrix.
-
-        `method` can be one of [monte_carlo', 'estimate'].
-        """
-        if method == 'auto':
-            method = 'monte_carlo'
-                
-        if method == 'monte_carlo' or method == 'monte-carlo':
-            return self.excitation_statistics_monte_carlo(ret_correlations)
-        elif method == 'estimate':
-            return self.excitation_statistics_estimate()
-        else:
-            raise ValueError('Unknown method `%s`.' % method)
-                            
-    
-    def excitation_statistics_estimate(self):
-        """
-        calculates the statistics of the excitation of the receptors.
-        Returns the mean excitation, the variance, and the covariance matrix.
-        """
-        if self.is_correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
         
-        c_stats = self.concentration_statistics()
-        
-        # calculate statistics of the sum s_n = S_ni * c_i        
-        S_ni = self.sens_mat
-        en_mean = np.dot(S_ni, c_stats['mean'])
-        enm_cov = np.einsum('ni,mi,i->nm', S_ni, S_ni, c_stats['var'])
-        en_var = np.diag(enm_cov)
-        
-        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                'cov': enm_cov}
+    def concentration_statistics_estimate(self):
+        """ estimate the statistics for each individual substrate """
+        return super(LibrarySparseNumeric, self).concentration_statistics()
             
- 
-    def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
-                           clip=False, **kwargs):
-        """ calculates the average activity of the receptor as a response to 
-        single ligands.
-        
-        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto'].
-            If it is 'auto' than the method is chosen automatically based on the
-            problem size.
-        """
-        if method == 'estimate':
-            kwargs['clip'] = False
-
-        # calculate receptor activities with the requested `method`            
-        r_n, r_nm = self.receptor_activity(method, ret_correlations=True,
-                                           **kwargs)
-        
-        # calculate receptor crosstalk from the observed probabilities
-        q_nm = r_nm - np.outer(r_n, r_n)
-        if clip:
-            np.clip(q_nm, 0, 1, q_nm)
-        
-        if ret_receptor_activity:
-            return r_n, q_nm # q_n = r_n
-        else:
-            return q_nm
-
-        
-    def receptor_crosstalk_estimate(self, ret_receptor_activity=False,
-                                    approx_prob=False, clip=False):
-        """ calculates the average activity of the receptor as a response to 
-        single ligands. """
-        en_stats = self.excitation_statistics_estimate()
-
-        # calculate the receptor crosstalk
-        q_nm = self._estimate_qnm_from_en(en_stats)
-        if clip:
-            np.clip(q_nm, 0, 1, q_nm)
-
-        if ret_receptor_activity:
-            # calculate the receptor activity
-            q_n = self._estimate_qn_from_en(en_stats, approx_prob=approx_prob)
-            if clip:
-                np.clip(q_n, 0, 1, q_n)
-
-            return q_n, q_nm
-        else:
-            return q_nm        
-        
         
     def mutual_information(self, method='auto', ret_prob_activity=False,
                            **kwargs):
@@ -286,15 +189,11 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                                                      clip=clip)
         
         # calculate the approximate mutual information
-        MI = self._estimate_MI_from_q_values(
-                                           q_n, q_nm, use_polynom=use_polynom)
+        MI = self._estimate_MI_from_q_values(q_n, q_nm, use_polynom=use_polynom)
         
         if ret_prob_activity:
             return MI, q_n
         else:
             return MI
         
-            
-
-        
-            
+    

@@ -42,12 +42,13 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
                 'cov': enm_cov}
         
     
-    def receptor_activity(self, approx_prob=False, ret_correlations=False,
-                          clip=True):
+    def receptor_activity(self, ret_correlations=False,
+                          excitation_model='default', clip=True):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        q_n, q_nm = self.receptor_crosstalk(
-                approx_prob=approx_prob, ret_receptor_activity=True, clip=False)
+        q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True,
+                                            excitation_model=excitation_model,
+                                            clip=False)
         
         r_n = q_n
         r_nm = q_n**2 + q_nm
@@ -62,8 +63,8 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
             return r_n
         
         
-    def receptor_crosstalk(self, approx_prob=False, ret_receptor_activity=False,
-                           clip=True):
+    def receptor_crosstalk(self, ret_receptor_activity=False,
+                           excitation_model='default', clip=True):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
         en_stats = self.excitation_statistics()
@@ -72,7 +73,7 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
             q_n, q_nm = 0, 0
             
         else:
-            q_n = self._estimate_qn_from_en(en_stats, approx_prob=approx_prob)
+            q_n = self._estimate_qn_from_en(en_stats, excitation_model)
             q_nm = self._estimate_qnm_from_en(en_stats)
                 
             if clip:
@@ -85,16 +86,15 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
             return q_nm
 
 
-    def mutual_information(self, approx_prob=False, use_polynom=True,
+    def mutual_information(self, excitation_model='default', use_polynom=True,
                            clip=False):
         """ calculates the typical mutual information """
         # get receptor activity probabilities
-        q_n, q_nm = self.receptor_crosstalk(approx_prob=approx_prob,
-                                            ret_receptor_activity=True)
+        q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True,
+                                            excitation_model=excitation_model)
         
         # estimate mutual information from this
-        MI = self._estimate_MI_from_q_stats(
-                                            q_n, q_nm, use_polynom=use_polynom)
+        MI = self._estimate_MI_from_q_stats(q_n, q_nm, use_polynom=use_polynom)
         
         if clip:
             return np.clip(MI, 0, self.Nr)

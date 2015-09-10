@@ -6,6 +6,7 @@ Created on Apr 1, 2015
 
 from __future__ import division
 
+import functools
 import multiprocessing as mp
 
 import numpy as np
@@ -15,6 +16,9 @@ from utils.misc import xlog2x
 
 
 LN2 = np.log(2)
+
+# define vectorize function for double results to use as a decorator
+vectorize_double = functools.partial(np.vectorize, otypes=[np.double])
 
 
 
@@ -146,7 +150,8 @@ class LibraryBase(object):
             
         else:
             # run the calculations in this process
-            result = [getattr(self.__class__(**self.init_arguments), method)(**args)
+            cls = self.__class__
+            result = [getattr(cls(**self.init_arguments), method)(**args)
                       for _ in range(avg_num)]
     
         # collect the results and calculate the statistics
@@ -157,18 +162,28 @@ class LibraryBase(object):
             return result.mean(axis=0), result.std(axis=0)
         
         
-    def _estimate_qn_from_en(self, en_stats, approx_prob=False):
+    def _estimate_qn_from_en(self, en_stats, excitation_model='default'):
         """ estimates probability q_n that a receptor is activated by a mixture
         based on the statistics of the excitations en """
 
-        if approx_prob:
+        if excitation_model == 'default':
+            excitation_model = 'approximate'
+
+        if excitation_model == 'log-normal':
+            # estimate from a log-normal distribution
+            q_n = _estimate_qn_from_en_lognorm(en_stats['mean'], en_stats['var'])
+        
+        elif excitation_model == 'gaussian':
+            # estimate from a log-normal distribution
+            q_n = _estimate_qn_from_en_gaussian(en_stats['mean'], en_stats['var'])
+        
+        elif excitation_model == 'approximate':
             # estimate from a simple expression, which was obtained from
             # expanding the more complicated expression given below
             q_n = _estimate_qn_from_en_approx(en_stats['mean'], en_stats['var'])
 
         else:
-            # estimate from a log-normal distribution
-            q_n = _estimate_qn_from_en_lognorm(en_stats['mean'], en_stats['var'])
+            raise ValueError('Unknown excitation model `%s`' % excitation_model)
             
         return q_n
    
@@ -290,8 +305,27 @@ class LibraryNumericMixin(object):
         ci_var = np.diag(cij_corr)
         return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
                 'cov': cij_corr}
-        
 
+
+    def excitation_statistics(self, method='auto', ret_correlations=True,
+                              **kwargs  ):
+        """ calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.excitation_statistics_monte_carlo(ret_correlations,
+                                                          **kwargs)
+        elif method == 'estimate':
+            return self.excitation_statistics_estimate(**kwargs)
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+        
+        
     def excitation_statistics_monte_carlo(self, ret_correlations=False):
         """
         calculates the statistics of the excitation of the receptors.
@@ -351,6 +385,26 @@ class LibraryNumericMixin(object):
                 en_var = en_square / (count - 1)
     
             return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var}
+                            
+    
+    def excitation_statistics_estimate(self, **kwargs):
+        """
+        calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+        """
+        c_stats = self.concentration_statistics_estimate(**kwargs)
+        
+        # calculate statistics of the sum s_n = S_ni * c_i        
+        S_ni = self.sens_mat
+        en_mean = np.dot(S_ni, c_stats['mean'])
+        if c_stats.get('cov_is_diagonal', False):
+            enm_cov = np.einsum('ni,mj,i->nm', S_ni, S_ni, c_stats['var'])
+        else:
+            enm_cov = np.einsum('ni,mj,ij->nm', S_ni, S_ni, c_stats['cov'])
+        en_var = np.diag(enm_cov)
+        
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                'cov': enm_cov}
         
         
     def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
@@ -381,7 +435,8 @@ class LibraryNumericMixin(object):
             r_nm = np.zeros((self.Nr, self.Nr))
         
         for c_i in self._sample_mixtures():
-            a_n = (np.dot(S_ni, c_i) >= 1)
+            e_n = np.dot(S_ni, c_i)
+            a_n = (e_n >= 1)
             r_n[a_n] += 1
             if ret_correlations:
                 r_nm[np.outer(a_n, a_n)] += 1
@@ -395,12 +450,13 @@ class LibraryNumericMixin(object):
          
                         
     def receptor_activity_estimate(self, ret_correlations=False,
-                                   approx_prob=False, clip=False):
+                                   excitation_model='log-normal', clip=False):
         """ estimates the average activity of each receptor """
         en_stats = self.excitation_statistics_estimate()
 
         # calculate the receptor activity
-        r_n = self._estimate_qn_from_en(en_stats, approx_prob=approx_prob)
+        r_n = self._estimate_qn_from_en(en_stats,
+                                        excitation_model=excitation_model)
         if clip:
             np.clip(r_n, 0, 1, r_n)
 
@@ -415,7 +471,56 @@ class LibraryNumericMixin(object):
         else:
             return r_n   
         
-                                           
+
+    def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
+                           clip=False, **kwargs):
+        """ calculates the average activity of the receptor as a response to 
+        single ligands.
+        
+        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto'].
+            If it is 'auto' than the method is chosen automatically based on the
+            problem size.
+        """
+        if method == 'estimate':
+            kwargs['clip'] = False
+
+        # calculate receptor activities with the requested `method`            
+        r_n, r_nm = self.receptor_activity(method, ret_correlations=True,
+                                           **kwargs)
+        
+        # calculate receptor crosstalk from the observed probabilities
+        q_nm = r_nm - np.outer(r_n, r_n)
+        if clip:
+            np.clip(q_nm, 0, 1, q_nm)
+        
+        if ret_receptor_activity:
+            return r_n, q_nm # q_n = r_n
+        else:
+            return q_nm
+
+        
+    def receptor_crosstalk_estimate(self, ret_receptor_activity=False,
+                                    excitation_model=None, clip=False):
+        """ calculates the average activity of the receptor as a response to 
+        single ligands. """
+        en_stats = self.excitation_statistics_estimate()
+
+        # calculate the receptor crosstalk
+        q_nm = self._estimate_qnm_from_en(en_stats)
+        if clip:
+            np.clip(q_nm, 0, 1, q_nm)
+
+        if ret_receptor_activity:
+            # calculate the receptor activity
+            q_n = self._estimate_qn_from_en(en_stats, excitation_model)
+            if clip:
+                np.clip(q_n, 0, 1, q_n)
+
+            return q_n, q_nm
+        else:
+            return q_nm        
+        
+                                                   
     def mutual_information_monte_carlo(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
@@ -448,28 +553,9 @@ class LibraryNumericMixin(object):
         else:
             return MI
         
-        
-
-def _estimate_qn_from_en_approx(en_mean, en_var):
-    """ estimates probability q_n that a receptor is activated by a mixture
-    based on the statistics of the excitations s_n using an approximation """
-    if en_var == 0:
-        q_n = np.double(en_mean > 1)
-    else:                
-        q_n = (0.5
-               + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
-               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi))
-               )
-        # here, the last term comes from an expansion of the log-normal approx.
-
-    return q_n
-
-# vectorize the function above
-_estimate_qn_from_en_approx = np.vectorize(_estimate_qn_from_en_approx,
-                                           otypes=[np.double])
 
 
-
+@vectorize_double
 def _estimate_qn_from_en_lognorm(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations s_n assuming an underlying
@@ -485,11 +571,38 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
         q_n = 0.5 * special.erfc(enum/denom)
         
     return q_n
-
-# vectorize the function above
-_estimate_qn_from_en_lognorm = np.vectorize(_estimate_qn_from_en_lognorm,
-                                            otypes=[np.double])
        
+
+
+@vectorize_double
+def _estimate_qn_from_en_gaussian(en_mean, en_var):
+    """ estimates probability q_n that a receptor is activated by a mixture
+    based on the statistics of the excitations s_n assuming an underlying
+    normal distribution for s_n """
+    if en_var == 0:
+        q_n = np.double(en_mean > 1)
+    else:
+        q_n = 0.5 * special.erfc((1 - en_mean)/np.sqrt(2 * en_var))
+        
+    return q_n
+           
+               
+
+@vectorize_double
+def _estimate_qn_from_en_approx(en_mean, en_var):
+    """ estimates probability q_n that a receptor is activated by a mixture
+    based on the statistics of the excitations s_n using an approximation """
+    if en_var == 0:
+        q_n = np.double(en_mean > 1)
+    else:                
+        q_n = (0.5
+               + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
+               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi))
+               )
+        # here, the last term comes from an expansion of the log-normal approx.
+
+    return q_n
+
 
 
 def _ensemble_average_job(args):

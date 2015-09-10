@@ -177,7 +177,7 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
             raise ValueError('Unknown method `%s`.' % method)
 
     
-    def concentration_statistics_estimate(self, approx_covariance=False):
+    def concentration_statistics_estimate(self, approx_covariance=True):
         """ returns statistics for each individual substrate """
         # get the statistics of the unrestricted case
         parent = super(LibraryGaussianNumeric, self)
@@ -222,40 +222,6 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         
         # return the results in a dictionary to be able to extend it later
         return {'mean': ci_mean, 'std': ci_std, 'var': ci_var, 'cov': cij_cov}
-
-
-    def excitation_statistics(self, method='auto', ret_correlations=True):
-        """ calculates the statistics of the excitation of the receptors.
-        Returns the mean excitation, the variance, and the covariance matrix.
-
-        `method` can be one of [monte_carlo', 'estimate'].
-        """
-        if method == 'auto':
-            method = 'monte_carlo'
-                
-        if method == 'monte_carlo' or method == 'monte-carlo':
-            return self.excitation_statistics_monte_carlo(ret_correlations)
-        elif method == 'estimate':
-            return self.excitation_statistics_estimate()
-        else:
-            raise ValueError('Unknown method `%s`.' % method)
-                            
-    
-    def excitation_statistics_estimate(self):
-        """
-        calculates the statistics of the excitation of the receptors.
-        Returns the mean excitation, the variance, and the covariance matrix.
-        """
-        c_stats = self.concentration_statistics_estimate(approx_covariance=True)
-        
-        # calculate statistics of the sum s_n = S_ni * c_i        
-        S_ni = self.sens_mat
-        en_mean = np.dot(S_ni, c_stats['mean'])
-        enm_cov = np.einsum('ni,mj,ij->nm', S_ni, S_ni, c_stats['cov'])
-        en_var = np.diag(enm_cov)
-        
-        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
-                'cov': enm_cov}
 
       
     def mutual_information(self, ret_prob_activity=False):
