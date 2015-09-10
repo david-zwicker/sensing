@@ -6,6 +6,8 @@ Created on Apr 1, 2015
 
 from __future__ import division
 
+import logging
+
 import numpy as np
 from scipy import linalg
 
@@ -40,30 +42,37 @@ class LibraryBinaryBase(LibraryBase):
 
         initialize_state = self.parameters['initialize_state'] 
         if initialize_state is None:
-            # do not initialize with anything
+            # do not initialize anything
             self.commonness = None
             self.correlations = None
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
+            logging.debug('Initialize with given commonness and correlation')
             self.commonness = self.parameters['commonness_vector']
             self.correlations = self.parameters['correlation_matrix']
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
+            logging.debug('Choose commonness and correlation from given '
+                          'parameters')
             self.choose_commonness(**self.parameters['commonness_parameters'])
             self.choose_correlations(**self.parameters['correlation_parameters'])
             
         elif initialize_state == 'auto':
             # use exact values if saved or ensemble properties otherwise
             if self.parameters['commonness_parameters'] is None:
+                logging.debug('Initialize with given commonness')
                 self.commonness = self.parameters['commonness_vector']
             else:
+                logging.debug('Choose commonness from given parameters')
                 self.choose_commonness(**self.parameters['commonness_parameters'])
                 
             if self.parameters['correlation_parameters'] is None:
+                logging.debug('Initialize with given correlation')
                 self.correlations = self.parameters['correlation_matrix']
             else:
+                logging.debug('Choose correlation from given parameters')
                 self.choose_correlations(**self.parameters['correlation_parameters'])
         
         else:

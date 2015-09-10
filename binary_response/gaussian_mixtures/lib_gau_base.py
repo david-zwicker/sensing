@@ -6,6 +6,8 @@ Created on Apr 1, 2015
 
 from __future__ import division
 
+import logging
+
 import numpy as np
 from scipy import stats
 
@@ -48,24 +50,31 @@ class LibraryGaussianBase(LibraryBase):
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
+            logging.debug('Initialize with given concentrations and covariance')
             self.concentrations = self.parameters['concentrations_vector']
             self.covariance = self.parameters['covariance_matrix']
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
+            logging.debug('Choose concentrations and covariance from given '
+                          'parameters')
             self.choose_concentrations(**self.parameters['concentrations_parameters'])
             self.choose_covariance(**self.parameters['covariance_parameters'])
             
         elif initialize_state == 'auto':
             # use exact values if saved or ensemble properties otherwise
             if self.parameters['concentrations_parameters'] is None:
+                logging.debug('Initialize with given concentrations')
                 self.concentrations = self.parameters['concentrations_vector']
             else:
+                logging.debug('Choose concentrations from given parameters')
                 self.choose_concentrations(**self.parameters['concentrations_parameters'])
                 
             if self.parameters['covariance_parameters'] is None:
+                logging.debug('Initialize with given covariance')
                 self.covariance = self.parameters['covariance_matrix']
             else:
+                logging.debug('Choose covariance from given parameters')
                 self.choose_covariance(**self.parameters['covariance_parameters'])
         
         else:

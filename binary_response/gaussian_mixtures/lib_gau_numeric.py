@@ -69,6 +69,7 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
                              'empty matrix.')
                 self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             else:
+                logging.debug('Initialize given sensitivity matrix')
                 self.sens_mat = sens_mat.copy()
             
         elif initialize_state == 'ensemble':
@@ -79,6 +80,8 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
                                  'specified. Initialize empty matrix.')
                     self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
                 else:
+                    logging.debug('Choose sensitivity matrix from given '
+                                  'parameters')
                     self.choose_sensitivity_matrix(**params)
             
         else:

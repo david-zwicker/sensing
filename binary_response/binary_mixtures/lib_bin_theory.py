@@ -7,6 +7,7 @@ Created on Mar 31, 2015
 from __future__ import division
 
 import numpy as np
+from scipy import optimize
 
 from .lib_bin_base import LibraryBinaryBase
 
@@ -124,8 +125,9 @@ class LibraryBinaryUniform(LibraryBinaryBase):
                                                 approx_prob=approx_prob)
     
             # calculate mutual information from this
-            MI = self._estimate_MI_from_q_stats(
-                                q_n, q_nm, use_polynom=(method == 'polynom'))
+            use_polynom = (method == 'polynom')
+            MI = self._estimate_MI_from_q_stats(q_n, q_nm,
+                                                use_polynom=use_polynom)
 
         elif method == 'overlap':
             # calculate the MI assuming that receptors are independent.
@@ -138,8 +140,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             q_n = self.receptor_activity(approx_prob=approx_prob)
     
             # calculate mutual information from this, ignoring crosstalk
-            MI = self._estimate_MI_from_q_stats(
-                                                    q_n, 0, use_polynom=False)
+            MI = self._estimate_MI_from_q_stats(q_n, 0, use_polynom=False)
 
             # estimate the effect of crosstalk by calculating the expected
             # overlap between independent receptors  
@@ -156,24 +157,34 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             return MI
         
         
-    def density_optimal(self, assume_homogeneous=False):
+    def density_optimal(self, approx=True, **kwargs):
         """ return the estimated optimal activity fraction for the simple case
         where all h are the same. The estimate relies on an approximation that
         all receptors are independent and is thus independent of the number of 
         receptors. The estimate is thus only good in the limit of low Nr.
-        
-        If `assume_homogeneous` is True, the calculation is also done in the
-            case of heterogeneous mixtures, where the probability of the
-            homogeneous system with the same average number of substrates is
-            used instead.
         """
-        # mean substrate size
+        # approximate using mean substrate size
         m = self.substrate_probabilities.sum()
-            
-        if m < 0.5:
-            return 1
+        
+        density_opt = min(0.5 / m, 1)    
+
+        if approx:
+            return density_opt
+        
+        # solve a numerical equation
+        obj = self.copy()
+        
+        def reduction(density):
+            """ helper function that evaluates the mutual information """            
+            obj.density = density
+            return -obj.mutual_information(**kwargs)
+        
+        res = optimize.minimize(reduction, density_opt, bounds=[(0, 1)])
+        
+        if res.success:
+            return res.x[0]
         else:
-            return 0.5 / m
+            raise RuntimeError(res) 
     
     
     def get_optimal_library(self):
