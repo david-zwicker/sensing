@@ -205,44 +205,6 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'cov': enm_cov}
             
-        
-    def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
-        """ calculates the average activity of each receptor
-        
-        `method` can be one of [monte_carlo', 'estimate'].
-        """
-        if method == 'auto':
-            method = 'monte_carlo'
-                
-        if method == 'monte_carlo' or method == 'monte-carlo':
-            return self.receptor_activity_monte_carlo(ret_correlations, **kwargs)
-        elif method == 'estimate':
-            return self.receptor_activity_estimate(ret_correlations, **kwargs)
-        else:
-            raise ValueError('Unknown method `%s`.' % method)
-                        
-    
-    def receptor_activity_estimate(self, ret_correlations=False,
-                                   approx_prob=False, clip=False):
-        """ estimates the average activity of each receptor """
-        en_stats = self.excitation_statistics_estimate()
-
-        # calculate the receptor activity
-        r_n = self._estimate_qn_from_en(en_stats, approx_prob=approx_prob)
-        if clip:
-            np.clip(r_n, 0, 1, r_n)
-
-        if ret_correlations:
-            # calculate the correlated activity 
-            q_nm = self._estimate_qnm_from_en(en_stats)
-            r_nm = r_n**2 + q_nm
-            if clip:
-                np.clip(r_nm, 0, 1, r_nm)
-
-            return r_n, r_nm
-        else:
-            return r_n
-               
  
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
                            clip=False, **kwargs):
@@ -324,7 +286,7 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                                                      clip=clip)
         
         # calculate the approximate mutual information
-        MI = self._estimate_mutual_information_from_q_values(
+        MI = self._estimate_MI_from_q_values(
                                            q_n, q_nm, use_polynom=use_polynom)
         
         if ret_prob_activity:

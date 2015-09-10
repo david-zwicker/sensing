@@ -7,51 +7,11 @@ Created on Apr 1, 2015
 from __future__ import division
 
 import numpy as np
-from scipy import stats, special
+from scipy import stats
 
 from ..binary_mixtures.lib_bin_base import LibraryBinaryBase
 
 
-
-def _estimate_qn_from_en_approx(en_mean, en_var):
-    """ estimates probability q_n that a receptor is activated by a mixture
-    based on the statistics of the excitations s_n using an approximation """
-    if en_var == 0:
-        q_n = np.double(en_mean > 1)
-    else:                
-        q_n = (0.5
-               + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
-               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi))
-               )
-        # here, the last term comes from an expansion of the log-normal approx.
-
-    return q_n
-
-# vectorize the function above
-_estimate_qn_from_en_approx = np.vectorize(_estimate_qn_from_en_approx,
-                                           otypes=[np.double])
-
-
-
-def _estimate_qn_from_en_lognorm(en_mean, en_var):
-    """ estimates probability q_n that a receptor is activated by a mixture
-    based on the statistics of the excitations s_n assuming an underlying
-    log-normal distribution for s_n """
-    if en_mean == 0:
-        q_n = 0.
-    elif en_var == 0:
-        q_n = np.double(en_mean > 1)
-    else:
-        en_cv2 = en_var / en_mean**2
-        enum = np.log(np.sqrt(1 + en_cv2) / en_mean)
-        denom = np.sqrt(2*np.log(1 + en_cv2))
-        q_n = 0.5 * special.erfc(enum/denom)
-        
-    return q_n
-
-# vectorize the function above
-_estimate_qn_from_en_lognorm = np.vectorize(_estimate_qn_from_en_lognorm,
-                                            otypes=[np.double])
 
 
 
@@ -221,51 +181,6 @@ class LibrarySparseBase(LibraryBinaryBase):
         c_params = {'scheme': scheme, 'mean_concentration': mean_concentration}
         c_params.update(kwargs)
         self.parameters['concentration_parameters'] = c_params
-        
-        
-    def _estimate_qn_from_en(self, en_stats, approx_prob=False):  
-        """ estimates probability q_n that a receptor is activated by a mixture
-        based on the statistics of the excitations en """
 
-        if approx_prob:
-            # estimate from a simple expression, which was obtained from
-            # expanding the more complicated expression given below
-            q_n = _estimate_qn_from_en_approx(en_stats['mean'], en_stats['var'])
-
-        else:
-            # estimate from a log-normal distribution
-            q_n = _estimate_qn_from_en_lognorm(en_stats['mean'], en_stats['var'])
-            
-        return q_n
-   
-    
-    def _estimate_qnm_from_en(self, en_stats):
-        """ estimates crosstalk q_nm based on the statistics of the excitations
-        en """
-        en_cov = en_stats['cov']
-        
-        # calculate the correlation coefficient
-        if np.isscalar(en_cov):
-            # scalar case
-            en_var = en_stats['var']
-            if en_var == 0:
-                rho = 0
-            else:
-                rho = en_cov / en_var
-            
-        else:
-            # matrix case
-            en_std = en_stats['std'] 
-            with np.errstate(divide='ignore', invalid='ignore'):
-                rho = np.divide(en_cov, np.outer(en_std, en_std))
-    
-            # Replace values that are nan with zero. This might not be exact,
-            # but only occurs in corner cases that are not interesting to us  
-            rho[np.isnan(rho)] = 0
-            
-        # estimate the crosstalk
-        q_nm = rho / (2*np.pi)
-            
-        return q_nm
     
         

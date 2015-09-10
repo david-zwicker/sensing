@@ -83,8 +83,8 @@ class TestLibraryBase(TestBase):
         np.fill_diagonal(q_nm, 0)
         
         # calculate mutual information
-        MI1 = obj._estimate_mutual_information_from_q_values(q_n, q_nm)
-        MI2 = obj._estimate_mutual_information_from_q_stats(
+        MI1 = obj._estimate_MI_from_q_values(q_n, q_nm)
+        MI2 = obj._estimate_MI_from_q_stats(
                                 q_n.mean(), q_nm.mean(), q_n.var(), q_nm.var())
         self.assertAllClose(MI1, MI2, rtol=0.1)
                     

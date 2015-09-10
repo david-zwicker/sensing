@@ -42,7 +42,9 @@ class TestLibraryGaussian(TestBase):
                 
     def test_estimates(self):
         """ tests the estimates """
-        methods = ['concentration_statistics']
+        methods = ['concentration_statistics',
+                   'excitation_statistics',
+                   'receptor_activity']
         
         for model in self._create_test_models():
             error_msg = model.error_msg

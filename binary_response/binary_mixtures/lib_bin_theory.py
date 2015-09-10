@@ -124,7 +124,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
                                                 approx_prob=approx_prob)
     
             # calculate mutual information from this
-            MI = self._estimate_mutual_information_from_q_stats(
+            MI = self._estimate_MI_from_q_stats(
                                 q_n, q_nm, use_polynom=(method == 'polynom'))
 
         elif method == 'overlap':
@@ -138,7 +138,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             q_n = self.receptor_activity(approx_prob=approx_prob)
     
             # calculate mutual information from this, ignoring crosstalk
-            MI = self._estimate_mutual_information_from_q_stats(
+            MI = self._estimate_MI_from_q_stats(
                                                     q_n, 0, use_polynom=False)
 
             # estimate the effect of crosstalk by calculating the expected

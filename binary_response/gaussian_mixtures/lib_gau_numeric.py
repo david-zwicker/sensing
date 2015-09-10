@@ -236,12 +236,12 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         if method == 'monte_carlo' or method == 'monte-carlo':
             return self.excitation_statistics_monte_carlo(ret_correlations)
         elif method == 'estimate':
-            return self.excitation_statistics_estimate(ret_correlations)
+            return self.excitation_statistics_estimate()
         else:
             raise ValueError('Unknown method `%s`.' % method)
                             
     
-    def excitation_statistics_estimate(self, ret_correlations=True):
+    def excitation_statistics_estimate(self):
         """
         calculates the statistics of the excitation of the receptors.
         Returns the mean excitation, the variance, and the covariance matrix.
@@ -257,12 +257,7 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'cov': enm_cov}
 
-
-    def receptor_activity(self, ret_correlations=False):
-        """ calculates the average activity of each receptor """ 
-        return self.receptor_activity_monte_carlo(ret_correlations)
-
-
+      
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """

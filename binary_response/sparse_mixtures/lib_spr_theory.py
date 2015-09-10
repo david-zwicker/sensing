@@ -93,7 +93,7 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
                                             ret_receptor_activity=True)
         
         # estimate mutual information from this
-        MI = self._estimate_mutual_information_from_q_stats(
+        MI = self._estimate_MI_from_q_stats(
                                             q_n, q_nm, use_polynom=use_polynom)
         
         if clip:

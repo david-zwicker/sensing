@@ -9,6 +9,7 @@ from __future__ import division
 import multiprocessing as mp
 
 import numpy as np
+from scipy import special
 
 from utils.misc import xlog2x
 
@@ -156,8 +157,53 @@ class LibraryBase(object):
             return result.mean(axis=0), result.std(axis=0)
         
         
-    def _estimate_mutual_information_from_q_values(self, q_n, q_nm,
-                                                   use_polynom=False):
+    def _estimate_qn_from_en(self, en_stats, approx_prob=False):
+        """ estimates probability q_n that a receptor is activated by a mixture
+        based on the statistics of the excitations en """
+
+        if approx_prob:
+            # estimate from a simple expression, which was obtained from
+            # expanding the more complicated expression given below
+            q_n = _estimate_qn_from_en_approx(en_stats['mean'], en_stats['var'])
+
+        else:
+            # estimate from a log-normal distribution
+            q_n = _estimate_qn_from_en_lognorm(en_stats['mean'], en_stats['var'])
+            
+        return q_n
+   
+    
+    def _estimate_qnm_from_en(self, en_stats):
+        """ estimates crosstalk q_nm based on the statistics of the excitations
+        en """
+        en_cov = en_stats['cov']
+        
+        # calculate the correlation coefficient
+        if np.isscalar(en_cov):
+            # scalar case
+            en_var = en_stats['var']
+            if en_var == 0:
+                rho = 0
+            else:
+                rho = en_cov / en_var
+            
+        else:
+            # matrix case
+            en_std = en_stats['std'] 
+            with np.errstate(divide='ignore', invalid='ignore'):
+                rho = np.divide(en_cov, np.outer(en_std, en_std))
+    
+            # Replace values that are nan with zero. This might not be exact,
+            # but only occurs in corner cases that are not interesting to us  
+            rho[np.isnan(rho)] = 0
+            
+        # estimate the crosstalk
+        q_nm = rho / (2*np.pi)
+            
+        return q_nm
+    
+            
+    def _estimate_MI_from_q_values(self, q_n, q_nm, use_polynom=False):
         """ estimate the mutual information from given probabilities """
         # calculate the approximate mutual information from data
         MI = self.Nr
@@ -167,9 +213,8 @@ class LibraryBase(object):
         return MI
     
         
-    def _estimate_mutual_information_from_q_stats(
-            self, q_n, q_nm, q_n_var=0, q_nm_var=0,
-            use_polynom=True, ret_var=False):
+    def _estimate_MI_from_q_stats(self, q_n, q_nm, q_n_var=0, q_nm_var=0,
+                                  use_polynom=True, ret_var=False):
         """ estimate the mutual information from given probabilities """
         Nr = self.Nr
         
@@ -195,23 +240,23 @@ class LibraryBase(object):
             return MI
     
         
-    def _estimate_mutual_information_from_r_values(self, r_n, r_nm):
+    def _estimate_MI_from_r_values(self, r_n, r_nm):
         """ estimate the mutual information from given probabilities """
         # calculate the crosstalk
         q_nm = r_nm - np.outer(r_n, r_n)
-        return self._estimate_mutual_information_from_q_values(r_n, q_nm)
+        return self._estimate_MI_from_q_values(r_n, q_nm)
       
         
-    def _estimate_mutual_information_from_r_stats(self, r_n, r_nm, r_n_var=0,
-                                                  r_nm_var=0, ret_var=False):
+    def _estimate_MI_from_r_stats(self, r_n, r_nm, r_n_var=0, r_nm_var=0,
+                                  ret_var=False):
         """ estimate the mutual information from given probabilities """
         if r_nm_var != 0:
             raise NotImplementedError('Correlation calculations are not tested.')
         # calculate the crosstalk
         q_nm = r_nm - r_n**2 - r_n_var
         q_nm_var = r_nm_var + 4*r_n**2*r_n_var + 2*r_n_var**2
-        return self._estimate_mutual_information_from_q_stats(
-                                  r_n, q_nm, r_n_var, q_nm_var, ret_var=ret_var)
+        return self._estimate_MI_from_q_stats(r_n, q_nm, r_n_var, q_nm_var,
+                                              ret_var=ret_var)
       
     
 
@@ -307,6 +352,22 @@ class LibraryNumericMixin(object):
     
             return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var}
         
+        
+    def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
+        """ calculates the average activity of each receptor
+        
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.receptor_activity_monte_carlo(ret_correlations, **kwargs)
+        elif method == 'estimate':
+            return self.receptor_activity_estimate(ret_correlations, **kwargs)
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+     
             
     def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """
@@ -332,7 +393,29 @@ class LibraryNumericMixin(object):
         else:
             return r_n        
          
-                                   
+                        
+    def receptor_activity_estimate(self, ret_correlations=False,
+                                   approx_prob=False, clip=False):
+        """ estimates the average activity of each receptor """
+        en_stats = self.excitation_statistics_estimate()
+
+        # calculate the receptor activity
+        r_n = self._estimate_qn_from_en(en_stats, approx_prob=approx_prob)
+        if clip:
+            np.clip(r_n, 0, 1, r_n)
+
+        if ret_correlations:
+            # calculate the correlated activity 
+            q_nm = self._estimate_qnm_from_en(en_stats)
+            r_nm = r_n**2 + q_nm
+            if clip:
+                np.clip(r_nm, 0, 1, r_nm)
+
+            return r_n, r_nm
+        else:
+            return r_n   
+        
+                                           
     def mutual_information_monte_carlo(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """
@@ -365,6 +448,48 @@ class LibraryNumericMixin(object):
         else:
             return MI
         
+        
+
+def _estimate_qn_from_en_approx(en_mean, en_var):
+    """ estimates probability q_n that a receptor is activated by a mixture
+    based on the statistics of the excitations s_n using an approximation """
+    if en_var == 0:
+        q_n = np.double(en_mean > 1)
+    else:                
+        q_n = (0.5
+               + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
+               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi))
+               )
+        # here, the last term comes from an expansion of the log-normal approx.
+
+    return q_n
+
+# vectorize the function above
+_estimate_qn_from_en_approx = np.vectorize(_estimate_qn_from_en_approx,
+                                           otypes=[np.double])
+
+
+
+def _estimate_qn_from_en_lognorm(en_mean, en_var):
+    """ estimates probability q_n that a receptor is activated by a mixture
+    based on the statistics of the excitations s_n assuming an underlying
+    log-normal distribution for s_n """
+    if en_mean == 0:
+        q_n = 0.
+    elif en_var == 0:
+        q_n = np.double(en_mean > 1)
+    else:
+        en_cv2 = en_var / en_mean**2
+        enum = np.log(np.sqrt(1 + en_cv2) / en_mean)
+        denom = np.sqrt(2*np.log(1 + en_cv2))
+        q_n = 0.5 * special.erfc(enum/denom)
+        
+    return q_n
+
+# vectorize the function above
+_estimate_qn_from_en_lognorm = np.vectorize(_estimate_qn_from_en_lognorm,
+                                            otypes=[np.double])
+       
 
 
 def _ensemble_average_job(args):
