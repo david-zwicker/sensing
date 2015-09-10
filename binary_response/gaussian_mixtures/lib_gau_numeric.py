@@ -206,27 +206,22 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         t3 = 0.5 * (1 + e_erf) * (u_var + 0.5 * u_mean**2 * (1 - e_erf))
         ci_var = t1 + t2 + t3
 
-        ci_std = np.sqrt(ci_var)
+        result = {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var}
 
         if self.is_correlated_mixture:
             if approx_covariance:
                 factor = np.sqrt(ci_var / u_var)
-                cij_cov = np.einsum('i,ij,j->ij', factor, stats_unres['cov'],
-                                    factor)
+                result['cov'] = np.einsum('i,ij,j->ij', factor,
+                                          stats_unres['cov'], factor)
             else:
                 raise NotImplementedError('Estimation of the covariance is not '
                                           'implemented. An approximation is '
                                           'returned if approx_covariance=True')
         else:
-            cij_cov = np.diag(ci_var)
+            result['cov'] = np.diag(ci_var)
+            result['cov_is_diagonal'] = True
         
         # return the results in a dictionary to be able to extend it later
-        return {'mean': ci_mean, 'std': ci_std, 'var': ci_var, 'cov': cij_cov}
+        return result
 
-      
-    def mutual_information(self, ret_prob_activity=False):
-        """ calculate the mutual information using a monte carlo strategy. The
-        number of steps is given by the model parameter 'monte_carlo_steps' """
-        return self.mutual_information_monte_carlo(ret_prob_activity)
-    
     

@@ -520,6 +520,23 @@ class LibraryNumericMixin(object):
         else:
             return q_nm        
         
+        
+    def mutual_information(self, method='auto', ret_prob_activity=False,
+                           **kwargs):
+        """ calculate the mutual information of the receptor array.
+
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.mutual_information_monte_carlo(ret_prob_activity)
+        elif method == 'estimate':
+            return self.mutual_information_estimate(ret_prob_activity, **kwargs)
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+
                                                    
     def mutual_information_monte_carlo(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
@@ -552,8 +569,28 @@ class LibraryNumericMixin(object):
             return MI, q_n
         else:
             return MI
-        
 
+                    
+    def mutual_information_estimate(self, ret_prob_activity=False,
+                                    excitation_model='default', clip=True,
+                                    use_polynom=False):
+        """ returns a simple estimate of the mutual information.
+        `clip` determines whether the approximated probabilities should be
+            clipped to [0, 1] before being used to calculate the mutual info.
+        """
+        q_n, q_nm = self.receptor_crosstalk_estimate(
+            ret_receptor_activity=True, excitation_model=excitation_model,
+            clip=clip)
+        
+        # calculate the approximate mutual information
+        MI = self._estimate_MI_from_q_values(q_n, q_nm, use_polynom=use_polynom)
+        
+        if ret_prob_activity:
+            return MI, q_n
+        else:
+            return MI
+        
+        
 
 @vectorize_double
 def _estimate_qn_from_en_lognorm(en_mean, en_var):
