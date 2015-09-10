@@ -8,20 +8,26 @@ from __future__ import division
 
 import unittest
 
-import numpy as np
-
 from .lib_gau_base import LibraryGaussianBase
-from .numba_speedup import numba_patcher
+from .lib_gau_numeric import LibraryGaussianNumeric
 from ..tests import TestBase
 
 
 
-class TestLibraryContinuous(TestBase):
+class TestLibraryGaussian(TestBase):
     """ unit tests for the continuous library """
 
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
     
 
+    def _create_test_models(self):
+        """ helper method for creating test models """
+        # create test object
+        model = LibraryGaussianNumeric.create_test_instance()
+        model.error_msg = 'Gaussian mixture'
+        yield model
+        
+        
     def test_base(self):
         """ consistency tests on the base class """
         # construct random model
@@ -34,22 +40,28 @@ class TestLibraryContinuous(TestBase):
             self.assertAlmostEqual(c_mean, mean_calc)
 
                 
-    def test_numba_consistency(self):
-        """ test the consistency of the numba functions """
-        self.assertTrue(numba_patcher.test_consistency(repeat=3, verbosity=1),
-                        msg='Numba methods are not consistent')
-                
+    def test_estimates(self):
+        """ tests the estimates """
+        methods = ['concentration_statistics']
         
-    def _check_histogram(self, observations, distribution, bins=32):
-        """ checks whether the observations were likely drawn from the given
-        distribution """
-        count1, bins = np.histogram(observations, bins=bins, normed=True)
-        xs = 0.5*(bins[1:] + bins[:-1])
-        count2 = distribution.pdf(xs)
-        self.assertAllClose(count1, count2, atol=1e-2, rtol=1e-1,
-                            msg='distributions do not agree')
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+            
+            # check for known exception where the method are not implemented 
+            for method_name in methods:
+                method = getattr(model, method_name)
+                res_mc = method('monte_carlo')
+                res_est = method('estimate')
                 
-               
+                msg = '%s, Method `%s`' % (error_msg, method_name)
+                if method_name.endswith('statistics'):
+                    self.assertDictAllClose(res_mc, res_est, rtol=0.1, atol=0.5,
+                                            msg=msg)
+                else:
+                    self.assertAllClose(res_mc, res_est, rtol=0.1, atol=0.5,
+                                        msg=msg)
+                                        
+                                               
                
 if __name__ == '__main__':
     unittest.main()

@@ -357,7 +357,8 @@ class LibraryBinaryBase(LibraryBase):
         self.parameters['commonness_parameters'] = c_params  
 
 
-    def choose_correlations(self, scheme, magnitude, diagonal_zero=True, **kwargs):
+    def choose_correlations(self, scheme, magnitude, diagonal_zero=True,
+                            **kwargs):
         """ picks a correlation matrix according to the supplied parameters:
         `magnitude` determines the magnitude of the correlations, which are
         drawn from the random distribution indicated by `scheme`: 

@@ -297,12 +297,20 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             yield c
 
     
-    def concentration_statistics(self):
+    def concentration_statistics(self, method='auto'):
         """ returns statistics for each individual substrate """
-        if self.is_correlated_mixture:
+        if method == 'auto':
+            if self.is_correlated_mixture:
+                method = 'monte_carlo'
+            else:
+                method = 'estimate'
+
+        if method == 'estimate':            
+            return super(LibrarySparseNumeric, self).concentration_statistics()
+        elif method == 'monte_carlo' or method == 'monte-carlo':
             return self.concentration_statistics_monte_carlo()
         else:
-            return super(LibrarySparseNumeric, self).concentration_statistics()
+            raise ValueError('Unknown method `%s`.' % method)
 
 
     def excitation_statistics(self, method='auto', ret_correlations=True):
@@ -316,10 +324,8 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                 
         if method == 'monte_carlo' or method == 'monte-carlo':
             return self.excitation_statistics_monte_carlo(ret_correlations)
-        
         elif method == 'estimate':
             return self.excitation_statistics_estimate()
-        
         else:
             raise ValueError('Unknown method `%s`.' % method)
                             
@@ -354,10 +360,8 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                 
         if method == 'monte_carlo' or method == 'monte-carlo':
             return self.receptor_activity_monte_carlo(ret_correlations, **kwargs)
-        
         elif method == 'estimate':
             return self.receptor_activity_estimate(ret_correlations, **kwargs)
-        
         else:
             raise ValueError('Unknown method `%s`.' % method)
                         
@@ -444,10 +448,8 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                 
         if method == 'monte_carlo' or method == 'monte-carlo':
             return self.mutual_information_monte_carlo(ret_prob_activity)
-        
         elif method == 'estimate':
             return self.mutual_information_estimate(ret_prob_activity, **kwargs)
-        
         else:
             raise ValueError('Unknown method `%s`.' % method)
 

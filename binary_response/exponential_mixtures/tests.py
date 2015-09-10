@@ -18,7 +18,7 @@ from ..tests import TestBase
 
 
 
-class TestLibraryContinuous(TestBase):
+class TestLibraryExponential(TestBase):
     """ unit tests for the continuous library """
 
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
