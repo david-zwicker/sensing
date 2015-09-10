@@ -23,8 +23,8 @@ class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
         'max_num_receptors': 28,    #< prevents memory overflows
-        'interaction_matrix': None, #< will be calculated if not given
-        'interaction_matrix_params': None, #< parameters determining I_ai
+        'sensitivity_matrix': None, #< will be calculated if not given
+        'sensitivity_matrix_params': None, #< parameters determining I_ai
         'monte_carlo_steps': 'auto',       #< default steps for monte carlo
         'monte_carlo_steps_min': 1e4,      #< minimal steps for monte carlo
         'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
@@ -48,42 +48,42 @@ class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
         
         if initialize_state == 'auto': 
             # use exact values if saved or ensemble properties otherwise
-            if self.parameters['interaction_matrix'] is not None:
+            if self.parameters['sensitivity_matrix'] is not None:
                 initialize_state = 'exact'
-            elif self.parameters['interaction_matrix_params'] is not None:
+            elif self.parameters['sensitivity_matrix_params'] is not None:
                 initialize_state = 'ensemble'
             else:
                 initialize_state = 'zero'
         
         # initialize the state using the chosen protocol
         if initialize_state is None or initialize_state == 'zero':
-            self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+            self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
-            int_mat = self.parameters['interaction_matrix']
-            if int_mat is None:
+            sens_mat = self.parameters['sensitivity_matrix']
+            if sens_mat is None:
                 logging.warn('Interaction matrix was not given. Initialize '
                              'empty matrix.')
-                self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+                self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             else:
-                self.int_mat = int_mat.copy()
+                self.sens_mat = sens_mat.copy()
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-                params = self.parameters['interaction_matrix_params']
+                params = self.parameters['sensitivity_matrix_params']
                 if params is None:
                     logging.warn('Parameters for interaction matrix were not '
                                  'specified. Initialize empty matrix.')
-                    self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+                    self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
                 else:
-                    self.choose_interaction_matrix(**params)
+                    self.choose_sensitivity_matrix(**params)
             
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              initialize_state)
             
-        assert self.int_mat.shape == (self.Nr, self.Ns)
+        assert self.sens_mat.shape == (self.Nr, self.Ns)
             
             
     @classmethod
@@ -94,7 +94,7 @@ class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
         # determine optimal parameters for the interaction matrix
         from .lib_exp_theory import LibraryExponentialLogNormal
         theory = LibraryExponentialLogNormal.from_other(obj)
-        obj.choose_interaction_matrix(**theory.get_optimal_library())
+        obj.choose_sensitivity_matrix(**theory.get_optimal_library())
         return obj
     
 
@@ -125,7 +125,7 @@ class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
             yield np.random.exponential(size=self.Ns) * c_means
 
 
-    def choose_interaction_matrix(self, distribution, mean_sensitivity=1,
+    def choose_sensitivity_matrix(self, distribution, mean_sensitivity=1,
                                   **kwargs):
         """ creates a interaction matrix with the given properties
             `distribution` determines the distribution from which we choose the
@@ -142,31 +142,31 @@ class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
 
         if distribution == 'const':
             # simple constant matrix
-            self.int_mat = np.full(shape, mean_sensitivity)
+            self.sens_mat = np.full(shape, mean_sensitivity)
 
         elif distribution == 'binary':
             # choose a binary matrix with a typical scale
             kwargs.setdefault('density', 0)
             if kwargs['density'] == 0:
                 # simple case of empty matrix
-                self.int_mat = np.zeros(shape)
+                self.sens_mat = np.zeros(shape)
             elif kwargs['density'] >= 1:
                 # simple case of full matrix
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.sens_mat = np.full(shape, mean_sensitivity)
             else:
                 # choose receptor substrate interaction randomly and don't worry
                 # about correlations
-                self.int_mat = (mean_sensitivity * 
+                self.sens_mat = (mean_sensitivity * 
                                 (np.random.random(shape) < kwargs['density']))
 
         elif distribution == 'log_normal':
             # log normal distribution
             kwargs.setdefault('sigma', 1)
             if kwargs['sigma'] == 0:
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.sens_mat = np.full(shape, mean_sensitivity)
             else:
                 dist = lognorm_mean(mean_sensitivity, kwargs['sigma'])
-                self.int_mat = dist.rvs(shape)
+                self.sens_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
             raise NotImplementedError
@@ -181,10 +181,10 @@ class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
             raise ValueError('Unknown distribution `%s`' % distribution)
             
         # save the parameters determining this matrix
-        int_mat_params = {'distribution': distribution,
+        sens_mat_params = {'distribution': distribution,
                           'mean_sensitivity': mean_sensitivity}
-        int_mat_params.update(kwargs)
-        self.parameters['interaction_matrix_params'] = int_mat_params 
+        sens_mat_params.update(kwargs)
+        self.parameters['sensitivity_matrix_params'] = sens_mat_params 
 
 
     def receptor_activity(self, ret_correlations=False):

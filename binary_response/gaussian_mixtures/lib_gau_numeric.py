@@ -25,8 +25,8 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
     parameters_default = {
         'max_num_receptors': 28,           #< prevents memory overflows
         'positive_concentrations': False,  #< ensure positive concentrations?
-        'interaction_matrix': None,        #< default sensitivity matrix
-        'interaction_matrix_params': None, #< parameters determining S_ni
+        'sensitivity_matrix': None,        #< default sensitivity matrix
+        'sensitivity_matrix_params': None, #< parameters determining S_ni
         'monte_carlo_steps': 'auto',       #< default steps for monte carlo
         'monte_carlo_steps_min': 1e4,      #< minimal steps for monte carlo
         'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
@@ -50,42 +50,42 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         
         if initialize_state == 'auto': 
             # use exact values if saved or ensemble properties otherwise
-            if self.parameters['interaction_matrix'] is not None:
+            if self.parameters['sensitivity_matrix'] is not None:
                 initialize_state = 'exact'
-            elif self.parameters['interaction_matrix_params'] is not None:
+            elif self.parameters['sensitivity_matrix_params'] is not None:
                 initialize_state = 'ensemble'
             else:
                 initialize_state = 'zero'
         
         # initialize the state using the chosen protocol
         if initialize_state is None or initialize_state == 'zero':
-            self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+            self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
-            int_mat = self.parameters['interaction_matrix']
-            if int_mat is None:
+            sens_mat = self.parameters['sensitivity_matrix']
+            if sens_mat is None:
                 logging.warn('Interaction matrix was not given. Initialize '
                              'empty matrix.')
-                self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+                self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             else:
-                self.int_mat = int_mat.copy()
+                self.sens_mat = sens_mat.copy()
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-                params = self.parameters['interaction_matrix_params']
+                params = self.parameters['sensitivity_matrix_params']
                 if params is None:
                     logging.warn('Parameters for interaction matrix were not '
                                  'specified. Initialize empty matrix.')
-                    self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+                    self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
                 else:
-                    self.choose_interaction_matrix(**params)
+                    self.choose_sensitivity_matrix(**params)
             
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              initialize_state)
             
-        assert self.int_mat.shape == (self.Nr, self.Ns)
+        assert self.sens_mat.shape == (self.Nr, self.Ns)
             
             
     @classmethod
@@ -96,7 +96,7 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         # determine optimal parameters for the interaction matrix
 #         from binary_response.gaussian_mixtures.lib_gau_theory import LibraryContinuousLogNormal
 #         theory = LibraryContinuousLogNormal.from_other(obj)
-#         obj.choose_interaction_matrix(**theory.get_optimal_library())
+#         obj.choose_sensitivity_matrix(**theory.get_optimal_library())
         return obj
     
 
@@ -152,7 +152,7 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
                     yield c
 
 
-    def choose_interaction_matrix(self, distribution, mean_sensitivity=1,
+    def choose_sensitivity_matrix(self, distribution, mean_sensitivity=1,
                                   **kwargs):
         """ creates a interaction matrix with the given properties
             `distribution` determines the distribution from which we choose the
@@ -169,31 +169,31 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
 
         if distribution == 'const':
             # simple constant matrix
-            self.int_mat = np.full(shape, mean_sensitivity)
+            self.sens_mat = np.full(shape, mean_sensitivity)
 
         elif distribution == 'binary':
             # choose a binary matrix with a typical scale
             kwargs.setdefault('density', 0)
             if kwargs['density'] == 0:
                 # simple case of empty matrix
-                self.int_mat = np.zeros(shape)
+                self.sens_mat = np.zeros(shape)
             elif kwargs['density'] >= 1:
                 # simple case of full matrix
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.sens_mat = np.full(shape, mean_sensitivity)
             else:
                 # choose receptor substrate interaction randomly and don't worry
                 # about correlations
-                self.int_mat = (mean_sensitivity * 
+                self.sens_mat = (mean_sensitivity * 
                                 (np.random.random(shape) < kwargs['density']))
 
         elif distribution == 'log_normal':
             # log normal distribution
             kwargs.setdefault('sigma', 1)
             if kwargs['sigma'] == 0:
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.sens_mat = np.full(shape, mean_sensitivity)
             else:
                 dist = lognorm_mean(mean_sensitivity, kwargs['sigma'])
-                self.int_mat = dist.rvs(shape)
+                self.sens_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
             raise NotImplementedError
@@ -208,26 +208,26 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
             raise ValueError('Unknown distribution `%s`' % distribution)
             
         # save the parameters determining this matrix
-        int_mat_params = {'distribution': distribution,
+        sens_mat_params = {'distribution': distribution,
                           'mean_sensitivity': mean_sensitivity}
-        int_mat_params.update(kwargs)
-        self.parameters['interaction_matrix_params'] = int_mat_params 
+        sens_mat_params.update(kwargs)
+        self.parameters['sensitivity_matrix_params'] = sens_mat_params 
 
 
-    def concentration_statistics(self, method='auto'):
+    def concentration_statistics(self, method='auto', **kwargs):
         """ returns statistics for each individual substrate """
         if method == 'auto':
             method = 'monte_carlo'
 
         if method == 'estimate':            
-            return self.concentration_statistics_estimate()
+            return self.concentration_statistics_estimate(**kwargs)
         elif method == 'monte_carlo' or method == 'monte-carlo':
-            return self.concentration_statistics_monte_carlo()
+            return self.concentration_statistics_monte_carlo(**kwargs)
         else:
             raise ValueError('Unknown method `%s`.' % method)
 
     
-    def concentration_statistics_estimate(self):
+    def concentration_statistics_estimate(self, approx_covariance=False):
         """ returns statistics for each individual substrate """
         # get the statistics of the unrestricted case
         parent = super(LibraryGaussianNumeric, self)
@@ -235,7 +235,7 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         
         if not self.parameters['positive_concentrations']:
             # simple case where concentrations are unrestricted
-            return stats_unres 
+            return stats_unres
 
         # calculate the effect of restricting the concentration to positive
         u_mean = stats_unres['mean']
@@ -255,20 +255,64 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         t2 = -u_mean * e_erf * np.sqrt(u_var/PI2) * np.exp(-e_arg**2)
         t3 = 0.5 * (1 + e_erf) * (u_var + 0.5 * u_mean**2 * (1 - e_erf))
         ci_var = t1 + t2 + t3
-        
+
         ci_std = np.sqrt(ci_var)
-        # ci_cov = ??
+
+        if self.is_correlated_mixture:
+            if approx_covariance:
+                factor = np.sqrt(ci_var / u_var)
+                cij_cov = np.einsum('i,ij,j->ij', factor, stats_unres['cov'],
+                                    factor)
+            else:
+                raise NotImplementedError('Estimation of the covariance is not '
+                                          'implemented. An approximation is '
+                                          'returned if approx_covariance=True')
+        else:
+            cij_cov = np.diag(ci_var)
         
         # return the results in a dictionary to be able to extend it later
-        return {'mean': ci_mean, 'std': ci_std, 'var': ci_var,
-                'cov': stats_unres['cov']}
+        return {'mean': ci_mean, 'std': ci_std, 'var': ci_var, 'cov': cij_cov}
+
+
+    def excitation_statistics(self, method='auto', ret_correlations=True):
+        """ calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.excitation_statistics_monte_carlo(ret_correlations)
+        elif method == 'estimate':
+            return self.excitation_statistics_estimate(ret_correlations)
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+                            
+    
+    def excitation_statistics_estimate(self, ret_correlations=True):
+        """
+        calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+        """
+        c_stats = self.concentration_statistics_estimate(approx_covariance=True)
+        
+        # calculate statistics of the sum s_n = S_ni * c_i        
+        S_ni = self.sens_mat
+        en_mean = np.dot(S_ni, c_stats['mean'])
+        enm_cov = np.einsum('ni,mj,ij->nm', S_ni, S_ni, c_stats['cov'])
+        en_var = np.diag(enm_cov)
+        
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                'cov': enm_cov}
 
 
     def receptor_activity(self, ret_correlations=False):
         """ calculates the average activity of each receptor """ 
         return self.receptor_activity_monte_carlo(ret_correlations)
 
-    
+
     def mutual_information(self, ret_prob_activity=False):
         """ calculate the mutual information using a monte carlo strategy. The
         number of steps is given by the model parameter 'monte_carlo_steps' """

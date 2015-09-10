@@ -258,7 +258,7 @@ class LibraryNumericMixin(object):
         # prevent integer overflow in collecting activity patterns
         assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
-        S_ni = self.int_mat
+        S_ni = self.sens_mat
 
         if ret_correlations:
             # calculate the mean and the covariance matrix
@@ -313,7 +313,7 @@ class LibraryNumericMixin(object):
         # prevent integer overflow in collecting activity patterns
         assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
-        S_ni = self.int_mat
+        S_ni = self.sens_mat
 
         r_n = np.zeros(self.Nr)
         if ret_correlations:
@@ -346,7 +346,7 @@ class LibraryNumericMixin(object):
         count_a = np.zeros(2**self.Nr)
         for c in self._sample_mixtures():
             # get the activity vector ...
-            a = (np.dot(self.int_mat, c) >= 1)
+            a = (np.dot(self.sens_mat, c) >= 1)
             
             # ... and represent it as a single integer
             a_id = np.dot(base, a)

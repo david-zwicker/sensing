@@ -40,7 +40,7 @@ class ReceptorOptimizerAnnealer(Annealer):
 
         assert direction in ('min', 'max')
         self.direction = direction
-        super(ReceptorOptimizerAnnealer, self).__init__(model.int_mat)
+        super(ReceptorOptimizerAnnealer, self).__init__(model.sens_mat)
    
    
     def move(self):
@@ -51,7 +51,7 @@ class ReceptorOptimizerAnnealer(Annealer):
       
     def energy(self):
         """ returns the energy of the current state """
-        self.model.int_mat = self.state
+        self.model.sens_mat = self.state
         value = self.target_func()
         
         if self.info is not None and self._step % self.values_step == 0:

@@ -43,7 +43,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
 
         
     @property
-    def int_mat_distribution(self):
+    def sens_mat_distribution(self):
         """ returns the probability distribution for the interaction matrix """
         if self.sigma == 0:
             return DeterministicDistribution(loc=self.mean_sensitivity)
@@ -81,8 +81,8 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
 #         kwargs = {'parameters': parameters}
 #         if typical_sensitivity is not None:
 #             kwargs['mean_sensitivity'] = typical_sensitivity
-#         elif numeric_model.int_mat is not None:
-#             kwargs['mean_sensitivity'] = numeric_model.int_mat.mean()
+#         elif numeric_model.sens_mat is not None:
+#             kwargs['mean_sensitivity'] = numeric_model.sens_mat.mean()
 #         if sigma is not None:
 #             kwargs['sigma'] = sigma
 #         
@@ -126,7 +126,7 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
                 # FIXME: this is the result for the simple case where all
                 # I_ai are equal for a given a
                 dist = stats.gamma(a=self.Ns, scale=p_i[0])
-                cdf = self.int_mat_distribution.cdf
+                cdf = self.sens_mat_distribution.cdf
                 integrand = lambda c: cdf(1/c) * dist.pdf(c)
                 prob_a0 = integrate.quad(integrand, 0, np.inf)[0]
                 

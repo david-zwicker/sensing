@@ -15,7 +15,7 @@ from ..tests import TestBase
 
 
 class TestLibraryGaussian(TestBase):
-    """ unit tests for the continuous library """
+    """ unit tests for the Gaussian mixtures """
 
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
     

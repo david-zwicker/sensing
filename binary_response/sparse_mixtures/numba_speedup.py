@@ -74,7 +74,7 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(self, ret_correlations=Fa
  
     # call the jitted function
     LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
-        self.Ns, self.Nr, steps, self.int_mat,
+        self.Ns, self.Nr, steps, self.sens_mat,
         self.substrate_probabilities, #< p_i
         self.concentrations,          #< d_i
         np.empty(self.Nr, np.double), #< a_n
@@ -154,7 +154,7 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
  
     # call the jitted function
     MI = LibrarySparseNumeric_mutual_information_numba(
-        self.Ns, self.Nr, self.monte_carlo_steps,  self.int_mat,
+        self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
         self.substrate_probabilities, #< p_i
         self.concentrations,          #< d_i
         np.empty(self.Nr, np.double), #< a_n

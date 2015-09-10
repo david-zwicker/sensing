@@ -19,7 +19,7 @@ from ..tests import TestBase
 
 
 class TestLibraryExponential(TestBase):
-    """ unit tests for the continuous library """
+    """ unit tests for the exponential mixtures """
 
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
     

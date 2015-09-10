@@ -47,8 +47,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
     parameters_default = {
         'max_num_receptors': 28,        #< prevents memory overflows
         'max_steps': 1e7,               #< maximal number of steps 
-        'interaction_matrix': None,     #< will be calculated if not given
-        'interaction_matrix_params': None, #< parameters determining S_ni
+        'sensitivity_matrix': None,     #< will be calculated if not given
+        'sensitivity_matrix_params': None, #< parameters determining S_ni
         'inefficiency_weight': 1,       #< weighting parameter for inefficiency
         'brute_force_threshold_Ns': 10, #< largest Ns for using brute force 
         'monte_carlo_steps': 'auto',    #< default steps for monte carlo
@@ -98,42 +98,42 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         
         if initialize_state == 'auto': 
             # use exact values if saved or ensemble properties otherwise
-            if self.parameters['interaction_matrix'] is not None:
+            if self.parameters['sensitivity_matrix'] is not None:
                 initialize_state = 'exact'
-            elif self.parameters['interaction_matrix_params'] is not None:
+            elif self.parameters['sensitivity_matrix_params'] is not None:
                 initialize_state = 'ensemble'
             else:
                 initialize_state = 'zero'
         
         # initialize the state using the chosen protocol
         if initialize_state is None or initialize_state == 'zero':
-            self.int_mat = np.zeros((self.Nr, self.Ns), np.uint8)
+            self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
-            int_mat = self.parameters['interaction_matrix']
-            if int_mat is None:
+            sens_mat = self.parameters['sensitivity_matrix']
+            if sens_mat is None:
                 logging.warn('Interaction matrix was not given. Initialize '
                              'empty matrix.')
-                self.int_mat = np.zeros((self.Nr, self.Ns), np.uint8)
+                self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
             else:
-                self.int_mat = int_mat.copy()
+                self.sens_mat = sens_mat.copy()
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-                params = self.parameters['interaction_matrix_params']
+                params = self.parameters['sensitivity_matrix_params']
                 if params is None:
                     logging.warn('Parameters for interaction matrix were not '
                                  'specified. Initialize empty matrix.')
-                    self.int_mat = np.zeros((self.Nr, self.Ns), np.uint8)
+                    self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
                 else:
-                    self.choose_interaction_matrix(**params)
+                    self.choose_sensitivity_matrix(**params)
             
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              initialize_state)
 
-        assert self.int_mat.shape == (self.Nr, self.Ns)
+        assert self.sens_mat.shape == (self.Nr, self.Ns)
 
 
     @classmethod
@@ -153,7 +153,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         # create a instance with random parameters
         obj = super(LibraryBinaryNumeric, cls).create_test_instance(**kwargs)
         # choose an optimal interaction matrix
-        obj.choose_interaction_matrix('auto')
+        obj.choose_sensitivity_matrix('auto')
         return obj
     
                 
@@ -185,7 +185,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         return int(steps)
 
 
-    def choose_interaction_matrix(self, density=0, avoid_correlations=False):
+    def choose_sensitivity_matrix(self, density=0, avoid_correlations=False):
         """ creates a interaction matrix with the given properties """
         shape = (self.Nr, self.Ns)
         
@@ -197,19 +197,19 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             
         if density == 0:
             # simple case of empty matrix
-            self.int_mat = np.zeros(shape, np.uint8)
+            self.sens_mat = np.zeros(shape, np.uint8)
             
         elif density >= 1:
             # simple case of full matrix
-            self.int_mat = np.ones(shape, np.uint8)
+            self.sens_mat = np.ones(shape, np.uint8)
             
         elif avoid_correlations:
             # choose receptor substrate interaction randomly but try to avoid
             # correlations between the receptors
-            self.int_mat = np.zeros(shape, np.uint8)
+            self.sens_mat = np.zeros(shape, np.uint8)
             num_entries = int(round(density * self.Nr * self.Ns))
             
-            empty_int_mat = True
+            empty_sens_mat = True
             while num_entries > 0:
                 # specify the substrates that we want to detect
                 if num_entries >= self.Ns:
@@ -220,50 +220,50 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
                                              replace=False)
                     num_entries = 0
                     
-                if empty_int_mat:
+                if empty_sens_mat:
                     # set the receptors for the substrates
                     a_ids = np.random.randint(0, self.Nr, len(i_ids))
                     for i, a in zip(i_ids, a_ids):
-                        self.int_mat[a, i] = 1
-                    empty_int_mat = False
+                        self.sens_mat[a, i] = 1
+                    empty_sens_mat = False
                     
                 else:
                     # choose receptors for each substrate from the ones that
                     # are not activated, yet
                     for i in i_ids:
-                        a_ids = np.flatnonzero(self.int_mat[:, i] == 0)
-                        self.int_mat[random.choice(a_ids), i] = 1
+                        a_ids = np.flatnonzero(self.sens_mat[:, i] == 0)
+                        self.sens_mat[random.choice(a_ids), i] = 1
             
         else: # not avoid_correlations:
             # choose receptor substrate interaction randomly and don't worry
             # about correlations
-            self.int_mat = (np.random.random(shape) < density).astype(np.uint8)
+            self.sens_mat = (np.random.random(shape) < density).astype(np.uint8)
             
         # save the parameters determining this matrix
-        self.parameters['interaction_matrix_params'] = {
+        self.parameters['sensitivity_matrix_params'] = {
             'density': density,
             'avoid_correlations': avoid_correlations
         }   
             
             
-    def sort_interaction_matrix(self, interaction_matrix=None):
-        """ return the sorted `interaction_matrix` or sorts the internal
-        interaction_matrix in place. This function rearranges receptors such
+    def sort_sensitivity_matrix(self, sensitivity_matrix=None):
+        """ return the sorted `sensitivity_matrix` or sorts the internal
+        sensitivity_matrix in place. This function rearranges receptors such
         that receptors reacting to an equal number of substrates and to similar
         substrates are close together. """
         
-        if interaction_matrix is None:
-            int_mat = self.int_mat
+        if sensitivity_matrix is None:
+            sens_mat = self.sens_mat
         else:
-            int_mat = interaction_matrix
+            sens_mat = sensitivity_matrix
 
-        data = [(sum(item), list(item)) for item in int_mat]
-        int_mat = np.array([item[1] for item in sorted(data)])
+        data = [(sum(item), list(item)) for item in sens_mat]
+        sens_mat = np.array([item[1] for item in sorted(data)])
 
-        if interaction_matrix is None:
-            self.int_mat = int_mat
+        if sensitivity_matrix is None:
+            self.sens_mat = sens_mat
         else:
-            return int_mat
+            return sens_mat
         
         
     @property
@@ -488,7 +488,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        S_ni = self.int_mat
+        S_ni = self.sens_mat
         p_i = self.substrate_probabilities
         
         if approx_prob:
@@ -534,7 +534,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         
     def receptor_activity_brute_force(self, ret_correlations=False):
         """ calculates the average activity of each receptor """
-        S_ni = self.int_mat
+        S_ni = self.sens_mat
         Z = 0
         r_n = np.zeros(self.Nr)
         if ret_correlations:
@@ -568,7 +568,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
-        S_ni = self.int_mat
+        S_ni = self.sens_mat
         p_i = self.substrate_probabilities
         
         if approx_prob:
@@ -636,7 +636,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         prob_a = np.zeros(2**self.Nr)
         for c, prob_c in self._iterate_mixtures():
             # get the associated output ...
-            a = np.dot(self.int_mat, c).astype(np.bool)
+            a = np.dot(self.sens_mat, c).astype(np.bool)
             # ... and represent it as a single integer
             a = np.dot(base, a)
 
@@ -674,7 +674,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             m = (np.random.random(self.Ns) < prob_s)
             
             # get the associated output ...
-            a = np.dot(self.int_mat, m).astype(np.bool)
+            a = np.dot(self.sens_mat, m).astype(np.bool)
             # ... and represent it as a single integer
             a = np.dot(base, a)
             # increment counter for this output
@@ -737,7 +737,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         """
         init_arguments = self.init_arguments
         init_arguments['parameters']['initialize_state'] = 'exact'
-        init_arguments['parameters']['interaction_matrix'] = self.int_mat
+        init_arguments['parameters']['sensitivity_matrix'] = self.sens_mat
         joblist = [(copy.deepcopy(self.init_arguments), 'mutual_information',
                     {'method': method})]
     
@@ -749,7 +749,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             # modify the current state and add it to the job list
             init_arguments['parameters'].update({
                     'initialize_state': 'exact',
-                    'interaction_matrix': np.delete(self.int_mat, n, axis=0)
+                    'sensitivity_matrix': np.delete(self.sens_mat, n, axis=0)
                 })
             joblist.append((copy.deepcopy(init_arguments), 'mutual_information',
                             {'method': method}))
@@ -825,7 +825,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
 
         # initialize the optimizer
         value = target_function()
-        value_best, state_best = value, self.int_mat.copy()
+        value_best, state_best = value, self.sens_mat.copy()
         
         if ret_info:
             # store extra information
@@ -847,14 +847,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
                 init_arguments = self.init_arguments
                 for _ in range(pool_size):
                     # modify the current state and add it to the job list
-                    i = random.randrange(self.int_mat.size)
-                    self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
+                    i = random.randrange(self.sens_mat.size)
+                    self.sens_mat.flat[i] = 1 - self.sens_mat.flat[i]
                     init_arguments['parameters'].update({
                             'initialize_state': 'exact',
-                            'interaction_matrix': self.int_mat
+                            'sensitivity_matrix': self.sens_mat
                         })
                     joblist.append((copy.deepcopy(init_arguments), target))
-                    self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
+                    self.sens_mat.flat[i] = 1 - self.sens_mat.flat[i]
                     
                 # run all the jobs
                 results = pool.map(_run_job, joblist)
@@ -864,17 +864,17 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
                     res_best = np.argmax(results)
                     if results[res_best] > value_best:
                         value_best = results[res_best]
-                        state_best = joblist[res_best][0]['parameters']['interaction_matrix']
+                        state_best = joblist[res_best][0]['parameters']['sensitivity_matrix']
                         # use the best state as a basis for the next iteration
-                        self.int_mat = state_best
+                        self.sens_mat = state_best
                         
                 elif direction == 'min':
                     res_best = np.argmin(results)
                     if results[res_best] < value_best:
                         value_best = results[res_best]
-                        state_best = joblist[res_best][0]['parameters']['interaction_matrix']
+                        state_best = joblist[res_best][0]['parameters']['sensitivity_matrix']
                         # use the best state as a basis for the next iteration
-                        self.int_mat = state_best
+                        self.sens_mat = state_best
                         
                 else:
                     raise ValueError('Unsupported direction `%s`' % direction)
@@ -886,8 +886,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             # run the calculations in this process
             for step in range(int(steps)):
                 # modify the current state
-                i = random.randrange(self.int_mat.size)
-                self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
+                i = random.randrange(self.sens_mat.size)
+                self.sens_mat.flat[i] = 1 - self.sens_mat.flat[i]
     
                 # get the value of the new state
                 value = target_function()
@@ -896,17 +896,17 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
                             (direction == 'min' and value < value_best))
                 if improved:
                     # save the state as the new best value
-                    value_best, state_best = value, self.int_mat.copy()
+                    value_best, state_best = value, self.sens_mat.copy()
                 else:
                     # undo last change
-                    self.int_mat.flat[i] = 1 - self.int_mat.flat[i]
+                    self.sens_mat.flat[i] = 1 - self.sens_mat.flat[i]
                     
                 if ret_info and step % values_step == 0:
                     info['values'][step] = value_best
 
         # sort the best state and store it in the current object
-        state_best = self.sort_interaction_matrix(state_best)
-        self.int_mat = state_best.copy()
+        state_best = self.sort_sensitivity_matrix(state_best)
+        self.sens_mat = state_best.copy()
 
         if ret_info:
             info['total_time'] = time.time() - start_time    
@@ -931,24 +931,24 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         # initialize the list of jobs with an optimization job starting from the
         # current interaction matrix
         joblist = [(self.init_arguments, 'optimize_library_descent', kwargs)]
-        int_mat = self.int_mat #< store matrix to restore it later
+        sens_mat = self.sens_mat #< store matrix to restore it later
 
         # add additional jobs with random initial interaction matrices
         init_arguments = self.init_arguments
         for _ in range(trials - 1):
             # modify the current state and add it to the job list
-            self.choose_interaction_matrix(density='auto')
+            self.choose_sensitivity_matrix(density='auto')
             
             init_arguments['parameters'].update({
                     'initialize_state': 'exact',
-                    'interaction_matrix': self.int_mat
+                    'sensitivity_matrix': self.sens_mat
                 })
                                                             
             joblist.append((copy.deepcopy(init_arguments),
                             'optimize_library_descent', kwargs))
             
         # restore interaction matrix of this object
-        self.int_mat = int_mat
+        self.sens_mat = sens_mat
         
         if multiprocessing:
             # calculate all results in parallel
@@ -971,8 +971,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
                 result_best = result
                 
         # sort the best state and store it in the current object
-        state = self.sort_interaction_matrix(result_best[1])
-        self.int_mat = state.copy()
+        state = self.sort_sensitivity_matrix(result_best[1])
+        self.sens_mat = state.copy()
 
         if ret_error:
             # replace the best value by a tuple of the best value and its error
@@ -1012,8 +1012,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         MI, state = annealer.optimize()
 
         # sort the best state and store it in the current object
-        state = self.sort_interaction_matrix(state)
-        self.int_mat = state.copy()
+        state = self.sort_sensitivity_matrix(state)
+        self.sens_mat = state.copy()
         
         if ret_info:
             return MI, state, annealer.info

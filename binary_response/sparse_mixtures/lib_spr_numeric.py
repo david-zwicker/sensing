@@ -25,8 +25,8 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
     parameters_default = {
         'max_num_receptors': 28,           #< prevents memory overflows
         'max_steps': 1e7,                  #< maximal number of steps 
-        'interaction_matrix': None,        #< will be calculated if not given
-        'interaction_matrix_params': None, #< parameters determining I_ai
+        'sensitivity_matrix': None,        #< will be calculated if not given
+        'sensitivity_matrix_params': None, #< parameters determining I_ai
         'fixed_mixture_size': None,     #< fixed m or None
         'monte_carlo_steps': 'auto',       #< default steps for monte carlo
         'monte_carlo_steps_min': 1e4,      #< minimal steps for monte carlo
@@ -49,42 +49,42 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         
         if initialize_state == 'auto': 
             # use exact values if saved or ensemble properties otherwise
-            if self.parameters['interaction_matrix'] is not None:
+            if self.parameters['sensitivity_matrix'] is not None:
                 initialize_state = 'exact'
-            elif self.parameters['interaction_matrix_params'] is not None:
+            elif self.parameters['sensitivity_matrix_params'] is not None:
                 initialize_state = 'ensemble'
             else:
                 initialize_state = 'zero'
         
         # initialize the state using the chosen protocol
         if initialize_state is None or initialize_state == 'zero':
-            self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+            self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
-            int_mat = self.parameters['interaction_matrix']
-            if int_mat is None:
+            sens_mat = self.parameters['sensitivity_matrix']
+            if sens_mat is None:
                 logging.warn('Interaction matrix was not given. Initialize '
                              'empty matrix.')
-                self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+                self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             else:
-                self.int_mat = int_mat.copy()
+                self.sens_mat = sens_mat.copy()
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-                params = self.parameters['interaction_matrix_params']
+                params = self.parameters['sensitivity_matrix_params']
                 if params is None:
                     logging.warn('Parameters for interaction matrix were not '
                                  'specified. Initialize empty matrix.')
-                    self.int_mat = np.zeros((self.Nr, self.Ns), np.double)
+                    self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
                 else:
-                    self.choose_interaction_matrix(**params)
+                    self.choose_sensitivity_matrix(**params)
             
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              initialize_state)
             
-        assert self.int_mat.shape == (self.Nr, self.Ns)
+        assert self.sens_mat.shape == (self.Nr, self.Ns)
          
             
     @property
@@ -112,11 +112,11 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         theory = LibrarySparseBinary.from_other(obj_base) 
         
         obj = cls.from_other(obj_base)
-        obj.choose_interaction_matrix(**theory.get_optimal_library())
+        obj.choose_sensitivity_matrix(**theory.get_optimal_library())
         return obj
     
 
-    def choose_interaction_matrix(self, distribution, mean_sensitivity=1,
+    def choose_sensitivity_matrix(self, distribution, mean_sensitivity=1,
                                   ensure_mean=False, **kwargs):
         """ creates a interaction matrix with the given properties
             `distribution` determines the distribution from which we choose the
@@ -131,13 +131,13 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
 
         assert mean_sensitivity > 0
         
-        int_mat_params = {'distribution': distribution,
+        sens_mat_params = {'distribution': distribution,
                           'mean_sensitivity': mean_sensitivity,
                           'ensure_mean': ensure_mean}
 
         if distribution == 'const':
             # simple constant matrix
-            self.int_mat = np.full(shape, mean_sensitivity)
+            self.sens_mat = np.full(shape, mean_sensitivity)
 
         elif distribution == 'binary':
             # choose a binary matrix with a typical scale
@@ -156,22 +156,22 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             if density > 1:
                 raise ValueError('Standard deviation is too large.')
                 
-            int_mat_params['standard_deviation'] = standard_deviation
+            sens_mat_params['standard_deviation'] = standard_deviation
             
             if density == 0:
                 # simple case of empty matrix
-                self.int_mat = np.zeros(shape)
+                self.sens_mat = np.zeros(shape)
                 
             elif density >= 1:
                 # simple case of full matrix
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.sens_mat = np.full(shape, mean_sensitivity)
                 
             else:
                 # choose receptor substrate interaction randomly and don't worry
                 # about correlations
                 S_scale = mean_sensitivity / density
                 nonzeros = (np.random.random(shape) < density)
-                self.int_mat = S_scale * nonzeros 
+                self.sens_mat = S_scale * nonzeros 
 
         elif distribution == 'log_normal':
             # log normal distribution
@@ -189,12 +189,12 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                 spread = np.sqrt(np.log(cv**2 + 1))
 
             correlation = kwargs.pop('correlation', 0)
-            int_mat_params['standard_deviation'] = standard_deviation
-            int_mat_params['correlation'] = correlation
+            sens_mat_params['standard_deviation'] = standard_deviation
+            sens_mat_params['correlation'] = correlation
 
             if spread == 0 and correlation == 0:
                 # edge case without randomness
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.sens_mat = np.full(shape, mean_sensitivity)
 
             elif correlation != 0:
                 # correlated receptors
@@ -203,23 +203,23 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                 cov = np.full((self.Nr, self.Nr), correlation * spread**2)
                 np.fill_diagonal(cov, spread**2)
                 vals = np.random.multivariate_normal(mean, cov, size=self.Ns).T
-                self.int_mat = np.exp(vals)
+                self.sens_mat = np.exp(vals)
 
             else:
                 # uncorrelated receptors
                 dist = lognorm_mean(mean_sensitivity, spread)
-                self.int_mat = dist.rvs(shape)
+                self.sens_mat = dist.rvs(shape)
                 
         elif distribution == 'log_uniform':
             # log uniform distribution
             spread = kwargs.pop('spread', 1)
-            int_mat_params['spread'] = spread
+            sens_mat_params['spread'] = spread
 
             if spread == 0:
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.sens_mat = np.full(shape, mean_sensitivity)
             else:
                 dist = loguniform_mean(mean_sensitivity, np.exp(spread))
-                self.int_mat = dist.rvs(shape)
+                self.sens_mat = dist.rvs(shape)
             
         elif distribution == 'log_gamma':
             raise NotImplementedError
@@ -228,12 +228,12 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             # normal distribution
             spread = kwargs.pop('spread', 1)
             correlation = kwargs.pop('correlation', 0)
-            int_mat_params['spread'] = spread
-            int_mat_params['correlation'] = correlation
+            sens_mat_params['spread'] = spread
+            sens_mat_params['correlation'] = correlation
 
             if spread == 0 and correlation == 0:
                 # edge case without randomness
-                self.int_mat = np.full(shape, mean_sensitivity)
+                self.sens_mat = np.full(shape, mean_sensitivity)
                 
             elif correlation != 0:
                 # correlated receptors
@@ -245,11 +245,11 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                                      'correlation matrix that is not positive '
                                      'semi-definite.')
                 vals = np.random.multivariate_normal(mean, cov, size=self.Ns)
-                self.int_mat = vals.T
+                self.sens_mat = vals.T
 
             else:
                 # uncorrelated receptors
-                self.int_mat = np.random.normal(loc=mean_sensitivity,
+                self.sens_mat = np.random.normal(loc=mean_sensitivity,
                                                 scale=spread,
                                                 size=shape)
             
@@ -260,10 +260,10 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             raise ValueError('Unknown distribution `%s`' % distribution)
             
         if ensure_mean:
-            self.int_mat *= mean_sensitivity / self.int_mat.mean()
+            self.sens_mat *= mean_sensitivity / self.sens_mat.mean()
             
         # save the parameters determining this matrix
-        self.parameters['interaction_matrix_params'] = int_mat_params
+        self.parameters['sensitivity_matrix_params'] = sens_mat_params
         
         # raise an error if keyword arguments have not been used
         if len(kwargs) > 0:
@@ -341,7 +341,7 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         c_stats = self.concentration_statistics()
         
         # calculate statistics of the sum s_n = S_ni * c_i        
-        S_ni = self.int_mat
+        S_ni = self.sens_mat
         en_mean = np.dot(S_ni, c_stats['mean'])
         enm_cov = np.einsum('ni,mi,i->nm', S_ni, S_ni, c_stats['var'])
         en_var = np.diag(enm_cov)

@@ -52,7 +52,7 @@ def optimize_receptors(parameters):
         parameters={'verbosity': 0 if parameters['quite'] else 1,
                     'random_seed': parameters['random_seed'],}
     )
-    model.choose_interaction_matrix(density=density_optimal)
+    model.choose_sensitivity_matrix(density=density_optimal)
     model.set_commonness(parameters['scheme'], parameters['m'])
     model.set_correlations(parameters['correlation-scheme'],
                            parameters['correlation-magnitude'])
@@ -67,7 +67,7 @@ def optimize_receptors(parameters):
     data = {'parameters': parameters,
             'init_arguments': model.init_arguments,
             'mutual_information': result[0],
-            'interaction_matrix': result[1]}
+            'sensitivity_matrix': result[1]}
     if parameters['optimization-info']:
         data['optimization-info'] = result[2]
     return data
