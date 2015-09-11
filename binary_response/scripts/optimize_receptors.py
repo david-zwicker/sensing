@@ -43,7 +43,7 @@ def optimize_receptors(parameters):
     
     # get an estimate of the optimal response fraction
     theory = LibraryBinaryUniform(parameters['Ns'], parameters['Nr'])
-    theory.set_commonness('const', parameters['m'])
+    theory.choose_commonness('const', parameters['m'])
     density_optimal = theory.density_optimal()
     
     # setup the numerical model that we use for optimization
@@ -53,9 +53,9 @@ def optimize_receptors(parameters):
                     'random_seed': parameters['random_seed'],}
     )
     model.choose_sensitivity_matrix(density=density_optimal)
-    model.set_commonness(parameters['scheme'], parameters['m'])
-    model.set_correlations(parameters['correlation-scheme'],
-                           parameters['correlation-magnitude'])
+    model.choose_commonness(parameters['scheme'], parameters['m'])
+    model.choose_correlations(parameters['correlation-scheme'],
+                              parameters['correlation-magnitude'])
     
     # optimize the interaction matrix
     result = model.optimize_library('mutual_information',
