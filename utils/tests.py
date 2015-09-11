@@ -37,7 +37,7 @@ class TestMathDistributions(unittest.TestCase):
         # calculate random variates and compare them to the given mean and var.
         for dist in distributions:
             rvs = dist.rvs(100000)
-            self.assertAllClose(dist.mean(), rvs.mean(), rtol=0.01,
+            self.assertAllClose(dist.mean(), rvs.mean(), rtol=0.02,
                                 msg='Mean of the distribution is not '
                                     'consistent.')
             self.assertAllClose(dist.var(), rvs.var(), rtol=0.1,

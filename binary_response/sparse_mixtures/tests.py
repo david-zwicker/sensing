@@ -214,10 +214,10 @@ class TestLibrarySparse(TestBase):
                 
                 msg = '%s, Method `%s`' % (error_msg, method_name)
                 if method_name == 'excitation_statistics':
-                    self.assertDictAllClose(res_mc, res_est, rtol=0.1, atol=0.5,
+                    self.assertDictAllClose(res_mc, res_est, rtol=0.2, atol=0.1,
                                             msg=msg)
                 else:
-                    self.assertAllClose(res_mc, res_est, rtol=0.1, atol=0.5,
+                    self.assertAllClose(res_mc, res_est, rtol=0.1, atol=0.1,
                                         msg=msg)
                                         
                                 
