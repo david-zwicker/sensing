@@ -224,7 +224,7 @@ class LibraryBase(object):
             with np.errstate(divide='ignore', invalid='ignore'):
                 rho = np.divide(en_cov, np.outer(en_std, en_std))
     
-            # Replace values that are nan with zero. This might not be exact,
+            # replace values that are nan with zero. This might not be exact,
             # but only occurs in corner cases that are not interesting to us  
             rho[np.isnan(rho)] = 0
             
@@ -234,41 +234,54 @@ class LibraryBase(object):
         return q_nm
     
             
-    def _estimate_MI_from_q_values(self, q_n, q_nm, use_polynom=False):
+    def _estimate_MI_from_q_values(self, q_n, q_nm, use_polynom=True):
         """ estimate the mutual information from given probabilities """
         # calculate the approximate mutual information from data
-        MI = self.Nr
-        MI -= 0.5/LN2 * np.sum((2*q_n - 1)**2)
-        MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
+        if use_polynom:
+            # use the quadratic approximation of the mutual information
+            MI = self.Nr - 0.5/LN2 * np.sum((2*q_n - 1)**2)
+            # calculate the crosstalk
+            MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
+            
+        else:
+            # use exact expression for the entropy of uncorrelated receptors             
+            MI = -np.sum(xlog2x(q_n) + xlog2x(1 - q_n))
+        
+            # calculate the crosstalk
+            q_n2 = q_n**2 - q_n
+            with np.errstate(divide='ignore', invalid='ignore'):
+                q_nm_scaled = q_nm**2 / np.outer(q_n2, q_n2)
+            
+            # replace values that are nan with zero. This might not be exact,
+            # but only occurs in corner cases that are not interesting to us  
+            q_nm_scaled[np.isnan(q_nm_scaled)] = 0
+            
+            MI -= 0.5/LN2 * np.sum(np.triu(q_nm_scaled, 1))
             
         return MI
     
         
     def _estimate_MI_from_q_stats(self, q_n, q_nm, q_n_var=0, q_nm_var=0,
-                                  use_polynom=True, ret_var=False):
+                                  use_polynom=True):
         """ estimate the mutual information from given probabilities """
         Nr = self.Nr
         
         if use_polynom:
             # use the quadratic approximation of the mutual information
             MI = Nr - 0.5/LN2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
+            # add the effect of crosstalk
+            MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
             
         else:
-            # ise             
+            # use exact expression for the entropy of uncorrelated receptors             
             MI = -Nr * (xlog2x(q_n) + xlog2x(1 - q_n))
+
+            # add the effect of crosstalk
+            if 0 < q_n < 1: 
+                # TODO: add q_nm_var
+                MI -= 0.5/LN2 * Nr*(Nr - 1)/2 * q_nm**2 / (q_n**2 - q_n)**2
         
-        # add the effect of crosstalk
-        MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
-            
-        if ret_var:
-            # also estimate the variance of the mutual information
-            MI_var = (
-                4 * Nr**2 * q_n_var * ((2*q_n - 1)**2 + 2*q_n_var)
-                + 32 * (Nr*(Nr - 1))**2 * q_nm_var * (2*q_nm**2 + q_nm_var)
-            ) / LN2**2
-            return MI, MI_var
-        else:
-            return MI
+        return MI
     
         
     def _estimate_MI_from_r_values(self, r_n, r_nm):
