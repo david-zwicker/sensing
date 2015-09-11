@@ -7,6 +7,7 @@ Created on Apr 1, 2015
 from __future__ import division
 
 import functools
+import logging
 import multiprocessing as mp
 
 import numpy as np
@@ -244,7 +245,8 @@ class LibraryBase(object):
             MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
             
         else:
-            # use exact expression for the entropy of uncorrelated receptors             
+            # use the better approximation based on the formula published in
+            #     V. Sessak and R. Monasson, J Phys A, 42, 055001 (2009) 
             MI = -np.sum(xlog2x(q_n) + xlog2x(1 - q_n))
         
             # calculate the crosstalk
@@ -273,6 +275,13 @@ class LibraryBase(object):
             MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
             
         else:
+            # use the better approximation based on the formula published in
+            #     V. Sessak and R. Monasson, J Phys A, 42, 055001 (2009) 
+            if not (np.isclose(q_n_var, 0) and np.isclose(q_nm_var, 0)):
+                logging.warn('Estimating mutual information using the non-'
+                             'polynomial form does not support the inclusion '
+                             'of variances, yet.')
+            
             # use exact expression for the entropy of uncorrelated receptors             
             MI = -Nr * (xlog2x(q_n) + xlog2x(1 - q_n))
 

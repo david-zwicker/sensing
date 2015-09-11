@@ -77,16 +77,28 @@ class TestLibraryBase(TestBase):
         """ test the base class """
         obj = LibraryBase.create_test_instance()
         
-        # prepare fictious receptor response
-        q_n = np.random.rand(obj.Nr)
-        q_nm = 0.1*np.random.rand(obj.Nr, obj.Nr)
-        np.fill_diagonal(q_nm, 0)
-        
         # calculate mutual information
-        MI1 = obj._estimate_MI_from_q_values(q_n, q_nm)
-        MI2 = obj._estimate_MI_from_q_stats(
-                                q_n.mean(), q_nm.mean(), q_n.var(), q_nm.var())
-        self.assertAllClose(MI1, MI2, rtol=0.1)
+        for poly in (False, True):
+            if poly:
+                # we can consider heterogeneous receptor response
+                q_n = np.random.rand(obj.Nr)
+                q_nm = 0.1*np.random.rand(obj.Nr, obj.Nr)
+        
+            else:
+                # we have to have homogeneous receptor response
+                q_n = np.zeros(obj.Nr) + np.random.rand()
+                q_nm = np.zeros((obj.Nr, obj.Nr)) + 0.1*np.random.rand()
+
+            np.fill_diagonal(q_nm, 0)
+            q_nm_var = q_nm[~np.eye(obj.Nr, dtype=np.bool)].var()
+            
+            MI1 = obj._estimate_MI_from_q_values(q_n, q_nm, use_polynom=poly)
+            MI2 = obj._estimate_MI_from_q_stats(
+                q_n.mean(), q_nm.mean(), q_n.var(), q_nm_var,
+                use_polynom=poly
+            )
+            msg = 'Mutual informations do not agree for use_polynom=%s' % poly
+            self.assertAllClose(MI1, MI2, rtol=0.1, msg=msg)
                     
     
 
