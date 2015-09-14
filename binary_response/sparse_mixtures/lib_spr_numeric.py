@@ -45,7 +45,6 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         super(LibrarySparseNumeric, self).__init__(num_substrates,
                                                    num_receptors,
                                                    parameters)        
-        return
 
         initialize_state = self.parameters['initialize_state']
         
