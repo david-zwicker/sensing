@@ -263,9 +263,9 @@ class LibraryBase(object):
             with np.errstate(divide='ignore', invalid='ignore'):
                 q_nm_scaled = q_nm**2 / np.outer(q_n2, q_n2)
             
-            # replace values that are nan with zero. This might not be exact,
-            # but only occurs in corner cases that are not interesting to us  
-            q_nm_scaled[np.isnan(q_nm_scaled)] = 0
+            # replace values that are not finite with zero. This might not be
+            # exact, but only occurs in cases that are not interesting to us  
+            q_nm_scaled[~np.isfinite(q_nm_scaled)] = 0
             
             MI -= 0.5/LN2 * np.sum(np.triu(q_nm_scaled, 1))
             
