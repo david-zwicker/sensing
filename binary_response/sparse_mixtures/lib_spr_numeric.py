@@ -60,14 +60,15 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         
         # initialize the state using the chosen protocol
         if initialize_state is None or initialize_state == 'zero':
+            logging.debug('Initialize sensitivity matrix to zero.')
             self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             
         elif initialize_state == 'exact':
             # initialize the state using saved parameters
             sens_mat = self.parameters['sensitivity_matrix']
             if sens_mat is None:
-                logging.warn('Interaction matrix was not given. Initialize '
-                             'empty matrix.')
+                logging.warn('Sensitivity matrix was not given. Initialize '
+                             'zero matrix.')
                 self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             else:
                 logging.debug('Initialize with given sensitivity matrix.')
@@ -77,8 +78,8 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             # initialize the state using the ensemble parameters
             params = self.parameters['sensitivity_matrix_params']
             if params is None:
-                logging.warn('Parameters for interaction matrix were not '
-                             'specified. Initialize empty matrix.')
+                logging.warn('Parameters for sensitivity matrix were not '
+                             'specified. Initialize zero matrix.')
                 self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             else:
                 logging.debug('Choose sensitivity matrix from given '
@@ -112,7 +113,7 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         parent = super(LibrarySparseNumeric, cls)
         obj_base = parent.create_test_instance(**kwargs)
 
-        # determine optimal parameters for the interaction matrix
+        # determine optimal parameters for the sensitivity matrix
         from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseBinary  
         theory = LibrarySparseBinary.from_other(obj_base) 
         
@@ -168,7 +169,7 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                          method='cma', ret_info=False, args=None, verbose=False):
         """ optimizes the current library to maximize the result of the target
         function using gradient descent. By default, the function returns the
-        best value and the associated interaction matrix as result.        
+        best value and the associated sensitivity matrix as result.        
         """
         # get the target function to call
         target_function = getattr(self, target)
