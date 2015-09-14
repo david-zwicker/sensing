@@ -58,8 +58,20 @@ def optimize_sens_mat(parameters):
     model.choose_sensitivity_matrix('log_normal',
                                     mean_sensitivity=1/ci_mean, spread=1)
     
+    # choose the method for calculating the mutual information
+    if parameters['MI-method'] == 'numeric':
+        args = {}
+    elif parameters['MI-method'] == 'approx':
+        args = {'method': 'estimate'}
+    elif parameters['MI-method'] == 'approx-linear':
+        args = {'method': 'estimate', 'excitation_model': 'lognorm-approx'}
+    else:
+        raise ValueError('Unknown method `%s` for estimating the mutual '
+                         'information' % parameters['MI-method'])
+    
     # optimize the interaction matrix
     result = model.optimize_library('mutual_information',
+                                    args=args,
                                     method=parameters['optimization-scheme'],
                                     steps=parameters['steps'],
                                     verbose=not parameters['quite'],
@@ -114,6 +126,9 @@ def main():
                         choices=['const', 'random_binary', 'random_uniform',
                                  'random_normal'],
                         help='scheme for picking substrate correlations')
+    parser.add_argument('--MI-method', type=str, default='numeric',
+                        choices=['numeric', 'approx', 'approx-linear'],
+                        help='method for estimating the mutual information')
     parser.add_argument('--optimization-scheme', type=str,
                         default='cma',
                         choices=['cma', 'Nelder-Mead', 'BFGS'],
@@ -148,6 +163,7 @@ def main():
                  'concentration-scheme': args.concentration_scheme,
                  'correlation-magnitude': corr,
                  'correlation-scheme': args.correlation_scheme,
+                 'MI-method': args.MI_method,
                  'optimization-scheme': args.optimization_scheme,
                  'optimization-info': args.optimization_info,
                  'random_seed': args.seed, 'steps': steps,
