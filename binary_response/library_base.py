@@ -633,6 +633,9 @@ class LibraryNumericMixin(object):
         # calculate the approximate mutual information
         MI = self._estimate_MI_from_q_values(q_n, q_nm, use_polynom=use_polynom)
         
+        if clip:
+            MI = np.clip(MI, 0, self.Nr)
+        
         if ret_prob_activity:
             return MI, q_n
         else:
