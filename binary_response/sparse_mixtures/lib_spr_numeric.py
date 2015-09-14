@@ -214,7 +214,8 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             sigma = 0.5 * np.mean(x0) #< initial step size
             options = {'maxfevals': steps,
                        'bounds': [0, np.inf],
-                       'verb_disp': 500 * int(verbose),}
+                       'verb_disp': 100 * int(verbose),
+                       'verb_log': 0}
             
             # call the optimizer
             res = cma.fmin(cost_function, x0, sigma, options=options)
@@ -222,17 +223,19 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             # get the result
             state_best = res[0].reshape((self.Nr, self.Ns))
             value_best = res[1]
-            info['states_considered'] = res[3]
-            info['iterations'] = res[4]
+            if ret_info: 
+                info['states_considered'] = res[3]
+                info['iterations'] = res[4]
             
         else:
             # use the standard scipy function
             res = optimize.minimize(cost_function, self.sens_mat.flat,
                                     method=method, options={'maxiter': steps})
             value_best =  res.fun
-            state_best = res.x.reshape((self.Nr, self.Ns)) 
-            info['states_considered'] = res.nfev
-            info['iterations'] = res.nit
+            state_best = res.x.reshape((self.Nr, self.Ns))
+            if ret_info: 
+                info['states_considered'] = res.nfev
+                info['iterations'] = res.nit
             
         if direction == 'max':
             value_best *= -1
