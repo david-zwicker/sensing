@@ -211,7 +211,7 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
             
             # prepare the arguments for the optimization call    
             x0 = self.sens_mat.flat
-            sigma = np.mean(x0) #< initial step size
+            sigma = 0.5 * np.mean(x0) #< initial step size
             options = {'maxfevals': steps,
                        'bounds': [0, np.inf],
                        'verb_disp': 100 * int(verbose),

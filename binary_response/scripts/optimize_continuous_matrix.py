@@ -22,7 +22,7 @@ import multiprocessing as mp
 import six.moves.cPickle as pickle
 import numpy as np
 
-from binary_response import LibrarySparseNumeric
+from binary_response import LibrarySparseNumeric, LibrarySparseLogNormal
 
 
 # introduce global variable for keeping track of the number the started jobs
@@ -30,7 +30,7 @@ jobs_started = mp.Value('I', 0)
 
 
 
-def optimize_sens_mat(parameters):
+def optimize_library(parameters):
     """ optimize receptors of the system described by `parameters` """
     global jobs_started
     
@@ -46,7 +46,7 @@ def optimize_sens_mat(parameters):
     model = LibrarySparseNumeric(
         parameters['Ns'], parameters['Nr'],
         parameters={'verbosity': 0 if parameters['quite'] else 1,
-                    'random_seed': parameters['random_seed'],}
+                    'random_seed': parameters['random_seed']}
     )
     model.choose_commonness(parameters['scheme'], parameters['m'])
     model.choose_concentrations(parameters['concentration-scheme'],
@@ -54,20 +54,24 @@ def optimize_sens_mat(parameters):
     model.choose_correlations(parameters['correlation-scheme'],
                               parameters['correlation-magnitude'])
     
-    model.choose_sensitivity_matrix('binary',
-                                    mean_sensitivity=1/parameters['concentration-mean'],
-                                    density=np.log(2)/parameters['m'])
+    # get optimal log-normal matrix as a starting point
+    theory = LibrarySparseLogNormal.from_other(model, spread=2)
+    library_opt = theory.get_optimal_library(fixed_parameter='spread')
     
     # choose the method for calculating the mutual information
     if parameters['MI-method'] == 'numeric':
         args = {}
     elif parameters['MI-method'] == 'approx':
-        args = {'method': 'estimate'}
+        args = {'method': 'estimate', 'use_polynom': True}
     elif parameters['MI-method'] == 'approx-linear':
-        args = {'method': 'estimate', 'excitation_model': 'lognorm-approx'}
+        args = {'method': 'estimate', 'excitation_model': 'lognorm-approx',
+                'use_polynom': True}
     else:
         raise ValueError('Unknown method `%s` for estimating the mutual '
                          'information' % parameters['MI-method'])
+
+    # try finding a library with a non-zero initial mutual information
+    model.choose_sensitivity_matrix(**library_opt)
     
     # optimize the interaction matrix
     result = model.optimize_library('mutual_information',
@@ -174,9 +178,9 @@ def main():
         
     # do the optimization
     if args.parallel and len(job_list) > 1:
-        results = mp.Pool().map(optimize_sens_mat, job_list)
+        results = mp.Pool().map(optimize_library, job_list)
     else:
-        results = map(optimize_sens_mat, job_list)
+        results = map(optimize_library, job_list)
         
     # write the pickled result to file
     with open(args.filename, 'wb') as fp:

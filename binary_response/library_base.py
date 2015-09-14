@@ -183,7 +183,7 @@ class LibraryBase(object):
         """ estimates probability q_n that a receptor is activated by a mixture
         based on the statistics of the excitations en """
 
-        if excitation_model == 'default':
+        if excitation_model == 'default' or excitation_model is None:
             excitation_model = 'log-normal'
 
         if 'gauss' in excitation_model:
@@ -331,7 +331,23 @@ class LibraryNumericMixin(object):
     are a generator of mixtures and its expected length, respectively.    
     """
     
-    
+    def concentration_statistics(self, method='auto', **kwargs):
+        """ calculates mixture statistics using a metropolis algorithm
+        Returns the mean concentration, the variance, and the covariance matrix.
+
+        `method` can be one of [monte_carlo', 'estimate'].
+        """
+        if method == 'auto':
+            method = 'monte_carlo'
+                
+        if method == 'monte_carlo' or method == 'monte-carlo':
+            return self.concenration_statistics_monte_carlo(**kwargs)
+        elif method == 'estimate':
+            return self.concentration_statistics_estimate(**kwargs)
+        else:
+            raise ValueError('Unknown method `%s`.' % method)
+            
+            
     def concentration_statistics_monte_carlo(self):
         """ calculates mixture statistics using a metropolis algorithm """
         count = 0
@@ -355,7 +371,7 @@ class LibraryNumericMixin(object):
 
 
     def excitation_statistics(self, method='auto', ret_correlations=True,
-                              **kwargs  ):
+                              **kwargs):
         """ calculates the statistics of the excitation of the receptors.
         Returns the mean excitation, the variance, and the covariance matrix.
 
@@ -498,7 +514,7 @@ class LibraryNumericMixin(object):
          
                         
     def receptor_activity_estimate(self, ret_correlations=False,
-                                   excitation_model='log-normal', clip=False):
+                                   excitation_model=None, clip=False):
         """ estimates the average activity of each receptor """
         en_stats = self.excitation_statistics_estimate()
 
@@ -627,8 +643,10 @@ class LibraryNumericMixin(object):
             clipped to [0, 1] before being used to calculate the mutual info.
         """
         q_n, q_nm = self.receptor_crosstalk_estimate(
-            ret_receptor_activity=True, excitation_model=excitation_model,
-            clip=clip)
+            ret_receptor_activity=True, \
+            excitation_model=excitation_model,
+            clip=clip
+        )
         
         # calculate the approximate mutual information
         MI = self._estimate_MI_from_q_values(q_n, q_nm, use_polynom=use_polynom)
@@ -675,7 +693,7 @@ def _estimate_qn_from_en_lognorm_approx(en_mean, en_var):
                )
         # here, the last term comes from an expansion of the log-normal approx.
 
-    return q_n
+    return np.clip(q_n, 0, 1)
 
 
 
@@ -702,7 +720,7 @@ def _estimate_qn_from_en_gaussian_approx(en_mean, en_var):
     else:                
         q_n = 0.5 + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
 
-    return q_n
+    return np.clip(q_n, 0, 1)
 
 
 
