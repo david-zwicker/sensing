@@ -53,10 +53,10 @@ def optimize_sens_mat(parameters):
                                 parameters['concentration-mean'])
     model.choose_correlations(parameters['correlation-scheme'],
                               parameters['correlation-magnitude'])
-    ci_mean = np.mean(model.concentration_statistics_estimate()['mean'])
-
-    model.choose_sensitivity_matrix('log_normal',
-                                    mean_sensitivity=1/ci_mean, spread=1)
+    
+    model.choose_sensitivity_matrix('binary',
+                                    mean_sensitivity=1/parameters['concentration-mean'],
+                                    density=np.log(2)/parameters['m'])
     
     # choose the method for calculating the mutual information
     if parameters['MI-method'] == 'numeric':
