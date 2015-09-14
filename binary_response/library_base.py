@@ -184,20 +184,29 @@ class LibraryBase(object):
         based on the statistics of the excitations en """
 
         if excitation_model == 'default':
-            excitation_model = 'approximate'
+            excitation_model = 'log-normal'
 
-        if excitation_model == 'log-normal':
-            # estimate from a log-normal distribution
-            q_n = _estimate_qn_from_en_lognorm(en_stats['mean'], en_stats['var'])
-        
-        elif excitation_model == 'gaussian':
-            # estimate from a log-normal distribution
-            q_n = _estimate_qn_from_en_gaussian(en_stats['mean'], en_stats['var'])
-        
-        elif excitation_model == 'approximate':
-            # estimate from a simple expression, which was obtained from
-            # expanding the more complicated expression given below
-            q_n = _estimate_qn_from_en_approx(en_stats['mean'], en_stats['var'])
+        if 'gauss' in excitation_model:
+            if 'approx' in excitation_model:
+                # estimate from a simple expression, which was obtained from
+                # expanding the expression from the Gaussian
+                q_n = _estimate_qn_from_en_gaussian_approx(en_stats['mean'],
+                                                           en_stats['var'])
+            else:
+                # estimate from a gaussian distribution
+                q_n = _estimate_qn_from_en_gaussian(en_stats['mean'],
+                                                    en_stats['var'])
+
+        elif 'log-normal' in excitation_model or 'lognorm' in excitation_model:
+            if 'approx' in excitation_model:
+                # estimate from a simple expression, which was obtained from
+                # expanding the expression from the log-normal
+                q_n = _estimate_qn_from_en_lognorm_approx(en_stats['mean'],
+                                                          en_stats['var'])
+            else:
+                # estimate from a log-normal distribution
+                q_n = _estimate_qn_from_en_lognorm(en_stats['mean'],
+                                                   en_stats['var'])
 
         else:
             raise ValueError('Unknown excitation model `%s`' % excitation_model)
@@ -214,7 +223,7 @@ class LibraryBase(object):
         if np.isscalar(en_cov):
             # scalar case
             en_var = en_stats['var']
-            if en_var == 0:
+            if np.isclose(en_var, 0):
                 rho = 0
             else:
                 rho = en_cov / en_var
@@ -432,11 +441,12 @@ class LibraryNumericMixin(object):
         """
         c_stats = self.concentration_statistics_estimate(**kwargs)
         
-        # calculate statistics of the sum s_n = S_ni * c_i        
+        # calculate statistics of e_n = \sum_i S_ni * c_i        
         S_ni = self.sens_mat
         en_mean = np.dot(S_ni, c_stats['mean'])
-        if c_stats.get('cov_is_diagonal', False):
-            enm_cov = np.einsum('ni,mj,i->nm', S_ni, S_ni, c_stats['var'])
+        cov_is_diagonal = c_stats.get('cov_is_diagonal', False)
+        if cov_is_diagonal:
+            enm_cov = np.einsum('ni,mi,i->nm', S_ni, S_ni, c_stats['var'])
         else:
             enm_cov = np.einsum('ni,mj,ij->nm', S_ni, S_ni, c_stats['cov'])
         en_var = np.diag(enm_cov)
@@ -637,7 +647,7 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
     log-normal distribution for s_n """
     if en_mean == 0:
         q_n = 0.
-    elif en_var == 0:
+    elif np.isclose(en_var, 0):
         q_n = np.double(en_mean > 1)
     else:
         en_cv2 = en_var / en_mean**2
@@ -647,6 +657,23 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
         
     return q_n
        
+               
+
+@vectorize_double
+def _estimate_qn_from_en_lognorm_approx(en_mean, en_var):
+    """ estimates probability q_n that a receptor is activated by a mixture
+    based on the statistics of the excitations s_n using an approximation """
+    if np.isclose(en_var, 0):
+        q_n = np.double(en_mean > 1)
+    else:                
+        q_n = (0.5
+               + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
+               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi))
+               )
+        # here, the last term comes from an expansion of the log-normal approx.
+
+    return q_n
+
 
 
 @vectorize_double
@@ -654,7 +681,7 @@ def _estimate_qn_from_en_gaussian(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations s_n assuming an underlying
     normal distribution for s_n """
-    if en_var == 0:
+    if np.isclose(en_var, 0):
         q_n = np.double(en_mean > 1)
     else:
         q_n = 0.5 * special.erfc((1 - en_mean)/np.sqrt(2 * en_var))
@@ -664,17 +691,13 @@ def _estimate_qn_from_en_gaussian(en_mean, en_var):
                
 
 @vectorize_double
-def _estimate_qn_from_en_approx(en_mean, en_var):
+def _estimate_qn_from_en_gaussian_approx(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations s_n using an approximation """
-    if en_var == 0:
+    if np.isclose(en_var, 0):
         q_n = np.double(en_mean > 1)
     else:                
-        q_n = (0.5
-               + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
-               + (5*en_mean - 7) * np.sqrt(en_var/(32*np.pi))
-               )
-        # here, the last term comes from an expansion of the log-normal approx.
+        q_n = 0.5 + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
 
     return q_n
 

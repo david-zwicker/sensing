@@ -345,7 +345,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         ctot_stats = self.ctot_statistics()
         ctot_mean = ctot_stats['mean']
         ctot_var = ctot_stats['var']
-        ctot_cv2 = ctot_var/ctot_mean**2
+        ctot_cv2 = ctot_var / ctot_mean**2
         
         if fixed_parameter == 'spread':
             # keep the spread parameter fixed and determine the others 

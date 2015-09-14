@@ -129,12 +129,12 @@ class LibrarySparseBase(LibraryBinaryBase):
 
         pi = self.substrate_probabilities
         di = self.concentrations
-        c_means = pi * di
-        c_vars = pi*(2 - pi) * di**2
+        ci_mean = pi * di
+        ci_var = pi*(2 - pi) * di**2
         
         # return the results in a dictionary to be able to extend it later
-        return {'mean': c_means, 'std': np.sqrt(c_vars), 'var': c_vars,
-                'cov': np.diag(c_vars), 'cov_is_diagonal': True}
+        return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
+                'cov': np.diag(ci_var), 'cov_is_diagonal': True}
 
     
     @property

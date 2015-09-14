@@ -16,6 +16,7 @@ Optional python packages, which can be installed through `pip`:
 Package     | Usage                                      
 ------------|-------------------------------------------
 coverage    | For measuring test coverage
+cma         | For Covariance Matrix Adaptation Evolution Strategy
 numba       | For creating compiled code for faster processing
 nose        | For parallel testing
 simanneal   | Simulated annealing algorithm published on github

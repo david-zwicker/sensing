@@ -58,7 +58,8 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
                 
     
 
-def LibrarySparseNumeric_receptor_activity_monte_carlo(self, ret_correlations=False):
+def LibrarySparseNumeric_receptor_activity_monte_carlo(
+                                               self, ret_correlations=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.is_correlated_mixture:
@@ -100,8 +101,8 @@ numba_patcher.register_method(
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, S_ni, p_i, d_i,
-                                                  a_n, prob_a):
+def LibrarySparseNumeric_mutual_information_monte_carlo_numba(
+                                  Ns, Nr, steps, S_ni, p_i, d_i, a_n, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -140,7 +141,8 @@ def LibrarySparseNumeric_mutual_information_numba(Ns, Nr, steps, S_ni, p_i, d_i,
     return MI
     
 
-def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
+def LibrarySparseNumeric_mutual_information_monte_carlo(
+                                                self, ret_prob_activity=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.is_correlated_mixture:
@@ -153,7 +155,7 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
     prob_a = np.zeros(2**self.Nr)
  
     # call the jitted function
-    MI = LibrarySparseNumeric_mutual_information_numba(
+    MI = LibrarySparseNumeric_mutual_information_monte_carlo_numba(
         self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
         self.substrate_probabilities, #< p_i
         self.concentrations,          #< d_i
@@ -168,8 +170,8 @@ def LibrarySparseNumeric_mutual_information(self, ret_prob_activity=False):
 
 
 numba_patcher.register_method(
-    'LibrarySparseNumeric.mutual_information',
-    LibrarySparseNumeric_mutual_information,
+    'LibrarySparseNumeric.mutual_information_monte_carlo',
+    LibrarySparseNumeric_mutual_information_monte_carlo,
     check_return_value_approx
 )
 

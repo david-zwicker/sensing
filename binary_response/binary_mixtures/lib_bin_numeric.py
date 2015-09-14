@@ -443,6 +443,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         return -np.sum(counts*(np.log2(counts) - log_steps))/self._sample_steps
     
     
+#     def concentration_statistics_estimate(self):
+#         if self.is_correlated_mixture:
+#             raise NotImplementedError('Not implemented for correlated mixtures')
+    
+    
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
                            **kwargs):
         """ calculates the average activity of the receptor as a response to 
@@ -567,37 +572,37 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             which should work for small probabilities. """
         if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
-
+ 
         S_ni = self.sens_mat
         p_i = self.substrate_probabilities
-        
+         
         if approx_prob:
             # approximate calculation for small p_i
             r_n = np.dot(S_ni, p_i)
             if clip:
                 np.clip(r_n, 0, 1, r_n)
-            
+             
         else:
             # proper calculation of the probabilities
             r_n = np.zeros(self.Nr)
             S_ni_mask = S_ni.astype(np.bool)
             for n in range(self.Nr):
                 r_n[n] = 1 - np.product(1 - p_i[S_ni_mask[n, :]])
-        
+         
         if ret_correlations:
             # estimate the correlations from the estimated crosstalk
             q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
-            
+             
             if approx_prob:
                 r_nm = np.outer(r_n, r_n) + q_nm
             else:
                 r_nm = 1 - (1 - q_nm)*(1 - np.outer(r_n, r_n))
-                
+                 
             if clip:
                 np.clip(r_nm, 0, 1, r_nm)
-
+ 
             return r_n, r_nm
-        
+         
         else:
             return r_n
 
