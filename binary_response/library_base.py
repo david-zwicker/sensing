@@ -637,7 +637,7 @@ class LibraryNumericMixin(object):
                     
     def mutual_information_estimate(self, ret_prob_activity=False,
                                     excitation_model='default', clip=True,
-                                    use_polynom=False):
+                                    use_polynom=True):
         """ returns a simple estimate of the mutual information.
         `clip` determines whether the approximated probabilities should be
             clipped to [0, 1] before being used to calculate the mutual info.

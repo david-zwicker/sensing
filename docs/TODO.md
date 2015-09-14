@@ -1,3 +1,5 @@
+* introduce a method for saving the exact state of a library such that it can
+    be restored later 
 * Think about implementing the sped up version of the mutual information
     calculation for correlated mixtures by representing the concentration
     vector by the indices of the ligands that are present

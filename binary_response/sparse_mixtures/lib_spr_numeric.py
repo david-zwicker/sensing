@@ -70,17 +70,20 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
                              'empty matrix.')
                 self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
             else:
+                logging.debug('Initialize with given sensitivity matrix.')
                 self.sens_mat = sens_mat.copy()
             
         elif initialize_state == 'ensemble':
             # initialize the state using the ensemble parameters
-                params = self.parameters['sensitivity_matrix_params']
-                if params is None:
-                    logging.warn('Parameters for interaction matrix were not '
-                                 'specified. Initialize empty matrix.')
-                    self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
-                else:
-                    self.choose_sensitivity_matrix(**params)
+            params = self.parameters['sensitivity_matrix_params']
+            if params is None:
+                logging.warn('Parameters for interaction matrix were not '
+                             'specified. Initialize empty matrix.')
+                self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
+            else:
+                logging.debug('Choose sensitivity matrix from given '
+                              'parameters')
+                self.choose_sensitivity_matrix(**params)
             
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
