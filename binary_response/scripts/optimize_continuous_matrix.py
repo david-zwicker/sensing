@@ -63,15 +63,14 @@ def optimize_library(parameters):
         args = {}
     elif parameters['MI-method'] == 'approx':
         target = 'mutual_information_estimate'
-        args = {'excitation_model': True}
+        args = {}
     elif parameters['MI-method'] == 'approx-linear':
         target = 'mutual_information_estimate'
         args = {'excitation_model': 'lognorm-approx',
                 'mutual_information_method': 'polynom'}
     elif parameters['MI-method'] == 'fast':
         target = 'mutual_information_estimate_fast'
-        args = {'method': 'estimate', 'excitation_model': 'lognorm-approx',
-                'mutual_information_method': 'polynom'}
+        args = {}
     else:
         raise ValueError('Unknown method `%s` for estimating the mutual '
                          'information' % parameters['MI-method'])
