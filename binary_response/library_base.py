@@ -7,7 +7,6 @@ Created on Apr 1, 2015
 from __future__ import division
 
 import functools
-import logging
 import multiprocessing as mp
 
 import numpy as np
@@ -183,7 +182,7 @@ class LibraryBase(object):
         """ estimates probability q_n that a receptor is activated by a mixture
         based on the statistics of the excitations en """
 
-        if excitation_model == 'default' or excitation_model is None:
+        if excitation_model == 'default':
             excitation_model = 'log-normal'
 
         if 'gauss' in excitation_model:
@@ -300,6 +299,9 @@ class LibraryBase(object):
             
         `method` selects one of the following approximations:
             [`expansion`, `hybrid`, `polynom`] 
+            
+        Independent of the method chosen, the variances are always only used
+        in a quadratic approximation.
         """
         Nr = self.Nr
         
@@ -308,40 +310,37 @@ class LibraryBase(object):
         
         if method == 'expansion':
             # use the formula from the paper directly
-            if not (np.isclose(q_n_var, 0) and np.isclose(q_nm_var, 0)):
-                logging.warn('Estimating mutual information using the non-'
-                             'polynomial form does not support the inclusion '
-                             'of variances, yet.')
-            
+
             # use exact expression for the entropy of uncorrelated receptors             
             MI = -Nr * (xlog2x(q_n) + xlog2x(1 - q_n))
 
             # add the effect of crosstalk
             if 0 < q_n < 1: 
-                # TODO: add q_nm_var
                 MI -= 0.5/LN2 * Nr*(Nr - 1)/2 * q_nm**2 / (q_n**2 - q_n)**2
         
         elif method == 'hybrid':
             # use the exact first term, but expand the second
-            if not (np.isclose(q_n_var, 0) and np.isclose(q_nm_var, 0)):
-                logging.warn('Estimating mutual information using the non-'
-                             'polynomial form does not support the inclusion '
-                             'of variances, yet.')
             
             # use exact expression for the entropy of uncorrelated receptors             
             MI = -Nr * (xlog2x(q_n) + xlog2x(1 - q_n))
 
             # add the effect of crosstalk
-            MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
+            MI -= 8/LN2 * Nr*(Nr - 1)/2 * q_nm**2
 
         elif method == 'polynom':
             # use the quadratic approximation of the mutual information
-            MI = Nr - 0.5/LN2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
+            MI = Nr - 0.5/LN2 * Nr * (2*q_n - 1)**2
             # add the effect of crosstalk
-            MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
+            MI -= 8/LN2 * Nr*(Nr - 1)/2 * q_nm**2
                    
         else:
             raise ValueError('Unknown method `%s` for calculating MI' % method)
+                   
+        # add the effect of the variance         
+        if q_n_var != 0:
+            MI -= 2/LN2 * Nr * q_n_var
+        if q_nm_var != 0:
+            MI -= 4/LN2 * Nr*(Nr - 1)/2 * q_nm_var
                             
         return MI
     
@@ -558,7 +557,7 @@ class LibraryNumericMixin(object):
          
                         
     def receptor_activity_estimate(self, ret_correlations=False,
-                                   excitation_model=None, clip=False):
+                                   excitation_model='default', clip=False):
         """ estimates the average activity of each receptor """
         en_stats = self.excitation_statistics_estimate()
 
@@ -608,7 +607,7 @@ class LibraryNumericMixin(object):
 
         
     def receptor_crosstalk_estimate(self, ret_receptor_activity=False,
-                                    excitation_model=None, clip=False):
+                                    excitation_model='default', clip=False):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
         en_stats = self.excitation_statistics_estimate()

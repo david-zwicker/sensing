@@ -48,6 +48,7 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
                 r_n[n] += 1
                 
         if ret_correlations:
+            # calculate the correlations
             for n in range(Nr):
                 if a_n[n] >= 1:
                     r_nm[n, n] += 1

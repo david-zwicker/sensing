@@ -217,7 +217,7 @@ class TestLibrarySparse(TestBase):
                     self.assertDictAllClose(res_mc, res_est, rtol=0.2, atol=0.1,
                                             msg=msg)
                 else:
-                    self.assertAllClose(res_mc, res_est, rtol=0.1, atol=0.1,
+                    self.assertAllClose(res_mc, res_est, rtol=0.2, atol=0.1,
                                         msg=msg)
                                         
                                 
