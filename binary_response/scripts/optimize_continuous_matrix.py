@@ -59,10 +59,17 @@ def optimize_library(parameters):
     
     # choose the method for calculating the mutual information
     if parameters['MI-method'] == 'numeric':
+        target = 'mutual_information_monte_carlo'
         args = {}
     elif parameters['MI-method'] == 'approx':
-        args = {'method': 'estimate', 'excitation_model': True}
+        target = 'mutual_information_estimate'
+        args = {'excitation_model': True}
     elif parameters['MI-method'] == 'approx-linear':
+        target = 'mutual_information_estimate'
+        args = {'excitation_model': 'lognorm-approx',
+                'mutual_information_method': 'polynom'}
+    elif parameters['MI-method'] == 'fast':
+        target = 'mutual_information_estimate_fast'
         args = {'method': 'estimate', 'excitation_model': 'lognorm-approx',
                 'mutual_information_method': 'polynom'}
     else:
@@ -73,8 +80,7 @@ def optimize_library(parameters):
     model.choose_sensitivity_matrix(**library_opt)
     
     # optimize the interaction matrix
-    result = model.optimize_library('mutual_information',
-                                    args=args,
+    result = model.optimize_library(target, args=args,
                                     method=parameters['optimization-scheme'],
                                     steps=parameters['steps'],
                                     verbose=not parameters['quite'],
@@ -131,7 +137,7 @@ def main():
                                  'random_normal'],
                         help='scheme for picking substrate correlations')
     parser.add_argument('--MI-method', type=str, default='numeric',
-                        choices=['numeric', 'approx', 'approx-linear'],
+                        choices=['numeric', 'approx', 'approx-linear', 'fast'],
                         help='method for estimating the mutual information')
     parser.add_argument('--optimization-scheme', type=str,
                         default='cma',

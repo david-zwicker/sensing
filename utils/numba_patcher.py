@@ -41,7 +41,7 @@ class NumbaPatcher(object):
         """ initialize to patch functions and classes in module `module` """
         self.module = module
         self.numba_methods = {}
-        self.saved_original_functions = False
+        self.saved_python_functions = False
         self.enabled = False #< whether numba speed-up is enabled or not
     
 
@@ -55,31 +55,33 @@ class NumbaPatcher(object):
         """ register a new numba method """
         if test_arguments is None:
             test_arguments = {}
-        self.numba_methods[name] = {'numba': numba_function,
+        self.numba_methods[name] = {'numba_function': numba_function,
                                     'test_function': test_function,
                                     'test_arguments': test_arguments}
 
     
-    def _save_original_function(self):
+    def _save_python_function(self):
         """ save the original function such that they can be restored later """
         for name, data in self.numba_methods.items():
             class_name, method_name = name.split('.')
             class_obj = getattr(self.module, class_name)
-            data['original'] = getattr(class_obj, method_name)
-        self.saved_original_functions = True
+            python_function = getattr(class_obj, method_name)
+            data['python_function'] = python_function
+            data['numba_function']._python_function = python_function
+        self.saved_python_functions = True
 
 
     def enable(self):
         """ enables the numba methods """
         old_state = self.enabled
         
-        if not self.saved_original_functions:
-            self._save_original_function()
+        if not self.saved_python_functions:
+            self._save_python_function()
         
         for name, data in self.numba_methods.items():
             class_name, method_name = name.split('.')
             class_obj = getattr(self.module, class_name)
-            setattr(class_obj, method_name, data['numba'])
+            setattr(class_obj, method_name, data['numba_function'])
         self.enabled = True
         
         return old_state
@@ -92,7 +94,7 @@ class NumbaPatcher(object):
         for name, data in self.numba_methods.items():
             class_name, method_name = name.split('.')
             class_obj = getattr(self.module, class_name)
-            setattr(class_obj, method_name, data['original'])
+            setattr(class_obj, method_name, data['python_function'])
         self.enabled = False
         
         return old_state
@@ -140,8 +142,8 @@ class NumbaPatcher(object):
                 test_args[key] = value()
                 
         # inject the arguments
-        func1 = functools.partial(data['original'], **test_args)
-        func2 = functools.partial(data['numba'], **test_args)
+        func1 = functools.partial(data['python_function'], **test_args)
+        func2 = functools.partial(data['numba_function'], **test_args)
         return func1, func2
 
             

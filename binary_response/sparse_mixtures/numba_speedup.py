@@ -9,6 +9,7 @@ methods.
 
 from __future__ import division
 
+import logging
 import numba
 import numpy as np
 
@@ -64,8 +65,10 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.is_correlated_mixture:
-        raise NotImplementedError('Not implemented for correlated mixtures '
-                                  'Try using the pure-python method.')
+        logging.warn('Not implemented for correlated mixtures. Falling back to '
+                     'pure-python method.')
+        this = LibrarySparseNumeric_receptor_activity_monte_carlo
+        return this._python_function(ret_correlations)
 
     # prevent integer overflow in collecting activity patterns
     assert self.Nr <= self.parameters['max_num_receptors'] <= 63
@@ -147,8 +150,10 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.is_correlated_mixture:
-        raise NotImplementedError('Not implemented for correlated mixtures. '
-                                  'Try using the pure-python method.')
+        logging.warn('Not implemented for correlated mixtures. Falling back to '
+                     'pure-python method.')
+        this = LibrarySparseNumeric_mutual_information_monte_carlo
+        return this._python_function(ret_prob_activity)
 
     # prevent integer overflow in collecting activity patterns
     assert self.Nr <= self.parameters['max_num_receptors'] <= 63
@@ -174,5 +179,5 @@ numba_patcher.register_method(
     'LibrarySparseNumeric.mutual_information_monte_carlo',
     LibrarySparseNumeric_mutual_information_monte_carlo,
     check_return_value_approx
-)
-
+)    
+    

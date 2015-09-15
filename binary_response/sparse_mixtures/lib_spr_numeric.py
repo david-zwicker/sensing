@@ -11,7 +11,9 @@ import logging
 import time
 
 import numpy as np
-from scipy import optimize
+from scipy import optimize, special
+
+from utils.misc import xlog2x
 
 from .lib_spr_base import LibrarySparseBase  # @UnresolvedImport
 from ..binary_mixtures.lib_bin_numeric import _sample_binary_mixtures
@@ -163,6 +165,50 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         """ estimate the statistics for each individual substrate """
         return super(LibrarySparseNumeric, self).concentration_statistics()
         
+        
+    def mutual_information_estimate_fast(self):
+        """ returns a simple estimate of the mutual information for the special
+        case that ret_prob_activity=False, excitation_model='default',
+        mutual_information_method='default', and clip=True.
+        """
+        pi = self.substrate_probabilities
+        di = self.concentrations
+        ci_mean = pi * di
+        ci_var = pi*(2 - pi) * di**2
+        
+        # calculate statistics of e_n = \sum_i S_ni * c_i        
+        S_ni = self.sens_mat
+        en_mean = np.dot(S_ni, ci_mean)
+        enm_cov = np.einsum('ni,mi,i->nm', S_ni, S_ni, ci_var)
+        en_var = np.diag(enm_cov)
+        en_std = np.sqrt(en_var)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            # calculate the receptor activity
+            en_cv2 = en_var / en_mean**2
+            enum = np.log(np.sqrt(1 + en_cv2) / en_mean)
+            denom = np.sqrt(2*np.log(1 + en_cv2))
+            q_n = 0.5 * special.erfc(enum/denom)
+        
+            # calculate the receptor crosstalk
+            rho = np.divide(enm_cov, np.outer(en_std, en_std))
+
+        # replace values that are nan with zero. This might not be exact,
+        # but only occurs in corner cases that are not interesting to us
+        q_n[~np.isfinite(q_n)] = 0
+        rho[np.isnan(rho)] = 0
+            
+        # estimate the crosstalk
+        q_nm = np.clip(rho / (2*np.pi), 0, 1)
+        
+        # calculate the approximate mutual information
+        MI = -np.sum(xlog2x(q_n) + xlog2x(1 - q_n))
+    
+        # calculate the crosstalk
+        MI -= 8/np.log(2) * np.sum(np.triu(q_nm, 1)**2)
+        
+        return np.clip(MI, 0, self.Nr)
+                
         
     def optimize_library(self, target, direction='max', steps=100,
                          method='cma', ret_info=False, args=None, verbose=False):
