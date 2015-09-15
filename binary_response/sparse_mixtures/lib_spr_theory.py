@@ -334,7 +334,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         return {'mean': S0, 'std': np.sqrt(var), 'var': var, 'cov': covar}
 
 
-    def get_optimal_parameters(self, fixed_parameter='S0'):
+    def get_optimal_parameters(self, fixed_parameter='spread'):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices.
             `fixed_parameter` determines which parameter is kept fixed during
@@ -378,7 +378,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
                 'standard_deviation': std_opt}
     
     
-    def get_optimal_library(self, fixed_parameter='S0'):
+    def get_optimal_library(self, fixed_parameter='spread'):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices.
             `fixed_parameter` determines which parameter is kept fixed during
