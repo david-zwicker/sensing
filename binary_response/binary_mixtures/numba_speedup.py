@@ -708,9 +708,11 @@ def _mutual_information_from_q(Nr, q_n, q_nm):
     """ estimates the mutual information from q_n and q_nm """
     LN2 = np.log(2) #< compile-time constant
     
-    MI = Nr
+    MI = 0
     for n in range(Nr):
-        MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
+        if 0 < q_n[n] < 1:
+            #MI -= 0.5/LN2 * (1 - 2*q_n[n])**2
+            MI -= q_n[n]*np.log2(q_n[n]) + (1 - q_n[n])*np.log2(1 - q_n[n]) 
         for m in range(n):
             MI -= 8/LN2 * q_nm[n, m]**2
     return MI 

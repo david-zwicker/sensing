@@ -244,18 +244,21 @@ class LibraryBase(object):
         return q_nm
     
             
-    def _estimate_MI_from_q_values(self, q_n, q_nm, use_polynom=True):
-        """ estimate the mutual information from given probabilities """
-        # calculate the approximate mutual information from data
-        if use_polynom:
-            # use the quadratic approximation of the mutual information
-            MI = self.Nr - 0.5/LN2 * np.sum((2*q_n - 1)**2)
-            # calculate the crosstalk
-            MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
+    def _estimate_MI_from_q_values(self, q_n, q_nm, method='default'):
+        """ estimate the mutual information from given probabilities
+        All approximations to the mutual information are based on the
+        approximations given in 
+            V. Sessak and R. Monasson, J Phys A, 42, 055001 (2009)
             
-        else:
-            # use the better approximation based on the formula published in
-            #     V. Sessak and R. Monasson, J Phys A, 42, 055001 (2009) 
+        `method` selects one of the following approximations:
+            [`expansion`, `hybrid`, `polynom`] 
+        """ 
+        
+        if method == 'default':
+            method = 'hybrid'
+        
+        if method == 'expansion':
+            # use the formula from the paper directly
             MI = -np.sum(xlog2x(q_n) + xlog2x(1 - q_n))
         
             # calculate the crosstalk
@@ -268,24 +271,43 @@ class LibraryBase(object):
             q_nm_scaled[~np.isfinite(q_nm_scaled)] = 0
             
             MI -= 0.5/LN2 * np.sum(np.triu(q_nm_scaled, 1))
+        
+        elif method == 'hybrid':
+            # use the exact first term, but expand the second
+            MI = -np.sum(xlog2x(q_n) + xlog2x(1 - q_n))
+        
+            # calculate the crosstalk
+            MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
+
+        elif method == 'polynom':
+            # use the quadratic approximation of the mutual information
+            MI = self.Nr - 0.5/LN2 * np.sum((2*q_n - 1)**2)
+            # calculate the crosstalk
+            MI -= 8/LN2 * np.sum(np.triu(q_nm, 1)**2)
+            
+        else:
+            raise ValueError('Unknown method `%s` for calculating MI' % method)
             
         return MI
     
         
     def _estimate_MI_from_q_stats(self, q_n, q_nm, q_n_var=0, q_nm_var=0,
-                                  use_polynom=True):
-        """ estimate the mutual information from given probabilities """
+                                  method='default'):
+        """ estimate the mutual information from given probabilities
+        All approximations to the mutual information are based on the
+        approximations given in 
+            V. Sessak and R. Monasson, J Phys A, 42, 055001 (2009)
+            
+        `method` selects one of the following approximations:
+            [`expansion`, `hybrid`, `polynom`] 
+        """
         Nr = self.Nr
         
-        if use_polynom:
-            # use the quadratic approximation of the mutual information
-            MI = Nr - 0.5/LN2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
-            # add the effect of crosstalk
-            MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
-            
-        else:
-            # use the better approximation based on the formula published in
-            #     V. Sessak and R. Monasson, J Phys A, 42, 055001 (2009) 
+        if method == 'default':
+            method = 'hybrid'
+        
+        if method == 'expansion':
+            # use the formula from the paper directly
             if not (np.isclose(q_n_var, 0) and np.isclose(q_nm_var, 0)):
                 logging.warn('Estimating mutual information using the non-'
                              'polynomial form does not support the inclusion '
@@ -299,18 +321,40 @@ class LibraryBase(object):
                 # TODO: add q_nm_var
                 MI -= 0.5/LN2 * Nr*(Nr - 1)/2 * q_nm**2 / (q_n**2 - q_n)**2
         
+        elif method == 'hybrid':
+            # use the exact first term, but expand the second
+            if not (np.isclose(q_n_var, 0) and np.isclose(q_nm_var, 0)):
+                logging.warn('Estimating mutual information using the non-'
+                             'polynomial form does not support the inclusion '
+                             'of variances, yet.')
+            
+            # use exact expression for the entropy of uncorrelated receptors             
+            MI = -Nr * (xlog2x(q_n) + xlog2x(1 - q_n))
+
+            # add the effect of crosstalk
+            MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
+
+        elif method == 'polynom':
+            # use the quadratic approximation of the mutual information
+            MI = Nr - 0.5/LN2 * Nr * ((2*q_n - 1)**2 + 4*q_n_var)
+            # add the effect of crosstalk
+            MI -= 4/LN2 * Nr*(Nr - 1) * (q_nm**2 + q_nm_var)
+                   
+        else:
+            raise ValueError('Unknown method `%s` for calculating MI' % method)
+                            
         return MI
     
         
-    def _estimate_MI_from_r_values(self, r_n, r_nm):
+    def _estimate_MI_from_r_values(self, r_n, r_nm, method='default'):
         """ estimate the mutual information from given probabilities """
         # calculate the crosstalk
         q_nm = r_nm - np.outer(r_n, r_n)
-        return self._estimate_MI_from_q_values(r_n, q_nm)
+        return self._estimate_MI_from_q_values(r_n, q_nm, method)
       
         
     def _estimate_MI_from_r_stats(self, r_n, r_nm, r_n_var=0, r_nm_var=0,
-                                  ret_var=False):
+                                  method='default'):
         """ estimate the mutual information from given probabilities """
         if r_nm_var != 0:
             raise NotImplementedError('Correlation calculations are not tested.')
@@ -318,7 +362,7 @@ class LibraryBase(object):
         q_nm = r_nm - r_n**2 - r_n_var
         q_nm_var = r_nm_var + 4*r_n**2*r_n_var + 2*r_n_var**2
         return self._estimate_MI_from_q_stats(r_n, q_nm, r_n_var, q_nm_var,
-                                              ret_var=ret_var)
+                                              method=method)
       
     
 
@@ -585,21 +629,21 @@ class LibraryNumericMixin(object):
             return q_nm        
         
         
-    def mutual_information(self, method='auto', ret_prob_activity=False,
+    def mutual_information(self, excitation_method='auto', ret_prob_activity=False,
                            **kwargs):
         """ calculate the mutual information of the receptor array.
 
-        `method` can be one of [monte_carlo', 'estimate'].
+        `excitation_method` can be one of [monte_carlo', 'estimate'].
         """
-        if method == 'auto':
-            method = 'monte_carlo'
+        if excitation_method == 'auto':
+            excitation_method = 'monte_carlo'
                 
-        if method == 'monte_carlo' or method == 'monte-carlo':
+        if excitation_method == 'monte_carlo' or excitation_method == 'monte-carlo':
             return self.mutual_information_monte_carlo(ret_prob_activity)
-        elif method == 'estimate':
+        elif excitation_method == 'estimate':
             return self.mutual_information_estimate(ret_prob_activity, **kwargs)
         else:
-            raise ValueError('Unknown method `%s`.' % method)
+            raise ValueError('Unknown excitation_method `%s`.' % excitation_method)
 
                                                    
     def mutual_information_monte_carlo(self, ret_prob_activity=False):
@@ -636,8 +680,9 @@ class LibraryNumericMixin(object):
 
                     
     def mutual_information_estimate(self, ret_prob_activity=False,
-                                    excitation_model='default', clip=True,
-                                    use_polynom=True):
+                                    excitation_model='default',
+                                    mutual_information_method='default',
+                                    clip=True):
         """ returns a simple estimate of the mutual information.
         `clip` determines whether the approximated probabilities should be
             clipped to [0, 1] before being used to calculate the mutual info.
@@ -649,7 +694,8 @@ class LibraryNumericMixin(object):
         )
         
         # calculate the approximate mutual information
-        MI = self._estimate_MI_from_q_values(q_n, q_nm, use_polynom=use_polynom)
+        MI = self._estimate_MI_from_q_values(
+                                    q_n, q_nm, method=mutual_information_method)
         
         if clip:
             MI = np.clip(MI, 0, self.Nr)

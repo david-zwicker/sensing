@@ -607,29 +607,29 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             return r_n
 
 
-    def mutual_information(self, method='auto', **kwargs):
+    def mutual_information(self, excitation_method='auto', **kwargs):
         """ calculate the mutual information.
         
-        `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto']
-            If it is 'auto' than the method is chosen automatically based on the
+        `excitation_method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto']
+            If it is 'auto' than the excitation_method is chosen automatically based on the
             problem size.
         `ret_prob_activity` determines whether the probabilities of the
             different outputs are returned or not
         """
-        if method == 'auto':
+        if excitation_method == 'auto':
             if self.Ns <= self.parameters['brute_force_threshold_Ns']:
-                method = 'brute_force'
+                excitation_method = 'brute_force'
             else:
-                method = 'monte_carlo'
+                excitation_method = 'monte_carlo'
                 
-        if method == 'brute_force' or method == 'brute-force':
+        if excitation_method == 'brute_force' or excitation_method == 'brute-force':
             return self.mutual_information_brute_force(**kwargs)
-        elif method == 'monte_carlo' or method == 'monte-carlo':
+        elif excitation_method == 'monte_carlo' or excitation_method == 'monte-carlo':
             return self.mutual_information_monte_carlo(**kwargs)
-        elif method == 'estimate':
+        elif excitation_method == 'estimate':
             return self.mutual_information_estimate(**kwargs)
         else:
-            raise ValueError('Unknown method `%s`.' % method)
+            raise ValueError('Unknown excitation_method `%s`.' % excitation_method)
             
             
     def mutual_information_brute_force(self, ret_prob_activity=False):

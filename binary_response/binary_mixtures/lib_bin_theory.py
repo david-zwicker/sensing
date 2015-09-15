@@ -104,19 +104,19 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             return q_nm
 
         
-    def mutual_information(self, method='logarithm', approx_prob=False,
+    def mutual_information(self,  approx_prob=False,
+                           excitation_method='logarithm',
+                           mutual_information_method='default',
                            clip=True):
         """ return a theoretical estimate of the mutual information between
         input and output.
-            `method` determines which method is used to approximate the mutual
-                information. Possible values are `polynom`, `logarithm`, and
+            `excitation_method` determines which method is used to approximate
+                the mutual information. Possible values are `logarithm`, and
                 `overlap`, in increasing order of accuracy.
             `approx_prob` determines whether a linear approximation should be
                 used to calculate the probabilities that receptors are active
-            `use_polynom` determines whether a polynomial approximation for the
-                mutual information should be used
         """
-        if method == 'polynom' or method =='logarithm':
+        if excitation_method =='logarithm':
             # use the expansion of the mutual information around the optimal
             # point to calculate an approximation of the mutual information
             
@@ -125,11 +125,10 @@ class LibraryBinaryUniform(LibraryBinaryBase):
                                                 approx_prob=approx_prob)
     
             # calculate mutual information from this
-            use_polynom = (method == 'polynom')
-            MI = self._estimate_MI_from_q_stats(q_n, q_nm,
-                                                use_polynom=use_polynom)
+            MI = self._estimate_MI_from_q_stats(
+                                    q_n, q_nm, method=mutual_information_method)
 
-        elif method == 'overlap':
+        elif excitation_method == 'overlap':
             # calculate the MI assuming that receptors are independent.
             # This expression assumes that each receptor provides a fractional 
             # information H_r/N_s. Some of the information will be overlapping
@@ -140,7 +139,8 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             q_n = self.receptor_activity(approx_prob=approx_prob)
     
             # calculate mutual information from this, ignoring crosstalk
-            MI = self._estimate_MI_from_q_stats(q_n, 0, use_polynom=False)
+            MI = self._estimate_MI_from_q_stats(
+                                       q_n, 0, method=mutual_information_method)
 
             # estimate the effect of crosstalk by calculating the expected
             # overlap between independent receptors  
@@ -148,7 +148,7 @@ class LibraryBinaryUniform(LibraryBinaryBase):
             MI = self.Ns - self.Ns*(1 - H_r/self.Ns)**self.Nr
             
         else:
-            raise ValueError('Unknown method `%s`' % method)
+            raise ValueError('Unknown method `%s`' % excitation_method)
         
         if clip:
             # limit the MI to the mixture entropy

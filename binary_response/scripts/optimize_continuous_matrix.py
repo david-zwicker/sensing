@@ -62,10 +62,10 @@ def optimize_library(parameters):
     if parameters['MI-method'] == 'numeric':
         args = {}
     elif parameters['MI-method'] == 'approx':
-        args = {'method': 'estimate', 'use_polynom': True}
+        args = {'method': 'estimate', 'excitation_model': True}
     elif parameters['MI-method'] == 'approx-linear':
         args = {'method': 'estimate', 'excitation_model': 'lognorm-approx',
-                'use_polynom': True}
+                'mutual_information_method': 'polynom'}
     else:
         raise ValueError('Unknown method `%s` for estimating the mutual '
                          'information' % parameters['MI-method'])

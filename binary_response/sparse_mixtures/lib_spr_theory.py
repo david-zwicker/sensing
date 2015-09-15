@@ -88,15 +88,16 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
             return q_nm
 
 
-    def mutual_information(self, excitation_model='default', use_polynom=True,
-                           clip=False):
+    def mutual_information(self, excitation_model='default',
+                           mutual_information_method='default', clip=False):
         """ calculates the typical mutual information """
         # get receptor activity probabilities
         q_n, q_nm = self.receptor_crosstalk(ret_receptor_activity=True,
                                             excitation_model=excitation_model)
         
         # estimate mutual information from this
-        MI = self._estimate_MI_from_q_stats(q_n, q_nm, use_polynom=use_polynom)
+        MI = self._estimate_MI_from_q_stats(
+                                    q_n, q_nm, method=mutual_information_method)
         
         if clip:
             return np.clip(MI, 0, self.Nr)
