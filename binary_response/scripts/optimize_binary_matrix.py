@@ -64,10 +64,11 @@ def optimize_receptors(parameters):
                                     ret_info=parameters['optimization-info'])
     
     # return result data
-    data = {'parameters': parameters,
+    data = {'mutual_information': result[0],
+            'sensitivity_matrix': result[1],
+            'parameters': parameters,
             'init_arguments': model.init_arguments,
-            'mutual_information': result[0],
-            'sensitivity_matrix': result[1]}
+            'pickled': pickle.dumps(model),}
     if parameters['optimization-info']:
         data['optimization-info'] = result[2]
     return data
