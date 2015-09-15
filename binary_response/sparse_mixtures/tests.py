@@ -220,6 +220,15 @@ class TestLibrarySparse(TestBase):
                     self.assertAllClose(res_mc, res_est, rtol=0.2, atol=0.1,
                                         msg=msg)
                                         
+                                        
+    def test_mutual_information_fast(self):
+        """ test the fast implementation of the estimated MI """
+        for model in self._create_test_models():
+            MI1 = model.mutual_information_estimate()
+            MI2 = model.mutual_information_estimate_fast()
+            msg = '%s, for mutual_information_fast()' % model.error_msg
+            self.assertAllClose(MI1, MI2, msg=msg)
+    
                                 
     def test_numba_consistency(self):
         """ test the consistency of the numba functions """

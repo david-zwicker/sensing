@@ -10,6 +10,7 @@ methods.
 from __future__ import division
 
 import logging
+import math
 import numba
 import numpy as np
 
@@ -179,5 +180,82 @@ numba_patcher.register_method(
     'LibrarySparseNumeric.mutual_information_monte_carlo',
     LibrarySparseNumeric_mutual_information_monte_carlo,
     check_return_value_approx
-)    
+)
+
+
+
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
+def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
+                                                          Ns, Nr, pi, di, S_ni):
+    """ returns a simple estimate of the mutual information for the special
+    case that ret_prob_activity=False, excitation_model='default',
+    mutual_information_method='default', and clip=True.
+    """
     
+    en_mean = np.zeros(Nr)
+    enm_cov = np.zeros((Nr, Nr))
+    
+    # calculate the statistics of the excitation
+    for i in range(Ns):
+        ci_mean = pi[i] * di[i]
+        ci_var = pi[i]*(2 - pi[i]) * di[i]**2
+        
+        for n in range(Nr):
+            en_mean[n] += S_ni[n, i] * ci_mean
+            for m in range(n + 1):
+                enm_cov[n, m] += S_ni[n, i] * S_ni[m, i] * ci_var
+
+    # calculate the receptor activity
+    qn = np.zeros(Nr)
+    for n in range(Nr):
+        if en_mean[n] > 0:
+            # mean is zero => qn = 0
+            if enm_cov[n, n] == 0:
+                # variance is zero => q_n = Theta(e_n - 1)
+                if en_mean[n] >= 1:
+                    qn[n] = 1
+            else:
+                # proper evaluation
+                en_cv2 = enm_cov[n, n] / en_mean[n]**2
+                enum = math.log(math.sqrt(1 + en_cv2) / en_mean[n])
+                denom = math.sqrt(2*math.log(1 + en_cv2))
+                qn[n] = 0.5 * math.erfc(enum/denom)
+                
+    # calculate the crosstalk and the mutual information in one iteration
+    MI = 0
+    for n in range(Nr):
+        if 0 < qn[n] < 1:
+            MI -= qn[n]*np.log2(qn[n]) + (1 - qn[n])*np.log2(1 - qn[n])
+        if enm_cov[n, n] > 0: 
+            for m in range(n):
+                if enm_cov[m, m] > 0:
+                    rho2 = enm_cov[n, m]**2 / (enm_cov[n, n] * enm_cov[m, m])
+                    MI -= 8/np.log(2)/(2*np.pi)**2 * rho2
+
+    if MI < 0:
+        return 0
+    elif MI > Nr:
+        return Nr
+    else:
+        return MI
+
+
+
+def LibrarySparseNumeric_mutual_information_estimate_fast(self):
+    """ returns a simple estimate of the mutual information for the special
+    case that ret_prob_activity=False, excitation_model='default',
+    mutual_information_method='default', and clip=True.
+    """
+    
+    return LibrarySparseNumeric_mutual_information_estimate_fast_numba(
+        self.Ns, self.Nr, self.substrate_probabilities, self.concentrations,
+        self.sens_mat
+    )
+
+  
+
+numba_patcher.register_method(
+    'LibrarySparseNumeric.mutual_information_estimate_fast',
+    LibrarySparseNumeric_mutual_information_estimate_fast,
+    check_return_value_approx
+)

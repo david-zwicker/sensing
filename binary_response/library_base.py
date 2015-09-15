@@ -19,7 +19,7 @@ LN2 = np.log(2)
 
 # define vectorize function for double results to use as a decorator
 vectorize_double = functools.partial(np.vectorize, otypes=[np.double])
-
+# TODO: try using numba vectorize to speed up 
 
 
 class LibraryBase(object):
