@@ -197,8 +197,8 @@ def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
     
     # calculate the statistics of the excitation
     for i in range(Ns):
-        ci_mean = pi[i] * di[i]
-        ci_var = pi[i]*(2 - pi[i]) * di[i]**2
+        ci_mean = di[i] * pi[i] 
+        ci_var = di[i] * ci_mean * (2 - pi[i])
         
         for n in range(Nr):
             en_mean[n] += S_ni[n, i] * ci_mean
@@ -206,14 +206,17 @@ def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
                 enm_cov[n, m] += S_ni[n, i] * S_ni[m, i] * ci_var
 
     # calculate the receptor activity
-    qn = np.zeros(Nr)
+    qn = en_mean #< reuse the memory
     for n in range(Nr):
         if en_mean[n] > 0:
-            # mean is zero => qn = 0
+            # mean is zero => qn = 0 (which we do not need to set because it is
+            # already zero)
             if enm_cov[n, n] == 0:
                 # variance is zero => q_n = Theta(e_n - 1)
                 if en_mean[n] >= 1:
                     qn[n] = 1
+                else:
+                    qn[n] = 0
             else:
                 # proper evaluation
                 en_cv2 = enm_cov[n, n] / en_mean[n]**2
@@ -222,6 +225,8 @@ def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
                 qn[n] = 0.5 * math.erfc(enum/denom)
                 
     # calculate the crosstalk and the mutual information in one iteration
+    prefactor = 8/np.log(2)/(2*np.pi)**2
+    
     MI = 0
     for n in range(Nr):
         if 0 < qn[n] < 1:
@@ -230,8 +235,9 @@ def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
             for m in range(n):
                 if enm_cov[m, m] > 0:
                     rho2 = enm_cov[n, m]**2 / (enm_cov[n, n] * enm_cov[m, m])
-                    MI -= 8/np.log(2)/(2*np.pi)**2 * rho2
+                    MI -= prefactor * rho2
 
+    # clip the result to [0, Nr]
     if MI < 0:
         return 0
     elif MI > Nr:
