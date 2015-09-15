@@ -213,6 +213,10 @@ class LibraryBase(object):
             q_n = _estimate_qn_from_en_truncnorm(en_stats['mean'],
                                                  en_stats['var'])
 
+        elif 'gamma' in excitation_model:
+            # use a Gamma distribution with estimated mean and variance
+            q_n = _estimate_qn_from_en_gamma(en_stats['mean'], en_stats['var'])
+
         else:
             raise ValueError('Unknown excitation model `%s`' % excitation_model)
             
@@ -787,6 +791,21 @@ def _estimate_qn_from_en_truncnorm(en_mean, en_var):
         enum = 1 + special.erf((en_mean - 1)/fac)
         denom = 1 + special.erf(en_mean/fac)
         q_n = enum / denom
+
+    return np.clip(q_n, 0, 1)
+
+
+
+@vectorize_double
+def _estimate_qn_from_en_gamma(en_mean, en_var):
+    """ estimates probability q_n that a receptor is activated by a mixture
+    based on the statistics of the excitations e_n assuming an underlying
+    Gamma distribution for e_n """
+    if np.isclose(en_var, 0):
+        q_n = np.double(en_mean > 1)
+    else:     
+        b = en_mean / en_var
+        q_n = special.gammaincc(en_mean*b, b)
 
     return np.clip(q_n, 0, 1)
 
