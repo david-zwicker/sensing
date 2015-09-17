@@ -154,6 +154,14 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
             # uncorrelated receptors
             sens_mat = np.random.normal(loc=mean_sensitivity, scale=spread,
                                         size=shape)
+
+    elif distribution == 'uniform':
+        # uniform sensitivity distribution
+        S_min = kwargs.pop('S_min', 0)
+        S_max = 2 * mean_sensitivity - S_min
+        
+        # choose random sensitivities
+        sens_mat = np.random.uniform(S_min, S_max, size=shape)
         
     elif distribution == 'gamma':
         raise NotImplementedError
