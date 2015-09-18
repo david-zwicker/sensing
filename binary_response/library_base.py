@@ -13,6 +13,7 @@ import numpy as np
 from scipy import special
 
 from utils.misc import xlog2x
+from utils.numba_tools import random_seed
 
 
 LN2 = np.log(2)
@@ -817,7 +818,7 @@ def _ensemble_average_job(args):
     # We have to initialize the random number generator for each process
     # because we would have the same random sequence for all processes
     # otherwise.
-    np.random.seed()
+    random_seed()
     
     # create the object ...
     obj = args[0](**args[1])

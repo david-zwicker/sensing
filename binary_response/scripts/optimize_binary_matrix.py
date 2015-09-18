@@ -49,8 +49,7 @@ def optimize_receptors(parameters):
     # setup the numerical model that we use for optimization
     model = LibraryBinaryNumeric(
         parameters['Ns'], parameters['Nr'],
-        parameters={'verbosity': 0 if parameters['quite'] else 1,
-                    'random_seed': parameters['random_seed'],}
+        parameters={'verbosity': 0 if parameters['quite'] else 1}
     )
     model.choose_sensitivity_matrix(density=density_optimal)
     model.choose_commonness(parameters['scheme'], parameters['m'])
@@ -114,8 +113,6 @@ def main():
     parser.add_argument('--optimization-info', action='store_true',
                         default=False,
                         help='store extra information about the optimization')
-    parser.add_argument('--seed', type=int, default=None,
-                        help='seed for the random number generator.')
     parser.add_argument('-p', '--parallel', action='store_true',
                         default=False, help='use multiple processes')
     parser.add_argument('-q', '--quite', action='store_true',
@@ -141,7 +138,7 @@ def main():
                  'correlation-scheme': args.correlation_scheme,
                  'optimization-scheme': args.optimization_scheme,
                  'optimization-info': args.optimization_info,
-                 'random_seed': args.seed, 'steps': steps,
+                 'steps': steps,
                  'quite': args.quite,
                  'job_count': job_count, 'progress': args.progress}
                  for Ns, Nr, m, corr, steps, _  in itertools.product(*arg_list)]
