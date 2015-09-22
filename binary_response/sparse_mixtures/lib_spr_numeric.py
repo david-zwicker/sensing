@@ -104,7 +104,8 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
         
     def concentration_statistics_estimate(self):
         """ estimate the statistics for each individual substrate """
-        return super(LibrarySparseNumeric, self).concentration_statistics()
+        # make sure that the function for sparse mixtures is called
+        return LibrarySparseBase.concentration_statistics(self)
         
         
     def mutual_information_estimate_fast(self):
@@ -115,7 +116,7 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
         pi = self.substrate_probabilities
         di = self.concentrations
         ci_mean = di * pi
-        ci_var = di * ci_mean * pi*(2 - pi)
+        ci_var = di * ci_mean * (2 - pi)
         
         # calculate statistics of e_n = \sum_i S_ni * c_i        
         S_ni = self.sens_mat

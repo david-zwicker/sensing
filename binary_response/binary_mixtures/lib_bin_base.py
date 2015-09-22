@@ -54,12 +54,21 @@ class LibraryBinaryBase(LibraryBase):
         # initialize the commonness with the chosen method            
         if init_commonness is None:
             self.commonness = None
+            
         elif init_commonness  == 'exact':
             logging.debug('Initialize with given commonness')
             self.commonness = self.parameters['commonness_vector']
+            
         elif init_commonness == 'ensemble':
-            logging.debug('Choose commonness from given parameters')
-            self.choose_commonness(**self.parameters['commonness_parameters'])        
+            commonness_parameters = self.parameters['commonness_parameters']
+            if commonness_parameters:
+                logging.debug('Choose commonness from given parameters')
+                self.choose_commonness(**commonness_parameters)
+            else:
+                logging.warn('Requested to set commonness from parameters, '
+                             'but parameters were not supplied.')
+                self.commonness = None
+                        
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              init_commonness)

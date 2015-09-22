@@ -4,7 +4,7 @@ Created on Apr 1, 2015
 @author: David Zwicker <dzwicker@seas.harvard.edu>
 '''
 
-from __future__ import division
+from __future__ import division, absolute_import
 
 import logging
 
@@ -54,13 +54,21 @@ class LibraryExponentialBase(LibraryBase):
         # initialize the concentrations with the chosen method            
         if init_concentrations is None:
             self.concentrations = None
+            
         elif init_concentrations  == 'exact':
             logging.debug('Initialize with given concentrations')
             self.concentrations = self.parameters['concentrations_vector']
+            
         elif init_concentrations == 'ensemble':
-            logging.debug('Choose concentrations from given parameters')
             conc_params = self.parameters['concentrations_parameters']
-            self.choose_concentrations(**conc_params)        
+            if conc_params:
+                logging.debug('Choose concentrations from given parameters')
+                self.choose_concentrations(**conc_params)
+            else:
+                logging.warn('Requested to set concentrations from parameters, '
+                             'but parameters were not supplied.')
+                self.concentrations = None
+                    
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              init_concentrations)

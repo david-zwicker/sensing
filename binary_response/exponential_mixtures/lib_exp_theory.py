@@ -4,7 +4,7 @@ Created on Mar 31, 2015
 @author: David Zwicker <dzwicker@seas.harvard.edu>
 '''
 
-from __future__ import division
+from __future__ import division, absolute_import
 
 import warnings
 

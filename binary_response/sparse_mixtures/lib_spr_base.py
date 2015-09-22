@@ -55,12 +55,21 @@ class LibrarySparseBase(LibraryBinaryBase):
         # initialize the concentrations with the chosen method            
         if init_concentrations is None:
             self.concentrations = None
+            
         elif init_concentrations  == 'exact':
             logging.debug('Initialize with given concentrations')
             self.concentrations = self.parameters['concentration_vector']
+            
         elif init_concentrations == 'ensemble':
-            logging.debug('Choose concentrations from given parameters')
-            self.choose_concentrations(**self.parameters['concentration_parameters'])        
+            conc_params = self.parameters['concentrations_parameters']
+            if conc_params:
+                logging.debug('Choose concentrations from given parameters')
+                self.choose_concentrations(**conc_params)
+            else:
+                logging.warn('Requested to set concentrations from parameters, '
+                             'but parameters were not supplied.')
+                self.concentrations = None
+                    
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              init_concentrations)
@@ -132,8 +141,8 @@ class LibrarySparseBase(LibraryBinaryBase):
 
         pi = self.substrate_probabilities
         di = self.concentrations
-        ci_mean = pi * di
-        ci_var = pi*(2 - pi) * di**2
+        ci_mean = di * pi
+        ci_var = di * ci_mean * (2 - pi)
         
         # return the results in a dictionary to be able to extend it later
         return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,

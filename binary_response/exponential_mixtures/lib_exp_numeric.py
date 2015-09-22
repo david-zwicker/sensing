@@ -4,7 +4,7 @@ Created on May 1, 2015
 @author: zwicker
 '''
 
-from __future__ import division
+from __future__ import division, absolute_import
 
 import numpy as np
 from six.moves import range

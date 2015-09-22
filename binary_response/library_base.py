@@ -7,10 +7,12 @@ Created on Apr 1, 2015
 from __future__ import division, absolute_import
 
 import functools
+import logging
 import multiprocessing as mp
 
 import numpy as np
 from scipy import special
+from six import string_types
 
 from utils.misc import xlog2x
 from utils.numba_tools import random_seed
@@ -47,14 +49,22 @@ class LibraryBase(object):
         parameters in the parameter dictionary """
         self.Ns = num_substrates
         self.Nr = num_receptors
-
+        
         # initialize parameters with default ones from all parent classes
         self.parameters = {}
         for cls in reversed(self.__class__.__mro__):
             if hasattr(cls, 'parameters_default'):
                 self.parameters.update(cls.parameters_default)
+                
         # update parameters with the supplied ones
         if parameters is not None:
+
+            # remove old definitions of `initialize_state` 
+            if isinstance(parameters.get('initialize_state'), string_types):
+                logging.warn('Initialized model with old `initialize_state` that '
+                             'is a string.')
+                parameters.pop('initialize_state')
+            
             self.parameters.update(parameters)
 
 
@@ -387,7 +397,7 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
     if en_mean == 0:
         q_n = 0.
     elif np.isclose(en_var, 0):
-        q_n = np.double(en_mean > 1)
+        q_n = np.double(en_mean >= 1)
     else:
         en_cv2 = en_var / en_mean**2
         enum = np.log(np.sqrt(1 + en_cv2) / en_mean)
@@ -403,7 +413,7 @@ def _estimate_qn_from_en_lognorm_approx(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations e_n using an approximation """
     if np.isclose(en_var, 0):
-        q_n = np.double(en_mean > 1)
+        q_n = np.double(en_mean >= 1)
     else:                
         q_n = (0.5
                + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
@@ -421,7 +431,7 @@ def _estimate_qn_from_en_gaussian(en_mean, en_var):
     based on the statistics of the excitations e_n assuming an underlying
     normal distribution for e_n """
     if np.isclose(en_var, 0):
-        q_n = np.double(en_mean > 1)
+        q_n = np.double(en_mean >= 1)
     else:
         q_n = 0.5 * special.erfc((1 - en_mean)/np.sqrt(2 * en_var))
         
@@ -434,7 +444,7 @@ def _estimate_qn_from_en_gaussian_approx(en_mean, en_var):
     """ estimates probability q_n that a receptor is activated by a mixture
     based on the statistics of the excitations e_n using an approximation """
     if np.isclose(en_var, 0):
-        q_n = np.double(en_mean > 1)
+        q_n = np.double(en_mean >= 1)
     else:                
         q_n = 0.5 + (en_mean - 1) / np.sqrt(2*np.pi*en_var)
 
@@ -448,7 +458,7 @@ def _estimate_qn_from_en_truncnorm(en_mean, en_var):
     based on the statistics of the excitations e_n assuming an underlying
     truncated normal distribution for e_n """
     if np.isclose(en_var, 0):
-        q_n = np.double(en_mean > 1)
+        q_n = np.double(en_mean >= 1)
     else:     
         fac = np.sqrt(2) * en_var
         enum = 1 + special.erf((en_mean - 1)/fac)
@@ -465,7 +475,7 @@ def _estimate_qn_from_en_gamma(en_mean, en_var):
     based on the statistics of the excitations e_n assuming an underlying
     Gamma distribution for e_n """
     if np.isclose(en_var, 0):
-        q_n = np.double(en_mean > 1)
+        q_n = np.double(en_mean >= 1)
     else:     
         b = en_mean / en_var
         q_n = special.gammaincc(en_mean*b, b)

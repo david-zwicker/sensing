@@ -16,7 +16,8 @@ import numpy as np
 
 # these methods are used in getattr calls
 from . import lib_spr_numeric
-from utils.numba_patcher import NumbaPatcher, check_return_value_approx
+from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
+                                 check_return_value_exact)
 
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
@@ -184,7 +185,7 @@ numba_patcher.register_method(
 
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
+#@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
                                                           Ns, Nr, pi, di, S_ni):
     """ returns a simple estimate of the mutual information for the special
@@ -192,12 +193,12 @@ def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
     mutual_information_method='default', and clip=True.
     """
     
-    en_mean = np.zeros(Nr)
-    enm_cov = np.zeros((Nr, Nr))
+    en_mean = np.zeros(Nr, np.double)
+    enm_cov = np.zeros((Nr, Nr), np.double)
     
     # calculate the statistics of the excitation
     for i in range(Ns):
-        ci_mean = di[i] * pi[i] 
+        ci_mean = di[i] * pi[i]
         ci_var = di[i] * ci_mean * (2 - pi[i])
         
         for n in range(Nr):
@@ -223,7 +224,7 @@ def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
                 enum = math.log(math.sqrt(1 + en_cv2) / en_mean[n])
                 denom = math.sqrt(2*math.log(1 + en_cv2))
                 qn[n] = 0.5 * math.erfc(enum/denom)
-                
+    
     # calculate the crosstalk and the mutual information in one iteration
     prefactor = 8/math.log(2)/(2*np.pi)**2
     
@@ -252,7 +253,6 @@ def LibrarySparseNumeric_mutual_information_estimate_fast(self):
     case that ret_prob_activity=False, excitation_model='default',
     mutual_information_method='default', and clip=True.
     """
-    
     return LibrarySparseNumeric_mutual_information_estimate_fast_numba(
         self.Ns, self.Nr, self.substrate_probabilities, self.concentrations,
         self.sens_mat
@@ -263,5 +263,5 @@ def LibrarySparseNumeric_mutual_information_estimate_fast(self):
 numba_patcher.register_method(
     'LibrarySparseNumeric.mutual_information_estimate_fast',
     LibrarySparseNumeric_mutual_information_estimate_fast,
-    check_return_value_approx
+    check_return_value_exact
 )

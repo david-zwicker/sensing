@@ -57,12 +57,21 @@ class LibraryGaussianBase(LibraryBase):
         # initialize the concentrations with the chosen method            
         if init_concentrations is None:
             self.concentrations = None
+            
         elif init_concentrations  == 'exact':
             logging.debug('Initialize with given concentrations')
             self.concentrations = self.parameters['concentrations_vector']
+            
         elif init_concentrations == 'ensemble':
-            logging.debug('Choose concentrations from given parameters')
-            self.choose_concentrations(**self.parameters['concentrations_parameters'])        
+            conc_params = self.parameters['concentrations_parameters']
+            if conc_params:
+                logging.debug('Choose concentrations from given parameters')
+                self.choose_concentrations(**conc_params)
+            else:
+                logging.warn('Requested to set concentrations from parameters, '
+                             'but parameters were not supplied.')
+                self.concentrations = None
+                    
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              init_concentrations)

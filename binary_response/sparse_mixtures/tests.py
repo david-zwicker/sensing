@@ -50,8 +50,9 @@ class TestLibrarySparse(TestBase):
             model = LibrarySparseNumeric.create_test_instance()
 
             # create a meaningful error message for all cases
+            model.settings = ', '.join("%s=%s" % v for v in setting.items())
             model.error_msg = ('The different implementations do not agree for '
-                               + ', '.join("%s=%s" % v for v in setting.items()))
+                               + model.settings)
             yield model
 
         # reset numba patcher state
@@ -226,7 +227,8 @@ class TestLibrarySparse(TestBase):
         for model in self._create_test_models():
             MI1 = model.mutual_information_estimate()
             MI2 = model.mutual_information_estimate_fast()
-            msg = '%s, for mutual_information_fast()' % model.error_msg
+            msg = ('Fast version of mutual_information_estimate() is not '
+                   'consistent with slow one for ' + model.settings)
             self.assertAllClose(MI1, MI2, msg=msg)
     
                                 
