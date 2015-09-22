@@ -4,7 +4,7 @@ Created on Apr 1, 2015
 @author: David Zwicker <dzwicker@seas.harvard.edu>
 '''
 
-from __future__ import division
+from __future__ import division, absolute_import
 
 import functools
 import multiprocessing as mp

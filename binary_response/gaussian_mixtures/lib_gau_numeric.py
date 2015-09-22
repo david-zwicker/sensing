@@ -4,7 +4,7 @@ Created on May 1, 2015
 @author: zwicker
 '''
 
-from __future__ import division
+from __future__ import division, absolute_import
 
 import logging
 
@@ -235,4 +235,3 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         """
         return optimize_continuous_library(self, target, **kwargs)
         
-           
