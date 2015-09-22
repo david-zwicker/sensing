@@ -61,7 +61,7 @@ class LibrarySparseBase(LibraryBinaryBase):
             self.concentrations = self.parameters['concentration_vector']
             
         elif init_concentrations == 'ensemble':
-            conc_params = self.parameters['concentrations_parameters']
+            conc_params = self.parameters['concentration_parameters']
             if conc_params:
                 logging.debug('Choose concentrations from given parameters')
                 self.choose_concentrations(**conc_params)
