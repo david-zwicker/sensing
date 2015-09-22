@@ -355,7 +355,7 @@ class LibraryBase(object):
             MI = Nr - 0.5/LN2 * Nr * (2*q_n - 1)**2
             # add the effect of crosstalk
             MI -= 8/LN2 * Nr*(Nr - 1)/2 * q_nm**2
-                   
+            
         else:
             raise ValueError('Unknown method `%s` for calculating MI' % method)
                    

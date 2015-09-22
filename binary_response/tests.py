@@ -81,7 +81,7 @@ class TestLibraryBase(TestBase):
         for method in ('expansion', 'hybrid', 'polynom'):
             if method == 'polynom':
                 # we can consider heterogeneous receptor response
-                q_n = np.random.rand(obj.Nr)
+                q_n = 0.1 + 0.8*np.random.rand(obj.Nr)
                 q_nm = 0.1*np.random.rand(obj.Nr, obj.Nr)
         
             else:
