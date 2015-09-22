@@ -21,7 +21,10 @@ if numba:
     @numba.jit(nopython=True, nogil=True)
     def numba_random_seed(seed=None):
         """ sets the seed of the random number generator of numba """
-        np.random.seed(seed)
+        if seed is None:
+            np.random.seed()
+        else:
+            np.random.seed(seed)
 
 
 
