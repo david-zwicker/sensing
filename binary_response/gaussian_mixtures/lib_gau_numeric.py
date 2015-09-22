@@ -13,8 +13,8 @@ from scipy import linalg, special
 from six.moves import range
 
 from .lib_gau_base import LibraryGaussianBase
-from ..library_base import LibraryNumericMixin
-from ..sensitivity_matrices import get_sensitivity_matrix
+from ..library_numeric_base import (LibraryNumericMixin, get_sensitivity_matrix,
+                                    optimize_continuous_library)
 
 
 class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
@@ -227,4 +227,12 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         # return the results in a dictionary to be able to extend it later
         return result
 
-    
+
+    def optimize_library(self, target, **kwargs):
+        """ optimizes the current library to maximize the result of the target
+        function using gradient descent. By default, the function returns the
+        best value and the associated sensitivity matrix as result.        
+        """
+        return optimize_continuous_library(self, target, **kwargs)
+        
+           

@@ -16,6 +16,7 @@ except ImportError:
 
 
 if numba:
+    # define functions for the case where numba is available
     
     @numba.jit(nopython=True, nogil=True)
     def numba_random_seed(seed=None):

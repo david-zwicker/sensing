@@ -6,19 +6,18 @@ Created on May 1, 2015
 
 from __future__ import division
 
-import functools
 import logging
-import time
 
 import numpy as np
-from scipy import optimize, special
+from scipy import special
 
 from utils.misc import xlog2x
 
 from .lib_spr_base import LibrarySparseBase  # @UnresolvedImport
 from ..binary_mixtures.lib_bin_numeric import _sample_binary_mixtures
-from ..library_base import LibraryNumericMixin
-from ..sensitivity_matrices import get_sensitivity_matrix
+from ..library_numeric_base import (LibraryNumericMixin,
+                                    optimize_continuous_library,
+                                    get_sensitivity_matrix)
 
 
 
@@ -210,94 +209,12 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         return np.clip(MI, 0, self.Nr)
                 
         
-    def optimize_library(self, target, direction='max', steps=100,
-                         method='cma', ret_info=False, args=None, verbose=False):
+    def optimize_library(self, target, **kwargs):
         """ optimizes the current library to maximize the result of the target
         function using gradient descent. By default, the function returns the
         best value and the associated sensitivity matrix as result.        
         """
-        # get the target function to call
-        target_function = getattr(self, target)
-        if args is not None:
-            target_function = functools.partial(target_function, **args)
-
-        # define the cost function
-        if direction == 'min':
-            def cost_function(sens_mat_flat):
-                """ cost function to minimize """
-                self.sens_mat.flat = sens_mat_flat.flat
-                return target_function()
-            
-        elif direction == 'max':
-            def cost_function(sens_mat_flat):
-                """ cost function to minimize """
-                self.sens_mat.flat = sens_mat_flat.flat
-                return -target_function()
-            
-        else:
-            raise ValueError('Unknown optimization direction `%s`' % direction)
-
-        if ret_info:
-            # store extra information
-            start_time = time.time()
-            info = {'values': []}
-            
-            cost_function_inner = cost_function
-            def cost_function(sens_mat_flat):
-                """ wrapper function to store calculated costs """
-                cost = cost_function_inner(sens_mat_flat)
-                info['values'].append(cost)
-                return cost
-        
-        if method == 'cma':
-            # use Covariance Matrix Adaptation Evolution Strategy algorithm
-            try:
-                import cma  # @UnresolvedImport
-            except ImportError:
-                raise ImportError('The module `cma` is not available. Please '
-                                  'install it using `pip install cma` or '
-                                  'choose a different optimization method.')
-            
-            # prepare the arguments for the optimization call    
-            x0 = self.sens_mat.flat
-            sigma = 0.5 * np.mean(x0) #< initial step size
-            options = {'maxfevals': steps,
-                       'bounds': [0, np.inf],
-                       'verb_disp': 100 * int(verbose),
-                       'verb_log': 0}
-            
-            # call the optimizer
-            res = cma.fmin(cost_function, x0, sigma, options=options)
-            
-            # get the result
-            state_best = res[0].reshape((self.Nr, self.Ns))
-            value_best = res[1]
-            if ret_info: 
-                info['states_considered'] = res[3]
-                info['iterations'] = res[4]
-            
-        else:
-            # use the standard scipy function
-            res = optimize.minimize(cost_function, self.sens_mat.flat,
-                                    method=method, options={'maxiter': steps})
-            value_best =  res.fun
-            state_best = res.x.reshape((self.Nr, self.Ns))
-            if ret_info: 
-                info['states_considered'] = res.nfev
-                info['iterations'] = res.nit
-            
-        if direction == 'max':
-            value_best *= -1
-        
-        self.sens_mat = state_best.copy()
-
-        if ret_info:
-            info['total_time'] = time.time() - start_time    
-            info['performance'] = info['states_considered'] / info['total_time']
-            return value_best, state_best, info
-        else:
-            return value_best, state_best
-        
+        return optimize_continuous_library(self, target, **kwargs)
         
            
     

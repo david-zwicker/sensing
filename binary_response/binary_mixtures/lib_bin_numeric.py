@@ -32,7 +32,7 @@ import scipy.misc
 from six.moves import range, zip
 
 from .lib_bin_base import LibraryBinaryBase
-from ..library_base import LibraryNumericMixin
+from ..library_numeric_base import LibraryNumericMixin
 
 
 

@@ -12,8 +12,8 @@ import numpy as np
 from six.moves import range
 
 from .lib_exp_base import LibraryExponentialBase
-from ..library_base import LibraryNumericMixin
-from ..sensitivity_matrices import get_sensitivity_matrix
+from ..library_numeric_base import LibraryNumericMixin, get_sensitivity_matrix
+
 
 
 class LibraryExponentialNumeric(LibraryExponentialBase, LibraryNumericMixin):
