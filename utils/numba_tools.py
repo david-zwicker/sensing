@@ -19,18 +19,15 @@ if numba:
     # define functions for the case where numba is available
     
     @numba.jit(nopython=True, nogil=True)
-    def numba_random_seed(seed=None):
+    def numba_random_seed(seed):
         """ sets the seed of the random number generator of numba """
-        if seed is None:
-            np.random.seed()
-        else:
-            np.random.seed(seed)
+        np.random.seed(seed)
 
 
 
 def random_seed(seed=None):
     """ sets the seed of the random number generator of numpy and numba """
     np.random.seed(seed)
-    if numba:
+    if numba and seed is not None:
         numba_random_seed(seed)
     
