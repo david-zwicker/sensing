@@ -443,11 +443,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         return -np.sum(counts*(np.log2(counts) - log_steps))/self._sample_steps
     
     
-#     def concentration_statistics_estimate(self):
-#         if self.is_correlated_mixture:
-#             raise NotImplementedError('Not implemented for correlated mixtures')
-    
-    
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
                            **kwargs):
         """ calculates the average activity of the receptor as a response to 

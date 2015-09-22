@@ -64,7 +64,7 @@ class LibraryNumericMixin(object):
         return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
                 'cov': cij_corr}
 
-
+        
     def excitation_statistics(self, method='auto', ret_correlations=True,
                               **kwargs):
         """ calculates the statistics of the excitation of the receptors.

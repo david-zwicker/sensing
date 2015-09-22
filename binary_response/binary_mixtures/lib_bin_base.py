@@ -83,7 +83,12 @@ class LibraryBinaryBase(LibraryBase):
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibraryBinaryBase, self).repr_params
-        params.append('m=%g' % self.mixture_size_statistics()['mean'])
+        try:
+            params.append('m=%g' % self.mixture_size_statistics()['mean'])
+        except NotImplementedError:
+            # the statistics cannot always be calculated
+            params.append('m=?')
+
         return params
 
 
