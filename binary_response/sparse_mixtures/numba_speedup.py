@@ -69,7 +69,7 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
         logging.warn('Not implemented for correlated mixtures. Falling back to '
                      'pure-python method.')
         this = LibrarySparseNumeric_receptor_activity_monte_carlo
-        return this._python_function(ret_correlations)
+        return this._python_function(self, ret_correlations)
 
     # prevent integer overflow in collecting activity patterns
     assert self.Nr <= self.parameters['max_num_receptors'] <= 63
@@ -154,7 +154,7 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
         logging.warn('Not implemented for correlated mixtures. Falling back to '
                      'pure-python method.')
         this = LibrarySparseNumeric_mutual_information_monte_carlo
-        return this._python_function(ret_prob_activity)
+        return this._python_function(self, ret_prob_activity)
 
     # prevent integer overflow in collecting activity patterns
     assert self.Nr <= self.parameters['max_num_receptors'] <= 63
