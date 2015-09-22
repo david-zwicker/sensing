@@ -22,7 +22,6 @@ import copy
 import collections
 import functools
 import itertools
-import logging
 import time
 import multiprocessing as mp
 import random
@@ -40,7 +39,7 @@ LN2 = np.log(2)
 
 
 
-class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
+class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
     """ represents a single receptor library that handles binary mixtures """
     
     # default parameters that are used to initialize a class if not overwritten
@@ -93,47 +92,6 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             except (TypeError, ValueError):
                 raise ValueError('`fixed_mixture_size` must either be None or '
                                  'an integer between 0 and Ns.')
-
-        initialize_state = self.parameters['initialize_state'] 
-        
-        if initialize_state == 'auto': 
-            # use exact values if saved or ensemble properties otherwise
-            if self.parameters['sensitivity_matrix'] is not None:
-                initialize_state = 'exact'
-            elif self.parameters['sensitivity_matrix_params'] is not None:
-                initialize_state = 'ensemble'
-            else:
-                initialize_state = 'zero'
-        
-        # initialize the state using the chosen protocol
-        if initialize_state is None or initialize_state == 'zero':
-            self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
-            
-        elif initialize_state == 'exact':
-            # initialize the state using saved parameters
-            sens_mat = self.parameters['sensitivity_matrix']
-            if sens_mat is None:
-                logging.warn('Interaction matrix was not given. Initialize '
-                             'empty matrix.')
-                self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
-            else:
-                self.sens_mat = sens_mat.copy()
-            
-        elif initialize_state == 'ensemble':
-            # initialize the state using the ensemble parameters
-                params = self.parameters['sensitivity_matrix_params']
-                if params is None:
-                    logging.warn('Parameters for interaction matrix were not '
-                                 'specified. Initialize empty matrix.')
-                    self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
-                else:
-                    self.choose_sensitivity_matrix(**params)
-            
-        else:
-            raise ValueError('Unknown initialization protocol `%s`' % 
-                             initialize_state)
-
-        assert self.sens_mat.shape == (self.Nr, self.Ns)
 
 
     @classmethod
@@ -479,12 +437,14 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             return q_nm
     
     
-    def receptor_crosstalk_estimate(self, approx_prob=False, clip=False):
+    def receptor_crosstalk_estimate(self, ret_receptor_activity=False,
+                                    approx_prob=False, clip=False):
         """ estimates the average activity of the receptor as a response to 
         single ligands. 
         `approx_prob` determines whether the probabilities of encountering
             ligands in mixtures are calculated exactly or only approximative,
-            which should work for small probabilities. """
+            which should work for small probabilities.
+        """
         if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
@@ -506,7 +466,13 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
                     mask = S_ni_mask[n, :] * S_ni_mask[m, :]
                     q_nm[n, m] = 1 - np.product(1 - p_i[mask])
                     
-        return q_nm
+                    
+        if ret_receptor_activity:
+            q_n = self.receptor_activity_estimate(approx_prob=approx_prob,
+                                                  clip=clip)
+            return q_n, q_nm
+        else:
+            return q_nm
                 
 
     def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
@@ -718,11 +684,11 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
             which should work for small probabilities. """
-
+ 
         # this might be not the right approach
         q_n = self.receptor_activity_estimate(approx_prob=approx_prob)
         q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
-                    
+                     
         # calculate the approximate mutual information
         return self._estimate_MI_from_q_values(q_n, q_nm)
         
@@ -736,7 +702,7 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
                 determining the mutual informations of all subsystems.
         """
         init_arguments = self.init_arguments
-        init_arguments['parameters']['initialize_state'] = 'exact'
+        init_arguments['parameters']['initialize_state']['sensitivity'] = 'exact'
         init_arguments['parameters']['sensitivity_matrix'] = self.sens_mat
         joblist = [(copy.deepcopy(self.init_arguments), 'mutual_information',
                     {'method': method})]
@@ -747,10 +713,8 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
             init_arguments['num_receptors'] -= 1
             
             # modify the current state and add it to the job list
-            init_arguments['parameters'].update({
-                    'initialize_state': 'exact',
-                    'sensitivity_matrix': np.delete(self.sens_mat, n, axis=0)
-                })
+            sens_mat = np.delete(self.sens_mat, n, axis=0)
+            init_arguments['parameters']['sensitivity_matrix'] = sens_mat
             joblist.append((copy.deepcopy(init_arguments), 'mutual_information',
                             {'method': method}))
                 
@@ -849,10 +813,10 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
                     # modify the current state and add it to the job list
                     i = random.randrange(self.sens_mat.size)
                     self.sens_mat.flat[i] = 1 - self.sens_mat.flat[i]
-                    init_arguments['parameters'].update({
-                            'initialize_state': 'exact',
-                            'sensitivity_matrix': self.sens_mat
-                        })
+                    params = init_arguments['parameters'] 
+                    params['sensitivity_matrix'] = self.sens_mat
+                    params['initialize_state']['sensitivity'] = 'exact'
+                    
                     joblist.append((copy.deepcopy(init_arguments), target))
                     self.sens_mat.flat[i] = 1 - self.sens_mat.flat[i]
                     
@@ -933,17 +897,13 @@ class LibraryBinaryNumeric(LibraryBinaryBase, LibraryNumericMixin):
         joblist = [(self.init_arguments, 'optimize_library_descent', kwargs)]
         sens_mat = self.sens_mat #< store matrix to restore it later
 
+        # set the ensemble of sensitivity matrices to try
+        self.choose_sensitivity_matrix(density='auto')
+        self.parameters['initialize_state']['sensitivity'] = 'ensemble'
+
         # add additional jobs with random initial interaction matrices
         init_arguments = self.init_arguments
         for _ in range(trials - 1):
-            # modify the current state and add it to the job list
-            self.choose_sensitivity_matrix(density='auto')
-            
-            init_arguments['parameters'].update({
-                    'initialize_state': 'exact',
-                    'sensitivity_matrix': self.sens_mat
-                })
-                                                            
             joblist.append((copy.deepcopy(init_arguments),
                             'optimize_library_descent', kwargs))
             

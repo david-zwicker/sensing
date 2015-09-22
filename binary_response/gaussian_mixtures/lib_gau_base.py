@@ -42,44 +42,51 @@ class LibraryGaussianBase(LibraryBase):
                                                   num_receptors,
                                                   parameters)
 
-        initialize_state = self.parameters['initialize_state'] 
-        if initialize_state is None:
-            # do not initialize with anything
-            self.concentrations = None
-            self.covariance = None
-            
-        elif initialize_state == 'exact':
-            # initialize the state using saved parameters
-            logging.debug('Initialize with given concentrations and covariance')
-            self.concentrations = self.parameters['concentrations_vector']
-            self.covariance = self.parameters['covariance_matrix']
-            
-        elif initialize_state == 'ensemble':
-            # initialize the state using the ensemble parameters
-            logging.debug('Choose concentrations and covariance from given '
-                          'parameters')
-            self.choose_concentrations(**self.parameters['concentrations_parameters'])
-            self.choose_covariance(**self.parameters['covariance_parameters'])
-            
-        elif initialize_state == 'auto':
-            # use exact values if saved or ensemble properties otherwise
-            if self.parameters['concentrations_parameters'] is None:
-                logging.debug('Initialize with given concentrations')
-                self.concentrations = self.parameters['concentrations_vector']
-            else:
-                logging.debug('Choose concentrations from given parameters')
-                self.choose_concentrations(**self.parameters['concentrations_parameters'])
-                
-            if self.parameters['covariance_parameters'] is None:
-                logging.debug('Initialize with given covariance')
-                self.covariance = self.parameters['covariance_matrix']
-            else:
-                logging.debug('Choose covariance from given parameters')
-                self.choose_covariance(**self.parameters['covariance_parameters'])
+        # determine how to initialize the variables
+        init_state = self.parameters['initialize_state']
         
+        # determine how to initialize the concentrations
+        init_concentrations = init_state.get('concentrations',
+                                             init_state['default'])
+        if init_concentrations  == 'auto':
+            if self.parameters['concentrations_parameters'] is None:
+                init_concentrations = 'exact'
+            else:
+                init_concentrations = 'ensemble'
+
+        # initialize the concentrations with the chosen method            
+        if init_concentrations is None:
+            self.concentrations = None
+        elif init_concentrations  == 'exact':
+            logging.debug('Initialize with given concentrations')
+            self.concentrations = self.parameters['concentrations_vector']
+        elif init_concentrations == 'ensemble':
+            logging.debug('Choose concentrations from given parameters')
+            self.choose_concentrations(**self.parameters['concentrations_parameters'])        
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
-                             initialize_state)
+                             init_concentrations)
+        
+        # determine how to initialize the covariance matrix
+        init_covariance = init_state.get('covariance', init_state['default'])
+        if init_covariance  == 'auto':
+            if self.parameters['covariance_parameters'] is None:
+                init_covariance = 'exact'
+            else:
+                init_covariance = 'ensemble'
+                
+        # initialize the covariance with the chosen method            
+        if init_covariance is None:
+            self.covariance = None
+        elif init_covariance == 'exact':
+            logging.debug('Initialize with given covariance')
+            self.covariance = self.parameters['covariance_matrix']
+        elif init_covariance == 'ensemble':
+            logging.debug('Choose covariance matrix from given parameters')
+            self.choose_covariance(**self.parameters['covariance_parameters'])
+        else:
+            raise ValueError('Unknown initialization protocol `%s`' % 
+                             init_covariance)
             
         # prepare indices that we need
         eye = np.eye(self.Ns).astype(np.bool)
@@ -114,7 +121,7 @@ class LibraryGaussianBase(LibraryBase):
         else:
             p_ij = np.zeros((Ns, Ns))
             
-        args['parameters'] = {'commonness_vector': p_i,
+        args['parameters'] = {'concenrations_vector': p_i,
                               'covariance_matrix': p_ij}
         return args
 
@@ -289,10 +296,9 @@ class LibraryGaussianBase(LibraryBase):
             #p_ij = np.dot(np.dot(diag_sqrt, p_ij), diag_sqrt)
             
         else:
-            raise ValueError('Unknown commonness scheme `%s`' % scheme)
+            raise ValueError('Unknown covariance scheme `%s`' % scheme)
 
-        # set the probability which also calculates the commonness and saves
-        # the values in the parameters dictionary
+        # scale the covariance matrix with the given magnitude
         self.covariance = magnitude * p_ij
 
         # we additionally store the parameters that were used for this function

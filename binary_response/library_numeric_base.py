@@ -7,6 +7,7 @@ Created on Sep 10, 2015
 from __future__ import division
 
 import functools
+import logging
 import time
 
 import numpy as np
@@ -26,6 +27,58 @@ class LibraryNumericMixin(object):
     are a generator of mixtures and its expected length, respectively.    
     """
     
+    def __init__(self, num_substrates, num_receptors, parameters=None):
+        """ initialize the sensitivity matrix """
+        # the call to the inherited method also sets the default parameters from
+        # this class
+        super(LibraryNumericMixin, self).__init__(num_substrates, num_receptors,
+                                                  parameters)        
+
+        # determine how to initialize the variables
+        init_state = self.parameters['initialize_state']
+        
+        # determine how to initialize the commonness
+        init_sensitivity = init_state.get('sensitivity', init_state['default'])
+        if init_sensitivity  == 'auto':
+            if self.parameters['sensitivity_matrix'] is not None:
+                init_sensitivity = 'exact'
+            elif self.parameters['sensitivity_matrix_params'] is not None:
+                init_sensitivity = 'ensemble'
+            else:
+                init_sensitivity = 'zero'
+
+        # initialize the commonness with the chosen method            
+        if init_sensitivity is None or init_sensitivity == 'zero':
+            self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
+
+        elif init_sensitivity  == 'exact':
+            logging.debug('Initialize with given sensitivity matrix')
+            sens_mat = self.parameters['sensitivity_matrix']
+            if sens_mat is None:
+                logging.warn('Sensitivity matrix was not given. Initialize '
+                             'empty matrix.')
+                self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
+            else:
+                self.sens_mat = sens_mat.copy()
+            
+        elif init_sensitivity == 'ensemble':
+            logging.debug('Choose sensitivity matrix from given parameters')
+            sens_params = self.parameters['sensitivity_matrix_params']
+            if sens_params is None:
+                logging.warn('Parameters for sensitivity matrix were not '
+                             'specified. Initialize empty matrix.')
+                self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
+            else:
+                self.choose_sensitivity_matrix(**sens_params)
+                    
+        else:
+            raise ValueError('Unknown initialization protocol `%s`' % 
+                             init_sensitivity)
+
+        assert self.sens_mat.shape == (self.Nr, self.Ns)
+    
+    
+    
     def concentration_statistics(self, method='auto', **kwargs):
         """ calculates mixture statistics using a metropolis algorithm
         Returns the mean concentration, the variance, and the covariance matrix.
@@ -36,7 +89,7 @@ class LibraryNumericMixin(object):
             method = 'monte_carlo'
                 
         if method == 'monte_carlo' or method == 'monte-carlo':
-            return self.concenration_statistics_monte_carlo(**kwargs)
+            return self.concentration_statistics_monte_carlo(**kwargs)
         elif method == 'estimate':
             return self.concentration_statistics_estimate(**kwargs)
         else:
@@ -380,8 +433,8 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
     assert mean_sensitivity > 0
     
     sens_mat_params = {'distribution': distribution,
-                      'mean_sensitivity': mean_sensitivity,
-                      'ensure_mean': ensure_mean}
+                       'mean_sensitivity': mean_sensitivity,
+                       'ensure_mean': ensure_mean}
 
     if distribution == 'const':
         # simple constant matrix

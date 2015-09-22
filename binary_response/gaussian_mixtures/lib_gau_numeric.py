@@ -6,8 +6,6 @@ Created on May 1, 2015
 
 from __future__ import division, absolute_import
 
-import logging
-
 import numpy as np
 from scipy import linalg, special
 from six.moves import range
@@ -17,7 +15,7 @@ from ..library_numeric_base import (LibraryNumericMixin, get_sensitivity_matrix,
                                     optimize_continuous_library)
 
 
-class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
+class LibraryGaussianNumeric(LibraryNumericMixin, LibraryGaussianBase):
     """ represents a single receptor library that handles continuous mixtures,
     which are defined by their concentration mean and variance """
 
@@ -32,64 +30,6 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
     }
     
-
-    def __init__(self, num_substrates, num_receptors, parameters=None):
-        """ initialize a receptor library by setting the number of receptors,
-        the number of substrates it can respond to, and optional additional
-        parameters in the parameter dictionary """
-        # the call to the inherited method also sets the default parameters from
-        # this class
-        super(LibraryGaussianNumeric, self).__init__(num_substrates,
-                                                     num_receptors,
-                                                     parameters)        
-
-        # prevent integer overflow in collecting activity patterns
-        assert num_receptors <= self.parameters['max_num_receptors'] <= 63
-
-        initialize_state = self.parameters['initialize_state']
-        
-        if initialize_state == 'auto': 
-            # use exact values if saved or ensemble properties otherwise
-            if self.parameters['sensitivity_matrix'] is not None:
-                initialize_state = 'exact'
-            elif self.parameters['sensitivity_matrix_params'] is not None:
-                initialize_state = 'ensemble'
-            else:
-                initialize_state = 'zero'
-        
-        # initialize the state using the chosen protocol
-        if initialize_state is None or initialize_state == 'zero':
-            self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
-            
-        elif initialize_state == 'exact':
-            # initialize the state using saved parameters
-            sens_mat = self.parameters['sensitivity_matrix']
-            if sens_mat is None:
-                logging.warn('Interaction matrix was not given. Initialize '
-                             'empty matrix.')
-                self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
-            else:
-                logging.debug('Initialize given sensitivity matrix')
-                self.sens_mat = sens_mat.copy()
-            
-        elif initialize_state == 'ensemble':
-            # initialize the state using the ensemble parameters
-                params = self.parameters['sensitivity_matrix_params']
-                if params is None:
-                    logging.warn('Parameters for interaction matrix were not '
-                                 'specified. Initialize empty matrix.')
-                    self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
-                else:
-                    logging.debug('Choose sensitivity matrix from given '
-                                  'parameters')
-                    self.choose_sensitivity_matrix(**params)
-            
-        else:
-            raise ValueError('Unknown initialization protocol `%s`' % 
-                             initialize_state)
-            
-        assert self.sens_mat.shape == (self.Nr, self.Ns)
-            
             
     @classmethod
     def create_test_instance(cls, **kwargs):
@@ -142,8 +82,7 @@ class LibraryGaussianNumeric(LibraryGaussianBase, LibraryNumericMixin):
         
         else:
             # yield independent Gaussian variables
-            parent = super(LibraryGaussianNumeric, self)
-            ci_stats = parent.concentration_statistics()
+            ci_stats = LibraryGaussianBase.concentration_statistics(self)
             ci_mean = ci_stats['mean']
             ci_std = ci_stats['std']
             

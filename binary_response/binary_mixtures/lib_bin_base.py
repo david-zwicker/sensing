@@ -40,44 +40,52 @@ class LibraryBinaryBase(LibraryBase):
         super(LibraryBinaryBase, self).__init__(num_substrates, num_receptors,
                                                 parameters)
 
-        initialize_state = self.parameters['initialize_state'] 
-        if initialize_state is None:
-            # do not initialize anything
-            self.commonness = None
-            self.correlations = None
-            
-        elif initialize_state == 'exact':
-            # initialize the state using saved parameters
-            logging.debug('Initialize with given commonness and correlation')
-            self.commonness = self.parameters['commonness_vector']
-            self.correlations = self.parameters['correlation_matrix']
-            
-        elif initialize_state == 'ensemble':
-            # initialize the state using the ensemble parameters
-            logging.debug('Choose commonness and correlation from given '
-                          'parameters')
-            self.choose_commonness(**self.parameters['commonness_parameters'])
-            self.choose_correlations(**self.parameters['correlation_parameters'])
-            
-        elif initialize_state == 'auto':
-            # use exact values if saved or ensemble properties otherwise
-            if self.parameters['commonness_parameters'] is None:
-                logging.debug('Initialize with given commonness')
-                self.commonness = self.parameters['commonness_vector']
-            else:
-                logging.debug('Choose commonness from given parameters')
-                self.choose_commonness(**self.parameters['commonness_parameters'])
-                
-            if self.parameters['correlation_parameters'] is None:
-                logging.debug('Initialize with given correlation')
-                self.correlations = self.parameters['correlation_matrix']
-            else:
-                logging.debug('Choose correlation from given parameters')
-                self.choose_correlations(**self.parameters['correlation_parameters'])
+        # determine how to initialize the variables
+        init_state = self.parameters['initialize_state']
         
+        # determine how to initialize the commonness
+        init_commonness = init_state.get('commonness', init_state['default'])
+        if init_commonness  == 'auto':
+            if self.parameters['commonness_parameters'] is None:
+                init_commonness = 'exact'
+            else:
+                init_commonness = 'ensemble'
+
+        # initialize the commonness with the chosen method            
+        if init_commonness is None:
+            self.commonness = None
+        elif init_commonness  == 'exact':
+            logging.debug('Initialize with given commonness')
+            self.commonness = self.parameters['commonness_vector']
+        elif init_commonness == 'ensemble':
+            logging.debug('Choose commonness from given parameters')
+            self.choose_commonness(**self.parameters['commonness_parameters'])        
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
-                             initialize_state)
+                             init_commonness)
+        
+        # determine how to initialize the correlations
+        init_correlations = init_state.get('correlations',
+                                           init_state['default'])
+        if init_correlations  == 'auto':
+            if self.parameters['correlation_parameters'] is None:
+                init_correlations = 'exact'
+            else:
+                init_correlations = 'ensemble'
+                
+        # initialize the correlations with the chosen method
+        if init_correlations is None:
+            self.correlations = None
+        elif init_correlations == 'exact':
+            logging.debug('Initialize with given correlation')
+            self.correlations = self.parameters['correlation_matrix']
+        elif init_correlations == 'ensemble':
+            logging.debug('Choose correlation from given parameters')
+            self.choose_correlations(**self.parameters['correlation_parameters'])
+        else:
+            raise ValueError('Unknown initialization protocol `%s`' % 
+                             init_correlations)
+
 
     @property
     def repr_params(self):

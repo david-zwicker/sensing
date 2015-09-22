@@ -34,9 +34,10 @@ class LibraryBase(object):
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
-        'initialize_state': 'auto',      #< how to initialize the state
         'ensemble_average_num': 32,      #< repetitions for ensemble average
         'multiprocessing_cores': 'auto', #< number of cores to use
+         # how to initialize the state
+        'initialize_state': {'default': 'auto'},
     }
 
 
@@ -121,7 +122,7 @@ class LibraryBase(object):
             
             
     def ensemble_average(self, method, avg_num=None, multiprocessing=False, 
-                         ret_all=False, args=None):
+                         ret_all=False, args=None, initialize_state='ensemble'):
         """ calculate an ensemble average of the result of the `method` of
         multiple different receptor libraries """
         
@@ -135,9 +136,10 @@ class LibraryBase(object):
             init_arguments = self.init_arguments
             
             # set the initialization procedure to ensemble, such that new
-            # realizations are chosen at each iteration 
-            if init_arguments['parameters']['initialize_state'] == 'auto':
-                init_arguments['parameters']['initialize_state'] = 'ensemble'
+            # realizations are chosen at each iteration
+            if initialize_state is not None:
+                init_state = init_arguments['parameters']['initialize_state']
+                init_state['default'] = initialize_state
             
             # run the calculations in multiple processes
             arguments = (self.__class__, init_arguments, method, args)

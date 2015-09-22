@@ -6,6 +6,8 @@ Created on Apr 1, 2015
 
 from __future__ import division
 
+import logging
+
 import numpy as np
 from scipy import stats
 
@@ -37,29 +39,31 @@ class LibraryExponentialBase(LibraryBase):
                                                      num_receptors,
                                                      parameters)
 
-        initialize_state = self.parameters['initialize_state'] 
-        if initialize_state is None:
-            # do not initialize with anything
-            self.concentrations = None
-            
-        elif initialize_state == 'exact':
-            # initialize the state using saved parameters
-            self.concentrations = self.parameters['concentrations_vector']
-            
-        elif initialize_state == 'ensemble':
-            # initialize the state using the ensemble parameters
-            self.choose_concentrations(**self.parameters['concentrations_parameters'])
-            
-        elif initialize_state == 'auto':
-            # use exact values if saved or ensemble properties otherwise
+        # determine how to initialize the variables
+        init_state = self.parameters['initialize_state']
+        
+        # determine how to initialize the concentrations
+        init_concentrations = init_state.get('concentrations',
+                                             init_state['default'])
+        if init_concentrations  == 'auto':
             if self.parameters['concentrations_parameters'] is None:
-                self.concentrations = self.parameters['concentrations_vector']
+                init_concentrations = 'exact'
             else:
-                self.choose_concentrations(**self.parameters['concentrations_parameters'])
-                
+                init_concentrations = 'ensemble'
+
+        # initialize the concentrations with the chosen method            
+        if init_concentrations is None:
+            self.concentrations = None
+        elif init_concentrations  == 'exact':
+            logging.debug('Initialize with given concentrations')
+            self.concentrations = self.parameters['concentrations_vector']
+        elif init_concentrations == 'ensemble':
+            logging.debug('Choose concentrations from given parameters')
+            conc_params = self.parameters['concentrations_parameters']
+            self.choose_concentrations(**conc_params)        
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
-                             initialize_state)
+                             init_concentrations)
 
 
     @property
@@ -80,7 +84,7 @@ class LibraryExponentialBase(LibraryBase):
         else:
             p_i = np.random.random(args['num_substrates']) + 0.5
             
-        args['parameters'] = {'commonness_vector': p_i}
+        args['parameters'] = {'concentrations_vector': p_i}
         return args
 
 

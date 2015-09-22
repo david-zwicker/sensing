@@ -6,8 +6,6 @@ Created on May 1, 2015
 
 from __future__ import division
 
-import logging
-
 import numpy as np
 from scipy import special
 
@@ -21,7 +19,7 @@ from ..library_numeric_base import (LibraryNumericMixin,
 
 
 
-class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
+class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
     """ represents a single receptor library that handles sparse mixtures """
 
     # default parameters that are used to initialize a class if not overwritten
@@ -35,62 +33,6 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         'monte_carlo_steps_min': 1e4,      #< minimal steps for monte carlo
         'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
     }
-    
-
-    def __init__(self, num_substrates, num_receptors, parameters=None):
-        """ initialize a receptor library by setting the number of receptors,
-        the number of substrates it can respond to, and optional additional
-        parameters in the parameter dictionary """
-        # the call to the inherited method also sets the default parameters from
-        # this class
-        super(LibrarySparseNumeric, self).__init__(num_substrates,
-                                                   num_receptors,
-                                                   parameters)        
-
-        initialize_state = self.parameters['initialize_state']
-        
-        if initialize_state == 'auto': 
-            # use exact values if saved or ensemble properties otherwise
-            if self.parameters['sensitivity_matrix'] is not None:
-                initialize_state = 'exact'
-            elif self.parameters['sensitivity_matrix_params'] is not None:
-                initialize_state = 'ensemble'
-            else:
-                initialize_state = 'zero'
-        
-        # initialize the state using the chosen protocol
-        if initialize_state is None or initialize_state == 'zero':
-            logging.debug('Initialize sensitivity matrix to zero.')
-            self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
-            
-        elif initialize_state == 'exact':
-            # initialize the state using saved parameters
-            sens_mat = self.parameters['sensitivity_matrix']
-            if sens_mat is None:
-                logging.warn('Sensitivity matrix was not given. Initialize '
-                             'zero matrix.')
-                self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
-            else:
-                logging.debug('Initialize with given sensitivity matrix.')
-                self.sens_mat = sens_mat.copy()
-            
-        elif initialize_state == 'ensemble':
-            # initialize the state using the ensemble parameters
-            params = self.parameters['sensitivity_matrix_params']
-            if params is None:
-                logging.warn('Parameters for sensitivity matrix were not '
-                             'specified. Initialize zero matrix.')
-                self.sens_mat = np.zeros((self.Nr, self.Ns), np.double)
-            else:
-                logging.debug('Choose sensitivity matrix from given '
-                              'parameters')
-                self.choose_sensitivity_matrix(**params)
-            
-        else:
-            raise ValueError('Unknown initialization protocol `%s`' % 
-                             initialize_state)
-            
-        assert self.sens_mat.shape == (self.Nr, self.Ns)
          
             
     @property
@@ -172,8 +114,8 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
         """
         pi = self.substrate_probabilities
         di = self.concentrations
-        ci_mean = pi * di
-        ci_var = pi*(2 - pi) * di**2
+        ci_mean = di * pi
+        ci_var = di * ci_mean * pi*(2 - pi)
         
         # calculate statistics of e_n = \sum_i S_ni * c_i        
         S_ni = self.sens_mat
@@ -194,11 +136,13 @@ class LibrarySparseNumeric(LibrarySparseBase, LibraryNumericMixin):
 
         # replace values that are nan with zero. This might not be exact,
         # but only occurs in corner cases that are not interesting to us
-        q_n[~np.isfinite(q_n)] = 0
+        idx = ~np.isfinite(q_n)
+        if np.any(idx):
+            q_n[idx] = (en_mean >= 1)
         rho[np.isnan(rho)] = 0
             
         # estimate the crosstalk
-        q_nm = np.clip(rho / (2*np.pi), 0, 1)
+        q_nm = rho / (2*np.pi)
         
         # calculate the approximate mutual information
         MI = -np.sum(xlog2x(q_n) + xlog2x(1 - q_n))
