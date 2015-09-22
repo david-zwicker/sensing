@@ -87,12 +87,20 @@ class LibraryGaussianBase(LibraryBase):
         # initialize the covariance with the chosen method            
         if init_covariance is None:
             self.covariance = None
+            
         elif init_covariance == 'exact':
             logging.debug('Initialize with given covariance')
             self.covariance = self.parameters['covariance_matrix']
+            
         elif init_covariance == 'ensemble':
-            logging.debug('Choose covariance matrix from given parameters')
-            self.choose_covariance(**self.parameters['covariance_parameters'])
+            covariance_parameters = self.parameters['covariance_parameters']
+            if covariance_parameters:
+                logging.debug('Choose covariance matrix from given parameters')
+                self.choose_covariance(**covariance_parameters)
+            else:
+                logging.warn('Requested to set covariance from parameters, '
+                             'but parameters were not supplied.')
+                self.covariance = None
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              init_covariance)

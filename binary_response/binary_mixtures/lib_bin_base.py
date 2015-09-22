@@ -85,12 +85,21 @@ class LibraryBinaryBase(LibraryBase):
         # initialize the correlations with the chosen method
         if init_correlations is None:
             self.correlations = None
+            
         elif init_correlations == 'exact':
             logging.debug('Initialize with given correlation')
             self.correlations = self.parameters['correlation_matrix']
+            
         elif init_correlations == 'ensemble':
-            logging.debug('Choose correlation from given parameters')
-            self.choose_correlations(**self.parameters['correlation_parameters'])
+            correlation_parameters = self.parameters['correlation_parameters']
+            if correlation_parameters:
+                logging.debug('Choose correlation from given parameters')
+                self.choose_correlations(**correlation_parameters)
+            else:
+                logging.warn('Requested to set correlation from parameters, '
+                             'but parameters were not supplied.')
+                self.correlations = None
+                
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              init_correlations)
