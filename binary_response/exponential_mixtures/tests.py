@@ -46,9 +46,9 @@ class TestLibraryExponential(TestBase):
                                                homogeneous_mixture=homogeneous)
             obj2 = obj1.copy()
             
-            # compare the results for small spread values (sigma=0 is special case)
-            obj1.spread = 0
-            obj2.spread = 1e-13
+            # compare the results for small width values (sigma=0 is special case)
+            obj1.width = 0
+            obj2.width = 1e-13
             
             # test the activity calculation
             self.assertAlmostEqual(obj1.receptor_activity_estimate(approx),

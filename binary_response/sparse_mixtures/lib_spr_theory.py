@@ -244,7 +244,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, and the typical sensitivity
         or magnitude S0 of the sensitivity matrix.
-        The width of the distribution is either set by the parameter `spread` or
+        The width of the distribution is either set by the parameter `width` or
         by setting the `standard_deviation`.
         """
         super(LibrarySparseLogNormal, self).__init__(num_substrates,
@@ -256,13 +256,13 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         if 'standard_deviation' in kwargs:
             standard_deviation = kwargs.pop('standard_deviation')
             cv = standard_deviation / mean_sensitivity 
-            self.spread = np.sqrt(np.log(cv**2 + 1))
-        elif 'spread' in kwargs:
-            self.spread = kwargs.pop('spread')
+            self.width = np.sqrt(np.log(cv**2 + 1))
+        elif 'width' in kwargs:
+            self.width = kwargs.pop('width')
         else:
             standard_deviation = 1
             cv = standard_deviation / mean_sensitivity 
-            self.spread = np.sqrt(np.log(cv**2 + 1))
+            self.width = np.sqrt(np.log(cv**2 + 1))
 
         # raise an error if keyword arguments have not been used
         if len(kwargs) > 0:
@@ -273,7 +273,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     @property
     def standard_deviation(self):
         """ return the standard deviation of the distribution """
-        return self.mean_sensitivity * np.sqrt((np.exp(self.spread**2) - 1))
+        return self.mean_sensitivity * np.sqrt((np.exp(self.width**2) - 1))
             
 
     @property
@@ -281,7 +281,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogNormal, self).repr_params
         params.append('S0=%g' % self.mean_sensitivity)
-        params.append('spread=%g' % self.spread)
+        params.append('width=%g' % self.width)
         params.append('correlation=%g' % self.correlation)
         return params
 
@@ -292,20 +292,20 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         it by calling the __init__ method with these arguments """
         args = super(LibrarySparseLogNormal, self).init_arguments
         args['mean_sensitivity'] = self.mean_sensitivity
-        args['spread'] = self.spread
+        args['width'] = self.width
         args['correlation'] = self.correlation
         return args
 
 
     @classmethod
-    def get_random_arguments(cls, mean_sensitivity=None, spread=None, **kwargs):
+    def get_random_arguments(cls, mean_sensitivity=None, width=None, **kwargs):
         """ create random arguments for creating test instances """
         args = super(LibrarySparseLogNormal, cls).get_random_arguments(**kwargs)
 
-        if spread is None:
-            args['spread'] = np.random.random() + 0.5
+        if width is None:
+            args['width'] = np.random.random() + 0.5
         else:
-            args['spread'] = spread
+            args['width'] = width
         if mean_sensitivity is None:
             args['mean_sensitivity'] = np.random.random() + 1
         else: 
@@ -320,21 +320,21 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             raise NotImplementedError('Cannot return the sensitivity '
                                       'distribution with correlations, yet')
         
-        if self.spread == 0:
+        if self.width == 0:
             return DeterministicDistribution(self.mean_sensitivity)
         else:
-            return lognorm_mean(self.mean_sensitivity, self.spread)
+            return lognorm_mean(self.mean_sensitivity, self.width)
 
 
     def sensitivity_stats(self):
         """ returns statistics of the sensitivity distribution """
         S0 = self.mean_sensitivity
-        var = S0**2 * (np.exp(self.spread**2) - 1)
-        covar = S0**2 * (np.exp(self.correlation * self.spread**2) - 1)
+        var = S0**2 * (np.exp(self.width**2) - 1)
+        covar = S0**2 * (np.exp(self.correlation * self.width**2) - 1)
         return {'mean': S0, 'std': np.sqrt(var), 'var': var, 'cov': covar}
 
 
-    def get_optimal_parameters(self, fixed_parameter='spread'):
+    def get_optimal_parameters(self, fixed_parameter='width'):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices.
             `fixed_parameter` determines which parameter is kept fixed during
@@ -348,13 +348,13 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         ctot_var = ctot_stats['var']
         ctot_cv2 = ctot_var / ctot_mean**2
         
-        if fixed_parameter == 'spread':
-            # keep the spread parameter fixed and determine the others 
-            spread_opt = self.spread
+        if fixed_parameter == 'width':
+            # keep the width parameter fixed and determine the others 
+            width_opt = self.width
             
-            arg = 1 + ctot_cv2 * np.exp(spread_opt**2)
+            arg = 1 + ctot_cv2 * np.exp(width_opt**2)
             S0_opt = np.sqrt(arg) / ctot_mean
-            std_opt = S0_opt * np.sqrt(np.exp(spread_opt**2) - 1)
+            std_opt = S0_opt * np.sqrt(np.exp(width_opt**2) - 1)
             
         elif fixed_parameter == 'S0':
             # keep the typical sensitivity fixed and determine the other params 
@@ -362,30 +362,30 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             
             arg = (ctot_mean**2 * self.mean_sensitivity**2 - 1)/ctot_cv2
             if arg >= 1:
-                spread_opt = np.sqrt(np.log(arg))
+                width_opt = np.sqrt(np.log(arg))
                 std_opt = self.mean_sensitivity * np.sqrt(arg - 1)
             else:
                 logging.warn('Given mean sensitivity is too small to find a '
-                             'suitable spread parameter')
-                spread_opt = 0
+                             'suitable width parameter')
+                width_opt = 0
                 std_opt = 0
             
         else:
             raise ValueError('Parameter `%s` is unknown or cannot be held '
                              'fixed' % fixed_parameter) 
         
-        return {'mean_sensitivity': S0_opt, 'spread': spread_opt,
+        return {'mean_sensitivity': S0_opt, 'width': width_opt,
                 'standard_deviation': std_opt}
     
     
-    def get_optimal_library(self, fixed_parameter='spread'):
+    def get_optimal_library(self, fixed_parameter='width'):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices.
             `fixed_parameter` determines which parameter is kept fixed during
                 the optimization procedure
         """
         library_opt = self.get_optimal_parameters(fixed_parameter)
-        return {'distribution': 'log_normal', 'spread': library_opt['spread'],
+        return {'distribution': 'log_normal', 'width': library_opt['width'],
                 'mean_sensitivity': library_opt['mean_sensitivity'],
                 'correlation': 0}
                 
@@ -396,15 +396,15 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     log-uniform distribution """
 
 
-    def __init__(self, num_substrates, num_receptors, spread=1,
+    def __init__(self, num_substrates, num_receptors, width=1,
                  mean_sensitivity=1, parameters=None):
         """ initialize the receptor library by setting the number of receptors,
         the number of substrates it can respond to, the width of the
-        distribution `spread`, and the typical sensitivity or magnitude S0 of the
+        distribution `width`, and the typical sensitivity or magnitude S0 of the
         sensitivity matrix """
         super(LibrarySparseLogUniform, self).__init__(num_substrates,
                                                       num_receptors, parameters)
-        self.spread = spread
+        self.width = width
         self.mean_sensitivity = mean_sensitivity
 
 
@@ -412,7 +412,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogUniform, self).repr_params
-        params.append('spread=%g' % self.spread)
+        params.append('width=%g' % self.width)
         params.append('S0=%g' % self.mean_sensitivity)
         return params
 
@@ -422,7 +422,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         """ return the parameters of the model that can be used to reconstruct
         it by calling the __init__ method with these arguments """
         args = super(LibrarySparseLogUniform, self).init_arguments
-        args['spread'] = self.spread
+        args['width'] = self.width
         args['mean_sensitivity'] = self.mean_sensitivity
         return args
 
@@ -431,7 +431,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     def get_random_arguments(cls, **kwargs):
         """ create random arguments for creating test instances """
         args = super(LibrarySparseLogUniform, cls).get_random_arguments(**kwargs)
-        args['spread'] = kwargs.get('spread', np.random.random() + 0.1)
+        args['width'] = kwargs.get('width', np.random.random() + 0.1)
         S0 = np.random.random() + 0.5
         args['mean_sensitivity'] = kwargs.get('mean_sensitivity', S0)
         return args
@@ -440,27 +440,27 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     @property
     def sensitivity_distribution(self):
         """ returns the sensitivity distribution """
-        if self.spread == 0:
+        if self.width == 0:
             return DeterministicDistribution(self.mean_sensitivity)
         else:
-            return loguniform_mean(self.mean_sensitivity, np.exp(self.spread))
+            return loguniform_mean(self.mean_sensitivity, np.exp(self.width))
 
 
     def sensitivity_stats(self):
         """ returns statistics of the sensitivity distribution """
         S0 = self.mean_sensitivity
-        spread = self.spread
+        width = self.width
         
-        if spread == 0:
+        if width == 0:
             var = 0
         else:
-            exp_s2 = np.exp(spread)**2
-            var = S0**2 * (1 - exp_s2 + (1 + exp_s2)*spread)/(exp_s2 - 1)
+            exp_s2 = np.exp(width)**2
+            var = S0**2 * (1 - exp_s2 + (1 + exp_s2)*width)/(exp_s2 - 1)
             
         return {'mean': S0, 'var': var, 'cov': 0}
     
 
-    def get_optimal_library(self, spread_opt=2):
+    def get_optimal_library(self, width_opt=2):
         """ returns an estimate for the optimal parameters for the random
         interaction matrices """
         if self.is_correlated_mixture:
@@ -470,15 +470,15 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         ctot_mean = ctot_stats['mean']
         ctot_var = ctot_stats['var']
 
-        if self.spread == 0:
+        if self.width == 0:
             term = 1 
         else:
-            exp_s2 = np.exp(self.spread)**2
-            term = (exp_s2 + 1) * self.spread / (exp_s2 - 1)
+            exp_s2 = np.exp(self.width)**2
+            term = (exp_s2 + 1) * self.width / (exp_s2 - 1)
         S0_opt = np.sqrt(1 + ctot_var/ctot_mean**2 * term) / ctot_mean 
         
         return {'distribution': 'log_normal',
-                'mean_sensitivity': S0_opt, 'spread': spread_opt}
+                'mean_sensitivity': S0_opt, 'width': width_opt}
         
         
         

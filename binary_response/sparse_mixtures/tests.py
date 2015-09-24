@@ -138,11 +138,11 @@ class TestLibrarySparse(TestBase):
     def test_theory_limiting(self):
         """ test liming cases of the theory """
         # prepare a random log-normal library
-        th1 = LibrarySparseLogNormal.create_test_instance(spread=0.001)
-        lib_opt = th1.get_optimal_library(fixed_parameter='spread')
+        th1 = LibrarySparseLogNormal.create_test_instance(width=0.001)
+        lib_opt = th1.get_optimal_library(fixed_parameter='width')
         th1.mean_sensitivity = lib_opt['mean_sensitivity']
         args = th1.init_arguments
-        del args['spread']
+        del args['width']
         del args['correlation']
         th2 = LibrarySparseBinary(**args)
         th2.density = 1
@@ -158,14 +158,14 @@ class TestLibrarySparse(TestBase):
             
     def test_theory_log_normal(self):
         """ test specific functions of the log-normal distribution """
-        kept_fixed = ('S0', 'spread')
+        kept_fixed = ('S0', 'width')
         for a, b in itertools.permutations(kept_fixed, 2):
             th1 = LibrarySparseLogNormal.create_test_instance()
             lib_opt1 = th1.get_optimal_library(fixed_parameter=a)
             th2 = LibrarySparseLogNormal.from_other(
                 th1,
                 mean_sensitivity=lib_opt1['mean_sensitivity'],
-                spread=lib_opt1['spread']
+                width=lib_opt1['width']
             )
             lib_opt2 = th2.get_optimal_library(fixed_parameter=b)
             

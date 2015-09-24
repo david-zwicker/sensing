@@ -53,8 +53,8 @@ def optimize_library(parameters):
                               parameters['correlation-magnitude'])
     
     # get optimal log-normal matrix as a starting point
-    theory = LibrarySparseLogNormal.from_other(model, spread=2)
-    library_opt = theory.get_optimal_library(fixed_parameter='spread')
+    theory = LibrarySparseLogNormal.from_other(model, width=2)
+    library_opt = theory.get_optimal_library(fixed_parameter='width')
     
     # choose the method for calculating the mutual information
     if parameters['MI-method'] == 'numeric':

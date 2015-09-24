@@ -476,50 +476,56 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
 
     elif distribution == 'log_normal':
         # log normal distribution
+        if 'spread' in kwargs:
+            logging.warn('Deprecated argument `spread`. Use `width` instead.')
+            kwargs.setdefault('width', kwargs['spread'])
+        
         if 'standard_deviation' in kwargs:
             standard_deviation = kwargs.pop('standard_deviation')
             cv = standard_deviation / mean_sensitivity 
-            spread = np.sqrt(np.log(cv**2 + 1))
-        elif 'spread' in kwargs:
-            spread = kwargs.pop('spread')
-            cv = np.sqrt(np.exp(spread**2) - 1)
+            width = np.sqrt(np.log(cv**2 + 1))
+            
+        elif 'width' in kwargs:
+            width = kwargs.pop('width')
+            cv = np.sqrt(np.exp(width**2) - 1)
             standard_deviation = mean_sensitivity * cv
+            
         else:
             standard_deviation = 1
             cv = standard_deviation / mean_sensitivity
-            spread = np.sqrt(np.log(cv**2 + 1))
+            width = np.sqrt(np.log(cv**2 + 1))
 
         correlation = kwargs.pop('correlation', 0)
         sens_mat_params['standard_deviation'] = standard_deviation
         sens_mat_params['correlation'] = correlation
 
-        if spread == 0 and correlation == 0:
+        if width == 0 and correlation == 0:
             # edge case without randomness
             sens_mat = np.full(shape, mean_sensitivity)
 
         elif correlation != 0:
             # correlated receptors
-            mu = np.log(mean_sensitivity) - 0.5 * spread**2
+            mu = np.log(mean_sensitivity) - 0.5 * width**2
             mean = np.full(Nr, mu)
-            cov = np.full((Nr, Nr), correlation * spread**2)
-            np.fill_diagonal(cov, spread**2)
+            cov = np.full((Nr, Nr), correlation * width**2)
+            np.fill_diagonal(cov, width**2)
             vals = np.random.multivariate_normal(mean, cov, size=Ns).T
             sens_mat = np.exp(vals)
 
         else:
             # uncorrelated receptors
-            dist = lognorm_mean(mean_sensitivity, spread)
+            dist = lognorm_mean(mean_sensitivity, width)
             sens_mat = dist.rvs(shape)
             
     elif distribution == 'log_uniform':
         # log uniform distribution
-        spread = kwargs.pop('spread', 1)
-        sens_mat_params['spread'] = spread
+        width = kwargs.pop('width', 1)
+        sens_mat_params['width'] = width
 
-        if spread == 0:
+        if width == 0:
             sens_mat = np.full(shape, mean_sensitivity)
         else:
-            dist = loguniform_mean(mean_sensitivity, np.exp(spread))
+            dist = loguniform_mean(mean_sensitivity, np.exp(width))
             sens_mat = dist.rvs(shape)
         
     elif distribution == 'log_gamma':
@@ -527,20 +533,20 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
         
     elif distribution == 'normal':
         # normal distribution
-        spread = kwargs.pop('spread', 1)
+        width = kwargs.pop('width', 1)
         correlation = kwargs.pop('correlation', 0)
-        sens_mat_params['spread'] = spread
+        sens_mat_params['width'] = width
         sens_mat_params['correlation'] = correlation
 
-        if spread == 0 and correlation == 0:
+        if width == 0 and correlation == 0:
             # edge case without randomness
             sens_mat = np.full(shape, mean_sensitivity)
             
         elif correlation != 0:
             # correlated receptors
             mean = np.full(Nr, mean_sensitivity)
-            cov = np.full((Nr, Nr), correlation * spread**2)
-            np.fill_diagonal(cov, spread**2)
+            cov = np.full((Nr, Nr), correlation * width**2)
+            np.fill_diagonal(cov, width**2)
             if not is_pos_semidef(cov):
                 raise ValueError('The specified correlation leads to a '
                                  'correlation matrix that is not positive '
@@ -550,7 +556,7 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
 
         else:
             # uncorrelated receptors
-            sens_mat = np.random.normal(loc=mean_sensitivity, scale=spread,
+            sens_mat = np.random.normal(loc=mean_sensitivity, scale=width,
                                         size=shape)
 
     elif distribution == 'uniform':
