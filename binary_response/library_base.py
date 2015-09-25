@@ -401,7 +401,7 @@ def _estimate_qn_from_en_lognorm(en_mean, en_var):
     else:
         en_cv2 = en_var / en_mean**2
         enum = np.log(np.sqrt(1 + en_cv2) / en_mean)
-        denom = np.sqrt(2*np.log(1 + en_cv2))
+        denom = np.sqrt(2*np.log1p(en_cv2))
         q_n = 0.5 * special.erfc(enum/denom)
         
     return q_n

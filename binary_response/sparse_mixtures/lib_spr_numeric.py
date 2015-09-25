@@ -4,7 +4,7 @@ Created on May 1, 2015
 @author: zwicker
 '''
 
-from __future__ import division
+from __future__ import division, absolute_import
 
 import numpy as np
 from scipy import special
@@ -129,7 +129,7 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
             # calculate the receptor activity
             en_cv2 = en_var / en_mean**2
             enum = np.log(np.sqrt(1 + en_cv2) / en_mean)
-            denom = np.sqrt(2*np.log(1 + en_cv2))
+            denom = np.sqrt(2*np.log1p(en_cv2))
             q_n = 0.5 * special.erfc(enum/denom)
         
             # calculate the receptor crosstalk

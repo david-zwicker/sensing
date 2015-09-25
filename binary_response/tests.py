@@ -79,22 +79,16 @@ class TestLibraryBase(TestBase):
         
         # calculate mutual information
         for method in ('expansion', 'hybrid', 'polynom'):
-            if method == 'polynom':
-                # we can consider heterogeneous receptor response
-                q_n = 0.1 + 0.8*np.random.rand(obj.Nr)
-                q_nm = 0.1*np.random.rand(obj.Nr, obj.Nr)
-        
-            else:
-                # we have to have homogeneous receptor response
-                q_n = np.zeros(obj.Nr) + np.random.rand()
-                q_nm = np.zeros((obj.Nr, obj.Nr)) + 0.1*np.random.rand()
+            q_n = np.full(obj.Nr, 0.1) + 0.8*np.random.rand()
+            q_nm = np.full((obj.Nr, obj.Nr), 0.1) + 0.1*np.random.rand()
 
             np.fill_diagonal(q_nm, 0)
+            q_nm_mean = q_nm[~np.eye(obj.Nr, dtype=np.bool)].mean()
             q_nm_var = q_nm[~np.eye(obj.Nr, dtype=np.bool)].var()
             
             MI1 = obj._estimate_MI_from_q_values(q_n, q_nm, method=method)
             MI2 = obj._estimate_MI_from_q_stats(
-                q_n.mean(), q_nm.mean(), q_n.var(), q_nm_var,
+                q_n.mean(), q_nm_mean, q_n.var(), q_nm_var,
                 method=method
             )
             msg = 'Mutual informations do not agree for method=`%s`' % method

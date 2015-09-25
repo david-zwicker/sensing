@@ -15,8 +15,6 @@ from ..binary_mixtures.lib_bin_base import LibraryBinaryBase
 
 
 
-
-
 class LibrarySparseBase(LibraryBinaryBase):
     """ represents a single receptor library. This is a base class that provides
     general functionality and parameter management.

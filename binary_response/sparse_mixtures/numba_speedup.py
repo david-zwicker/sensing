@@ -222,7 +222,7 @@ def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
                 # proper evaluation
                 en_cv2 = enm_cov[n, n] / en_mean[n]**2
                 enum = math.log(math.sqrt(1 + en_cv2) / en_mean[n])
-                denom = math.sqrt(2*math.log(1 + en_cv2))
+                denom = math.sqrt(2*math.log1p(en_cv2))
                 qn[n] = 0.5 * math.erfc(enum/denom)
     
     # calculate the crosstalk and the mutual information in one iteration
