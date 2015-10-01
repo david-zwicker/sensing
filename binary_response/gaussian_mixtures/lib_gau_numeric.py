@@ -122,8 +122,7 @@ class LibraryGaussianNumeric(LibraryNumericMixin, LibraryGaussianBase):
     def concentration_statistics_estimate(self, approx_covariance=True):
         """ returns statistics for each individual substrate """
         # get the statistics of the unrestricted case
-        parent = super(LibraryGaussianNumeric, self)
-        stats_unres = parent.concentration_statistics()
+        stats_unres = LibraryGaussianBase.concentration_statistics(self)
         
         if not self.parameters['positive_concentrations']:
             # simple case where concentrations are unrestricted
