@@ -26,8 +26,9 @@ class LibrarySparseBase(LibraryBinaryBase):
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
-        'concentration_vector': None,     #< chosen substrate concentrations
-        'concentration_parameters': None, #< parameters for substrate concentration
+        'c_distribution': 'exponential', 
+        'c_mean_vector': None,     #< chosen substrate c_means
+        'c_mean_parameters': None, #< parameters for substrate concentration
     }
 
 
@@ -41,43 +42,43 @@ class LibrarySparseBase(LibraryBinaryBase):
         # determine how to initialize the variables
         init_state = self.parameters['initialize_state']
         
-        # determine how to initialize the concentrations
-        init_concentrations = init_state.get('concentrations',
+        # determine how to initialize the c_means
+        init_c_mean = init_state.get('c_mean',
                                              init_state['default'])
-        if init_concentrations  == 'auto':
-            if self.parameters['concentration_parameters'] is None:
-                init_concentrations = 'exact'
+        if init_c_mean  == 'auto':
+            if self.parameters['c_mean_parameters'] is None:
+                init_c_mean = 'exact'
             else:
-                init_concentrations = 'ensemble'
+                init_c_mean = 'ensemble'
 
-        # initialize the concentrations with the chosen method            
-        if init_concentrations is None:
-            self.concentrations = None
+        # initialize the c_means with the chosen method            
+        if init_c_mean is None:
+            self.c_means = None
             
-        elif init_concentrations  == 'exact':
-            logging.debug('Initialize with given concentrations')
-            self.concentrations = self.parameters['concentration_vector']
+        elif init_c_mean  == 'exact':
+            logging.debug('Initialize with given c_means')
+            self.c_means = self.parameters['c_mean_vector']
             
-        elif init_concentrations == 'ensemble':
-            conc_params = self.parameters['concentration_parameters']
+        elif init_c_mean == 'ensemble':
+            conc_params = self.parameters['c_mean_parameters']
             if conc_params:
-                logging.debug('Choose concentrations from given parameters')
+                logging.debug('Choose c_means from given parameters')
                 self.choose_concentrations(**conc_params)
             else:
-                logging.warn('Requested to set concentrations from parameters, '
+                logging.warn('Requested to set c_means from parameters, '
                              'but parameters were not supplied.')
-                self.concentrations = None
+                self.c_means = None
                     
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
-                             init_concentrations)
+                             init_c_mean)
 
 
     @property
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseBase, self).repr_params
-        params.append('<d>=%g' % self.concentrations.mean())
+        params.append('<mu>=%g' % self.c_means.mean())
         return params
 
 
@@ -91,18 +92,18 @@ class LibrarySparseBase(LibraryBinaryBase):
         else:
             ds = np.random.random(args['num_substrates']) + 0.5
             
-        args['parameters'] = {'concentration_vector': ds}
+        args['parameters'] = {'c_mean_vector': ds}
         return args
     
     
     @property
-    def concentrations(self):
-        """ return the concentrations vector """
+    def c_means(self):
+        """ return the c_means vector """
         return self._ds
     
-    @concentrations.setter
-    def concentrations(self, ds):
-        """ sets the substrate concentrations """
+    @c_means.setter
+    def c_means(self, ds):
+        """ sets the substrate c_means """
         if ds is None:
             # initialize with default values, but don't save the parameters
             self._ds = np.ones(self.Ns)
@@ -117,19 +118,35 @@ class LibrarySparseBase(LibraryBinaryBase):
             self._ds = np.asarray(ds)
             
             # save the values, since they were set explicitly 
-            self.parameters['concentration_vector'] = self._ds
+            self.parameters['c_mean_vector'] = self._ds
+    
+    
+    @property
+    def c_vars(self):
+        """ return the c_vars vector """
+        c_distribution = self.parameters['c_distribution']
+        if c_distribution == 'exponential':
+            return self.c_means
+        else:
+            raise ValueError('Unknown concentration distribution `%s`'
+                             % c_distribution)
     
     
     @property
     def concentration_means(self):
         """ return the mean concentration at which each substrate is expected
         on average """
-        return self.substrate_probabilities * self.concentrations
-    
+        return self.substrate_probabilities * self.c_means
+
     
     def get_concentration_distribution(self, i):
         """ returns the concentration distribution for component i """
-        return stats.expon(scale=self.concentrations[i])
+        c_distribution = self.parameters['c_distribution']
+        if c_distribution == 'exponential':
+            return stats.expon(scale=self.c_means[i])
+        else:
+            raise ValueError('Unknown concentration distribution `%s`'
+                             % c_distribution)
 
     
     def concentration_statistics(self):
@@ -138,9 +155,9 @@ class LibrarySparseBase(LibraryBinaryBase):
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         pi = self.substrate_probabilities
-        di = self.concentrations
-        ci_mean = di * pi
-        ci_var = di * ci_mean * (2 - pi)
+        c_means = self.c_means
+        ci_mean = pi * c_means
+        ci_var = pi * ((1 - pi)*c_means**2 + self.c_vars)
         
         # return the results in a dictionary to be able to extend it later
         return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
@@ -150,9 +167,8 @@ class LibrarySparseBase(LibraryBinaryBase):
     @property
     def is_homogeneous_mixture(self):
         """ returns True if the mixture is homogeneous """
-        h_i = self.commonness
-        d_i = self.concentrations
-        return np.allclose(h_i, h_i.mean()) and np.allclose(d_i, d_i.mean())
+        return all(np.allclose(arr, arr.mean())
+                   for arr in (self.commonness, self.c_means, self.c_vars))
             
     
     def choose_concentrations(self, scheme, mean_concentration, **kwargs):
@@ -176,7 +192,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         c_means *= mean_concentration / c_means.mean()
         
         # set the concentration
-        self.concentrations = c_means
+        self.c_means = c_means
                 
         # we additionally store the parameters that were used for this function
         c_params = {'scheme': scheme, 'mean_concentration': mean_concentration}

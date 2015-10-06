@@ -1,3 +1,3 @@
 #!/bin/bash
 echo 'Run unittests...'
-python -m unittest discover
+python3 -m unittest discover

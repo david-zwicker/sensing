@@ -67,8 +67,14 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.is_correlated_mixture:
-        logging.warn('Not implemented for correlated mixtures. Falling back to '
-                     'pure-python method.')
+        logging.warn('Numba code not implemented for correlated mixtures. '
+                     'Falling back to pure-python method.')
+        this = LibrarySparseNumeric_receptor_activity_monte_carlo
+        return this._python_function(self, ret_correlations)
+
+    if self.parameters['c_distribution'] != 'exponential':
+        logging.warn('Numba code only implemented for exponential mixtures. '
+                     'Falling back to pure-python method.')
         this = LibrarySparseNumeric_receptor_activity_monte_carlo
         return this._python_function(self, ret_correlations)
 
@@ -83,7 +89,7 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
     LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
         self.Ns, self.Nr, steps, self.sens_mat,
         self.substrate_probabilities, #< p_i
-        self.concentrations,          #< d_i
+        self.c_means,          #< d_i
         np.empty(self.Nr, np.double), #< a_n
         ret_correlations,
         r_n, r_nm
@@ -152,9 +158,15 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.is_correlated_mixture:
-        logging.warn('Not implemented for correlated mixtures. Falling back to '
-                     'pure-python method.')
-        this = LibrarySparseNumeric_mutual_information_monte_carlo
+        logging.warn('Numba code not implemented for correlated mixtures. '
+                     'Falling back to pure-python method.')
+        this = LibrarySparseNumeric_receptor_activity_monte_carlo
+        return this._python_function(self, ret_prob_activity)
+
+    if self.parameters['c_distribution'] != 'exponential':
+        logging.warn('Numba code only implemented for exponential mixtures. '
+                     'Falling back to pure-python method.')
+        this = LibrarySparseNumeric_receptor_activity_monte_carlo
         return this._python_function(self, ret_prob_activity)
 
     # prevent integer overflow in collecting activity patterns
@@ -166,7 +178,7 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
     MI = LibrarySparseNumeric_mutual_information_monte_carlo_numba(
         self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
         self.substrate_probabilities, #< p_i
-        self.concentrations,          #< d_i
+        self.c_means,          #< d_i
         np.empty(self.Nr, np.double), #< a_n
         prob_a
     )
@@ -185,9 +197,9 @@ numba_patcher.register_method(
 
 
 
-#@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
-                                                          Ns, Nr, pi, di, S_ni):
+                                            Ns, Nr, pi, c_means, c_vars, S_ni):
     """ returns a simple estimate of the mutual information for the special
     case that ret_prob_activity=False, excitation_model='default',
     mutual_information_method='default', and clip=True.
@@ -198,8 +210,8 @@ def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
     
     # calculate the statistics of the excitation
     for i in range(Ns):
-        ci_mean = di[i] * pi[i]
-        ci_var = di[i] * ci_mean * (2 - pi[i])
+        ci_mean = pi[i] * c_means[i]
+        ci_var = pi[i] * ((1 - pi[i])*c_means[i]**2 + c_vars[i])
         
         for n in range(Nr):
             en_mean[n] += S_ni[n, i] * ci_mean
@@ -254,8 +266,8 @@ def LibrarySparseNumeric_mutual_information_estimate_fast(self):
     mutual_information_method='default', and clip=True.
     """
     return LibrarySparseNumeric_mutual_information_estimate_fast_numba(
-        self.Ns, self.Nr, self.substrate_probabilities, self.concentrations,
-        self.sens_mat
+        self.Ns, self.Nr, self.substrate_probabilities, self.c_means,
+        self.c_vars, self.sens_mat
     )
 
   

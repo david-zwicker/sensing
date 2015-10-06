@@ -88,13 +88,23 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
         if steps is None:
             steps = self._sample_steps
         
-        d_i = self.concentrations
+        # setup the concentration distribution
+        c_distribution = self.parameters['c_distribution']
+        c_means = self.c_means
         
+        if c_distribution == 'exponential':
+            def generate_concentrations():
+                return np.random.exponential(size=self.Ns) * c_means
+        else:
+            raise ValueError('Unknown concentration distribution `%s`'
+                             % c_distribution)
+        
+        # sample mixtures
         for b in _sample_binary_mixtures(self, steps=steps, dtype=np.bool):
             # boolean b vector is True for the ligands that are present
             
-            # choose concentrations for the ligands
-            c = np.random.exponential(size=self.Ns) * d_i
+            # choose c_means for the ligands
+            c = generate_concentrations()
             
             # set concentration of ligands that are not present to zero 
             c[~b] = 0
@@ -114,9 +124,10 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
         mutual_information_method='default', and clip=True.
         """
         pi = self.substrate_probabilities
-        di = self.concentrations
-        ci_mean = di * pi
-        ci_var = di * ci_mean * (2 - pi)
+        c_means = self.c_means
+        
+        ci_mean = pi * c_means
+        ci_var = pi * ((1 - pi)*c_means**2 + self.c_vars)
         
         # calculate statistics of e_n = \sum_i S_ni * c_i        
         S_ni = self.sens_mat
