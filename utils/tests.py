@@ -11,7 +11,8 @@ import unittest
 import numpy as np
 from scipy import stats 
 
-from .math_distributions import lognorm_mean, lognorm_mean_var, loguniform_mean
+from .math_distributions import (lognorm_mean_var_to_mu_sigma, lognorm_mean,
+                                 lognorm_mean_var, loguniform_mean)
 
       
       
@@ -41,7 +42,7 @@ class TestMathDistributions(unittest.TestCase):
             self.assertAllClose(dist.mean(), rvs.mean(), rtol=0.02,
                                 msg='Mean of the distribution is not '
                                     'consistent.')
-            self.assertAllClose(dist.var(), rvs.var(), rtol=0.1,
+            self.assertAllClose(dist.var(), rvs.var(), rtol=0.2, atol=0.1,
                                 msg='Variance of the distribution is not '
                                     'consistent.')
 
@@ -70,6 +71,11 @@ class TestMathDistributions(unittest.TestCase):
         dist = lognorm_mean_var(mean, var)
         self.assertAlmostEqual(dist.mean(), mean)
         self.assertAlmostEqual(dist.var(), var)
+        
+        mu, sigma = lognorm_mean_var_to_mu_sigma(mean, var, 'numpy')
+        rvs = np.random.lognormal(mu, sigma, size=1000000)
+        self.assertAlmostEqual(rvs.mean(), mean, places=2)
+        self.assertAlmostEqual(rvs.var(), var, places=1)
 
 
     def test_log_uniform(self):

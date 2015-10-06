@@ -28,7 +28,7 @@ class TestLibrarySparse(TestBase):
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
     
         
-    def _create_test_models(self):
+    def _create_test_models(self, **kwargs):
         """ helper method for creating test models """
         # save numba patcher state
         numba_patcher_enabled = numba_patcher.enabled
@@ -36,8 +36,8 @@ class TestLibrarySparse(TestBase):
         # collect all settings that we want to test
         settings = collections.OrderedDict()
         settings['numba_enabled'] = (True, False)
-        settings['c_distribution'] = \
-                                LibrarySparseBase.concentration_distributions
+        c_dists = LibrarySparseBase.concentration_distributions
+        settings['c_distribution'] = c_dists
         
         # create all combinations of all settings
         setting_comb = [dict(zip(settings.keys(), items))
@@ -49,7 +49,7 @@ class TestLibrarySparse(TestBase):
             numba_patcher.set_state(setting['numba_enabled'])
             
             # create test object
-            model = LibrarySparseNumeric.create_test_instance()
+            model = LibrarySparseNumeric.create_test_instance(**kwargs)
 
             # create a meaningful error message for all cases
             model.settings = ', '.join("%s=%s" % v for v in setting.items())
@@ -172,7 +172,7 @@ class TestLibrarySparse(TestBase):
             lib_opt2 = th2.get_optimal_library(fixed_parameter=b)
             
             msg = 'kept_fixed = (%s, %s)' % (a, b)
-            self.assertDictAllClose(lib_opt1, lib_opt2, msg=msg)
+            self.assertDictAllClose(lib_opt1, lib_opt2, rtol=1e-3, msg=msg)
     
             
     def test_concentration_statistics(self):
@@ -191,8 +191,10 @@ class TestLibrarySparse(TestBase):
             
             # check for known exception where the method are not implemented 
             for method in ('auto', 'estimate'):
-                r_n, r_nm = model.receptor_activity(method, ret_correlations=True) 
-                q_n, q_nm = model.receptor_crosstalk(method, ret_receptor_activity=True)
+                r_n, r_nm = model.receptor_activity(method,
+                                                    ret_correlations=True) 
+                q_n, q_nm = model.receptor_crosstalk(method,
+                                                     ret_receptor_activity=True)
                 
                 self.assertAllClose(r_n, q_n, rtol=5e-2, atol=5e-2,
                                     msg='Receptor activities: ' + error_msg)
@@ -206,7 +208,7 @@ class TestLibrarySparse(TestBase):
         """ tests the estimates """
         methods = ['excitation_statistics', 'receptor_activity']
         
-        for model in self._create_test_models():
+        for model in self._create_test_models(num_substrates=32):
             error_msg = model.error_msg
             
             # check for known exception where the method are not implemented 

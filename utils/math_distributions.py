@@ -18,12 +18,27 @@ def lognorm_mean(mean, sigma):
 
 
 
+def lognorm_mean_var_to_mu_sigma(mean, variance, definition='scipy'):
+    """ determines the parameters of the log-normal distribution such that the
+    distribution yields a given mean and variance. The optional parameter
+    `definition` can be used to choose a definition of the resulting parameters
+    that is suitable for the given software package. """
+    mean2 = mean**2
+    mu = mean2/np.sqrt(mean2 + variance)
+    sigma = np.sqrt(np.log(1 + variance/mean2))
+    if definition == 'scipy':
+        return mu, sigma
+    elif definition == 'numpy':
+        return np.log(mu), sigma
+    else:
+        raise ValueError('Unknown definition `%s`' % definition)
+
+
+
 def lognorm_mean_var(mean, variance):
     """ returns a lognormal distribution parameterized by its mean and its
     variance. """
-    mean2 = mean**2
-    scale = mean2/np.sqrt(mean2 + variance)
-    sigma = np.sqrt(np.log(1 + variance/mean2))
+    scale, sigma = lognorm_mean_var_to_mu_sigma(mean, variance, 'scipy')
     return stats.lognorm(scale=scale, s=sigma)
 
 

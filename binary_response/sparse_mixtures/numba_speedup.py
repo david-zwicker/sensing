@@ -16,6 +16,7 @@ import numpy as np
 
 # these methods are used in getattr calls
 from . import lib_spr_numeric
+from utils.math_distributions import lognorm_mean_var_to_mu_sigma
 from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
                                  check_return_value_exact)
 
@@ -112,9 +113,26 @@ numba_patcher.register_method(
 
 
 
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
+def _get_MI(prob_a, steps):
+    """ helper function that calculates the mutual information """
+    # normalize the probabilities by the number of steps we did
+    for k in range(len(prob_a)):
+        prob_a[k] /= steps
+    
+    # calculate the mutual information from the observed probabilities
+    MI = 0
+    for pa in prob_a:
+        if pa > 0:
+            MI -= pa*np.log2(pa)
+    
+    return MI
+
+
+
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_mutual_information_monte_carlo_numba(
-                                  Ns, Nr, steps, S_ni, p_i, d_i, a_n, prob_a):
+def LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba(
+                              Ns, Nr, steps, S_ni, p_i, c_means, a_n, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -126,7 +144,7 @@ def LibrarySparseNumeric_mutual_information_monte_carlo_numba(
         for i in range(Ns):
             if np.random.random() < p_i[i]:
                 # mixture contains substrate i
-                ci = np.random.exponential() * d_i[i]
+                ci = np.random.exponential() * c_means[i]
                 for n in range(Nr):
                     a_n[n] += S_ni[n, i] * ci
         
@@ -140,17 +158,40 @@ def LibrarySparseNumeric_mutual_information_monte_carlo_numba(
         # increment counter for this output
         prob_a[a_id] += 1
         
-    # normalize the probabilities by the number of steps we did
-    for k in range(len(prob_a)):
-        prob_a[k] /= steps
+    return _get_MI(prob_a, steps)
+
     
-    # calculate the mutual information from the observed probabilities
-    MI = 0
-    for pa in prob_a:
-        if pa > 0:
-            MI -= pa*np.log2(pa)
-    
-    return MI
+
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
+def LibrarySparseNumeric_mutual_information_monte_carlo_lognorm_numba(
+                          Ns, Nr, steps, S_ni, p_i, mus, sigmas, a_n, prob_a):
+    """ calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' """
+        
+    # sample mixtures according to the probabilities of finding
+    # substrates
+    for _ in range(steps):
+        # choose a mixture vector according to substrate probabilities
+        a_n[:] = 0  #< activity pattern of this mixture
+        for i in range(Ns):
+            if np.random.random() < p_i[i]:
+                # mixture contains substrate i
+                ci = np.random.lognormal(mus[i], sigmas[i])
+                for n in range(Nr):
+                    a_n[n] += S_ni[n, i] * ci
+        
+        # calculate the activity pattern id
+        a_id, base = 0, 1
+        for n in range(Nr):
+            if a_n[n] >= 1:
+                a_id += base
+            base *= 2
+        
+        # increment counter for this output
+        prob_a[a_id] += 1
+        
+    return _get_MI(prob_a, steps)
+
     
 
 def LibrarySparseNumeric_mutual_information_monte_carlo(
@@ -163,25 +204,37 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
         this = LibrarySparseNumeric_mutual_information_monte_carlo
         return this._python_function(self, ret_prob_activity)
 
-    if self.parameters['c_distribution'] != 'exponential':
-        logging.warn('Numba code only implemented for exponential mixtures. '
-                     'Falling back to pure-python method.')
-        this = LibrarySparseNumeric_mutual_information_monte_carlo
-        return this._python_function(self, ret_prob_activity)
-
     # prevent integer overflow in collecting activity patterns
     assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
     prob_a = np.zeros(2**self.Nr)
  
     # call the jitted function
-    MI = LibrarySparseNumeric_mutual_information_monte_carlo_numba(
-        self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
-        self.substrate_probabilities, #< p_i
-        self.c_means,          #< d_i
-        np.empty(self.Nr, np.double), #< a_n
-        prob_a
-    )
+    c_distribution = self.parameters['c_distribution']
+    if c_distribution == 'exponential':
+        MI = LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba(
+            self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            self.c_means,          #< d_i
+            np.empty(self.Nr, np.double), #< a_n
+            prob_a
+        )
+        
+    elif c_distribution == 'log-normal':
+        mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars)
+        MI = LibrarySparseNumeric_mutual_information_monte_carlo_lognorm_numba(
+            self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            mus, sigmas,                  #< concentration statistics
+            np.empty(self.Nr, np.double), #< a_n
+            prob_a
+        )        
+        
+    else:
+        logging.warn('Numba code is not implemented for distribution `%s`. '
+                     'Falling back to pure-python method.', c_distribution)
+        this = LibrarySparseNumeric_mutual_information_monte_carlo
+        return this._python_function(self, ret_prob_activity)
     
     if ret_prob_activity:
         return MI, prob_a
