@@ -63,6 +63,9 @@ def optimize_library(parameters):
     elif parameters['MI-method'] == 'approx':
         target = 'mutual_information_estimate'
         args = {}
+    elif parameters['MI-method'] == 'approx-gaussian':
+        target = 'mutual_information_estimate'
+        args = {'excitation_model': 'gaussian'}
     elif parameters['MI-method'] == 'approx-linear':
         target = 'mutual_information_estimate'
         args = {'excitation_model': 'lognorm-approx',
@@ -135,7 +138,8 @@ def main():
                                  'random_normal'],
                         help='scheme for picking substrate correlations')
     parser.add_argument('--MI-method', type=str, default='numeric',
-                        choices=['numeric', 'approx', 'approx-linear', 'fast'],
+                        choices=['numeric', 'approx', 'approx-gaussian',
+                                 'approx-linear', 'fast'],
                         help='method for estimating the mutual information')
     parser.add_argument('--optimization-scheme', type=str,
                         default='cma',
