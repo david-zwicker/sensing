@@ -177,7 +177,7 @@ class TestLibrarySparse(TestBase):
             
     def test_concentration_statistics(self):
         """ test the statistics of the concentrations """
-        model = LibrarySparseNumeric.create_test_instance(num_substrates=128)
+        model = LibrarySparseNumeric.create_test_instance(num_substrates=64)
         cs = [c.sum() for c in model._sample_mixtures()]
         c_stats = model.concentration_statistics()
         self.assertAllClose(np.mean(cs), c_stats['mean'].sum(), rtol=0.1)

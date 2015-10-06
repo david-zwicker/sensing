@@ -32,7 +32,7 @@ jobs_started = mp.Value('I', 0)
 def optimize_library(parameters):
     """ optimize receptors of the system described by `parameters` """
     global jobs_started
-    
+
     if parameters['progress']:
         jobs_started.value += 1
         job_id, job_count = jobs_started.value, parameters['job_count']
@@ -44,13 +44,17 @@ def optimize_library(parameters):
     # setup the numerical model that we use for optimization
     model = LibrarySparseNumeric(
         parameters['Ns'], parameters['Nr'],
-        parameters={'verbosity': 0 if parameters['quite'] else 1}
+        parameters={'verbosity': 0 if parameters['quite'] else 1,
+                    'c_distribution': parameters['concentration-distribution']}
     )
-    model.choose_commonness(parameters['scheme'], parameters['m'])
+    model.choose_commonness(parameters['mixture-scheme'],
+                            parameters['mixture-size'])
     model.choose_concentrations(parameters['concentration-scheme'],
                                 parameters['concentration-mean'])
     model.choose_correlations(parameters['correlation-scheme'],
                               parameters['correlation-magnitude'])
+    if model.parameters['c_distribution'] != 'exponential':
+        model.c_vars = parameters['concentration-var']
     
     # get optimal log-normal matrix as a starting point
     theory = LibrarySparseLogNormal.from_other(model, width=2)
@@ -113,30 +117,33 @@ def main():
                         default=argparse.SUPPRESS, help='number of substrates')
     parser.add_argument('-Nr', nargs='+', type=int, required=True,
                         default=argparse.SUPPRESS, help='number of receptors')
-    parser.add_argument('-m', '--mixture-size', metavar='M', nargs='+',
-                        type=float, required=True, default=argparse.SUPPRESS,
-                        help='average number of substrates per mixture')
-    parser.add_argument('-s', '--steps', nargs='+', type=int, default=[100000],
-                        help='steps in simulated annealing')
-    parser.add_argument('-r', '--repeat', type=int, default=1,
-                        help='number of repeats for each parameter set')
-    parser.add_argument('--mixture-scheme', '--scheme', type=str,
+    parser.add_argument('--mixture-scheme', type=str,
                         default='random_uniform',
                         choices=['const', 'linear', 'random_uniform'],
                         help='scheme for picking substrate probabilities')
-    parser.add_argument('--concentration-mean', '-conc', metavar='c',
-                        nargs='+', type=float, default=[1],
-                        help='mean concentration when ligand is present')
-    parser.add_argument('--concentration-scheme', type=str, default='const',
-                        choices=['const', 'random_uniform'],
-                        help='scheme for picking substrate concentrations')
-    parser.add_argument('--correlation-magnitude', '-corr', metavar='C',
-                        nargs='+', type=float, default=[0],
-                        help='magnitude of the substrate correlations')
+    parser.add_argument('-m', '--mixture-size', metavar='M', nargs='+',
+                        type=float, required=True, default=argparse.SUPPRESS,
+                        help='average number of substrates per mixture')
     parser.add_argument('--correlation-scheme', type=str, default='const',
                         choices=['const', 'random_binary', 'random_uniform',
                                  'random_normal'],
                         help='scheme for picking substrate correlations')
+    parser.add_argument('--correlation-magnitude', '-corr', metavar='C',
+                        nargs='+', type=float, default=[0],
+                        help='magnitude of the substrate correlations')
+    conc_dists = LibrarySparseNumeric.concentration_distributions
+    parser.add_argument('--concentration-distribution', type=str,
+                        default='exponential', choices=conc_dists,
+                        help='concentration distribution of ligands')
+    parser.add_argument('--concentration-scheme', type=str, default='const',
+                        choices=['const', 'random_uniform'],
+                        help='scheme for picking substrate concentrations')
+    parser.add_argument('--concentration-mean', '-conc', metavar='c',
+                        nargs='+', type=float, default=[1],
+                        help='mean concentration when ligand is present')
+    parser.add_argument('--concentration-var', '-conc-var', metavar='v',
+                        nargs='+', type=float, default=[1],
+                        help='variance of concentration when ligand is present')
     parser.add_argument('--MI-method', type=str, default='numeric',
                         choices=['numeric', 'approx', 'approx-gaussian',
                                  'approx-linear', 'fast'],
@@ -148,6 +155,10 @@ def main():
     parser.add_argument('--optimization-info', action='store_true',
                         default=False,
                         help='store extra information about the optimization')
+    parser.add_argument('-s', '--steps', nargs='+', type=int, default=[100000],
+                        help='steps in simulated annealing')
+    parser.add_argument('-r', '--repeat', type=int, default=1,
+                        help='number of repeats for each parameter set')
     parser.add_argument('-p', '--parallel', action='store_true',
                         default=False, help='use multiple processes')
     parser.add_argument('-q', '--quite', action='store_true',
@@ -160,33 +171,38 @@ def main():
     # fetch the arguments and build the parameter list
     args = parser.parse_args()
     arg_list = (args.Ns, args.Nr, args.mixture_size, args.concentration_mean,
-                args.correlation_magnitude, args.steps, range(args.repeat))
-    
+                args.concentration_var, args.correlation_magnitude, args.steps,
+                range(args.repeat))
+
     # determine the number of jobs
     job_count = 1
     for arg in arg_list:
         job_count *= len(arg)
         
     # build a list with all the jobs
-    job_list = [{'Ns': Ns, 'Nr': Nr, 'm': m, 'scheme': args.mixture_scheme, 
-                 'concentration-mean': conc,
+    job_list = [{'Ns': Ns, 'Nr': Nr,
+                 'mixture-scheme': args.mixture_scheme,
+                 'mixture-size': m,  
+                 'concentration-distribution': args.concentration_distribution,
                  'concentration-scheme': args.concentration_scheme,
-                 'correlation-magnitude': corr,
+                 'concentration-mean': conc_mean,
+                 'concentration-var': conc_var,
                  'correlation-scheme': args.correlation_scheme,
+                 'correlation-magnitude': corr,
                  'MI-method': args.MI_method,
                  'optimization-scheme': args.optimization_scheme,
                  'optimization-info': args.optimization_info,
                  'steps': steps,
                  'quite': args.quite,
                  'job_count': job_count, 'progress': args.progress}
-                 for Ns, Nr, m, conc, corr, steps, _
+                 for Ns, Nr, m, conc_mean, conc_var, corr, steps, _
                     in itertools.product(*arg_list)]
         
     # do the optimization
     if args.parallel and len(job_list) > 1:
         results = mp.Pool().map(optimize_library, job_list)
     else:
-        results = map(optimize_library, job_list)
+        results = list(map(optimize_library, job_list))
         
     # write the pickled result to file
     with open(args.filename, 'wb') as fp:

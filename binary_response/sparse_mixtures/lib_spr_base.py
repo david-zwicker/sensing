@@ -175,13 +175,18 @@ class LibrarySparseBase(LibraryBinaryBase):
         """ set the c_vars vector """
         if variances is None:
             self._c_vars = np.zeros(self.Ns)
+            
         elif self.parameters['c_distribution'] == 'exponential':
             raise RuntimeError('Exponential distributions do not support a '
                                'variance.')
+            
         else:
-            self._c_vars = variances
+            if np.isscalar(variances):
+                self._c_vars = np.full(self.Ns, variances)
+            else:
+                self._c_vars = variances
             # save the values, since they were set explicitly 
-            self.parameters['c_var_vector'] = variances
+            self.parameters['c_var_vector'] = self._c_vars
     
     
     @property
