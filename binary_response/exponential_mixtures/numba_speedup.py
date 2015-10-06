@@ -26,10 +26,11 @@ numba_patcher = NumbaPatcher(module=lib_exp_numeric)
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibraryExponentialNumeric_receptor_activity_numba(Ns, Nr, steps, sens_mat,
-                                                     c_means, alpha, count_a):
+def LibraryExponentialNumeric_receptor_activity_numba(steps, S_ni, c_means,
+                                                      alpha, count_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
+    Nr, Ns = S_ni.shape
         
     # sample mixtures according to the probabilities of finding
     # substrates
@@ -39,7 +40,7 @@ def LibraryExponentialNumeric_receptor_activity_numba(Ns, Nr, steps, sens_mat,
         for i in range(Ns):
             ci = np.random.exponential() * c_means[i]
             for a in range(Nr):
-                alpha[a] += sens_mat[a, i] * ci
+                alpha[a] += S_ni[a, i] * ci
         
         # calculate the activity pattern id
         for a in range(Nr):
@@ -55,7 +56,7 @@ def LibraryExponentialNumeric_receptor_activity(self):
  
     # call the jitted function
     LibraryExponentialNumeric_receptor_activity_numba(
-        self.Ns, self.Nr, self._sample_steps, self.sens_mat,
+        self._sample_steps, self.sens_mat,
         self.concentration_means, #< c_means
         np.empty(self.Nr, np.double), #< alpha
         count_a
@@ -73,10 +74,11 @@ numba_patcher.register_method(
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibraryExponentialNumeric_mutual_information_numba(Ns, Nr, steps, sens_mat,
-                                                      c_means, alpha, prob_a):
+def LibraryExponentialNumeric_mutual_information_numba(steps, S_ni, c_means,
+                                                       alpha, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
+    Nr, Ns = S_ni.shape
         
     # sample mixtures according to the probabilities of finding
     # substrates
@@ -86,7 +88,7 @@ def LibraryExponentialNumeric_mutual_information_numba(Ns, Nr, steps, sens_mat,
         for i in range(Ns):
             ci = np.random.exponential() * c_means[i]
             for a in range(Nr):
-                alpha[a] += sens_mat[a, i] * ci
+                alpha[a] += S_ni[a, i] * ci
         
         # calculate the activity pattern id
         a_id, base = 0, 1
@@ -118,7 +120,7 @@ def LibraryExponentialNumeric_mutual_information(self, ret_prob_activity=False):
  
     # call the jitted function
     MI = LibraryExponentialNumeric_mutual_information_numba(
-        self.Ns, self.Nr, self._sample_steps, 
+        self._sample_steps, 
         self.sens_mat,
         self.concentration_means, #< c_means
         np.empty(self.Nr, np.double), #< alpha

@@ -31,9 +31,11 @@ numba_patcher = NumbaPatcher(module=lib_spr_numeric)
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
-        Ns, Nr, steps, S_ni, p_i, c_means, a_n, ret_correlations, r_n, r_nm):
+        steps, S_ni, p_i, c_means, ret_correlations, r_n, r_nm):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
+    Nr, Ns = S_ni.shape
+    a_n = np.empty(Nr, np.double)
         
     # sample mixtures according to the probabilities of finding ligands
     for _ in range(steps):
@@ -65,10 +67,12 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_receptor_activity_monte_carlo_lognorm_numba(
-        Ns, Nr, steps, S_ni, p_i, mus, sigmas, a_n, ret_correlations, r_n, r_nm):
+        steps, S_ni, p_i, mus, sigmas, ret_correlations, r_n, r_nm):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
-        
+    Nr, Ns = S_ni.shape
+    a_n = np.empty(Nr, np.double)
+
     # sample mixtures according to the probabilities of finding ligands
     for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
@@ -118,10 +122,9 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
     c_distribution = self.parameters['c_distribution']
     if c_distribution == 'exponential':
         LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
-            self.Ns, self.Nr, steps, self.sens_mat,
+            steps, self.sens_mat,
             self.substrate_probabilities, #< p_i
             self.c_means,                 #< c_means
-            np.empty(self.Nr, np.double), #< a_n
             ret_correlations,
             r_n, r_nm
         )
@@ -130,10 +133,9 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
         mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars,
                                                    'numpy')
         LibrarySparseNumeric_receptor_activity_monte_carlo_lognorm_numba(
-            self.Ns, self.Nr, steps, self.sens_mat,
+            steps, self.sens_mat,
             self.substrate_probabilities, #< p_i
             mus, sigmas,                  #< concentration statistics
-            np.empty(self.Nr, np.double), #< a_n
             ret_correlations,
             r_n, r_nm
         )
@@ -180,9 +182,11 @@ def _get_MI(prob_a, steps):
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba(
-                              Ns, Nr, steps, S_ni, p_i, c_means, a_n, prob_a):
+        steps, S_ni, p_i, c_means, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
+    Nr, Ns = S_ni.shape
+    a_n = np.empty(Nr, np.double)
         
     # sample mixtures according to the probabilities of finding
     # substrates
@@ -212,9 +216,11 @@ def LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba(
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_mutual_information_monte_carlo_lognorm_numba(
-                          Ns, Nr, steps, S_ni, p_i, mus, sigmas, a_n, prob_a):
+        steps, S_ni, p_i, mus, sigmas, prob_a):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
+    Nr, Ns = S_ni.shape
+    a_n = np.empty(Nr, np.double)
         
     # sample mixtures according to the probabilities of finding
     # substrates
@@ -261,10 +267,9 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
     c_distribution = self.parameters['c_distribution']
     if c_distribution == 'exponential':
         MI = LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba(
-            self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
+            self.monte_carlo_steps,  self.sens_mat,
             self.substrate_probabilities, #< p_i
-            self.c_means,          #< d_i
-            np.empty(self.Nr, np.double), #< a_n
+            self.c_means,                 #< d_i
             prob_a
         )
         
@@ -272,10 +277,9 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
         mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars,
                                                    'numpy')
         MI = LibrarySparseNumeric_mutual_information_monte_carlo_lognorm_numba(
-            self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
+            self.monte_carlo_steps,  self.sens_mat,
             self.substrate_probabilities, #< p_i
             mus, sigmas,                  #< concentration statistics
-            np.empty(self.Nr, np.double), #< a_n
             prob_a
         )        
         
@@ -301,11 +305,12 @@ numba_patcher.register_method(
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
 def LibrarySparseNumeric_mutual_information_estimate_fast_numba(
-                                            Ns, Nr, pi, c_means, c_vars, S_ni):
+                                                     pi, c_means, c_vars, S_ni):
     """ returns a simple estimate of the mutual information for the special
     case that ret_prob_activity=False, excitation_model='default',
     mutual_information_method='default', and clip=True.
     """
+    Nr, Ns = S_ni.shape
     
     en_mean = np.zeros(Nr, np.double)
     enm_cov = np.zeros((Nr, Nr), np.double)
@@ -368,7 +373,7 @@ def LibrarySparseNumeric_mutual_information_estimate_fast(self):
     mutual_information_method='default', and clip=True.
     """
     return LibrarySparseNumeric_mutual_information_estimate_fast_numba(
-        self.Ns, self.Nr, self.substrate_probabilities, self.c_means,
+        self.substrate_probabilities, self.c_means,
         self.c_vars, self.sens_mat
     )
 
