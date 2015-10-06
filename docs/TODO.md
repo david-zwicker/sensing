@@ -5,6 +5,3 @@
 * distribute saved optimization values logarithmically
 * develop a stopping criterion for the descent optimization algorithm
     1) no improvement after 50% (or any other number) of the matrix entries tested
-* Implement log-normal distribution for sparse mixtures (think about general
-    interface where we can keep the current implementation of exponential
-    concentration distribution)
