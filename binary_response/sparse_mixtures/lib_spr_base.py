@@ -166,7 +166,7 @@ class LibrarySparseBase(LibraryBinaryBase):
     def c_vars(self):
         """ return the c_vars vector """
         if self.parameters['c_distribution'] == 'exponential':
-            return self.c_means
+            return self.c_means**2
         else:
             return self._c_vars
     

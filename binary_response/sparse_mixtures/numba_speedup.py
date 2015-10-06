@@ -30,8 +30,8 @@ numba_patcher = NumbaPatcher(module=lib_spr_numeric)
 
 
 @numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
-        Ns, Nr, steps, S_ni, p_i, d_i, a_n, ret_correlations, r_n, r_nm):
+def LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
+        Ns, Nr, steps, S_ni, p_i, c_means, a_n, ret_correlations, r_n, r_nm):
     """ calculate the mutual information using a monte carlo strategy. The
     number of steps is given by the model parameter 'monte_carlo_steps' """
         
@@ -42,7 +42,41 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
         for i in range(Ns):
             if np.random.random() < p_i[i]:
                 # mixture contains substrate i
-                c_i = np.random.exponential() * d_i[i]
+                c_i = np.random.exponential() * c_means[i]
+                for n in range(Nr):
+                    a_n[n] += S_ni[n, i] * c_i
+        
+        # calculate the activity pattern 
+        for n in range(Nr):
+            if a_n[n] >= 1:
+                r_n[n] += 1
+                
+        if ret_correlations:
+            # calculate the correlations
+            for n in range(Nr):
+                if a_n[n] >= 1:
+                    r_nm[n, n] += 1
+                    for m in range(n):
+                        if a_n[m] >= 1:
+                            r_nm[n, m] += 1
+                            r_nm[m, n] += 1
+                
+    
+
+@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
+def LibrarySparseNumeric_receptor_activity_monte_carlo_lognorm_numba(
+        Ns, Nr, steps, S_ni, p_i, mus, sigmas, a_n, ret_correlations, r_n, r_nm):
+    """ calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' """
+        
+    # sample mixtures according to the probabilities of finding ligands
+    for _ in range(steps):
+        # choose a mixture vector according to substrate probabilities
+        a_n[:] = 0  #< activity pattern of this mixture
+        for i in range(Ns):
+            if np.random.random() < p_i[i]:
+                # mixture contains substrate i
+                c_i = np.random.lognormal(mus[i], sigmas[i])
                 for n in range(Nr):
                     a_n[n] += S_ni[n, i] * c_i
         
@@ -73,12 +107,6 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
         this = LibrarySparseNumeric_receptor_activity_monte_carlo
         return this._python_function(self, ret_correlations)
 
-    if self.parameters['c_distribution'] != 'exponential':
-        logging.warn('Numba code only implemented for exponential mixtures. '
-                     'Falling back to pure-python method.')
-        this = LibrarySparseNumeric_receptor_activity_monte_carlo
-        return this._python_function(self, ret_correlations)
-
     # prevent integer overflow in collecting activity patterns
     assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
@@ -87,14 +115,34 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
     steps = self.monte_carlo_steps
  
     # call the jitted function
-    LibrarySparseNumeric_receptor_activity_monte_carlo_numba(
-        self.Ns, self.Nr, steps, self.sens_mat,
-        self.substrate_probabilities, #< p_i
-        self.c_means,          #< d_i
-        np.empty(self.Nr, np.double), #< a_n
-        ret_correlations,
-        r_n, r_nm
-    )
+    c_distribution = self.parameters['c_distribution']
+    if c_distribution == 'exponential':
+        LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
+            self.Ns, self.Nr, steps, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            self.c_means,                 #< c_means
+            np.empty(self.Nr, np.double), #< a_n
+            ret_correlations,
+            r_n, r_nm
+        )
+    
+    elif c_distribution == 'log-normal':
+        mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars,
+                                                   'numpy')
+        LibrarySparseNumeric_receptor_activity_monte_carlo_lognorm_numba(
+            self.Ns, self.Nr, steps, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            mus, sigmas,                  #< concentration statistics
+            np.empty(self.Nr, np.double), #< a_n
+            ret_correlations,
+            r_n, r_nm
+        )
+        
+    else:
+        logging.warn('Numba code is not implemented for distribution `%s`. '
+                     'Falling back to pure-python method.', c_distribution)
+        this = LibrarySparseNumeric_receptor_activity_monte_carlo
+        return this._python_function(self, ret_correlations)
     
     # return the normalized output
     r_n /= steps
@@ -221,7 +269,8 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
         )
         
     elif c_distribution == 'log-normal':
-        mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars)
+        mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars,
+                                                   'numpy')
         MI = LibrarySparseNumeric_mutual_information_monte_carlo_lognorm_numba(
             self.Ns, self.Nr, self.monte_carlo_steps,  self.sens_mat,
             self.substrate_probabilities, #< p_i
