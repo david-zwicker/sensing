@@ -45,6 +45,12 @@ class LibrarySparseBase(LibraryBinaryBase):
         super(LibrarySparseBase, self).__init__(num_substrates, num_receptors,
                                                 parameters)
 
+        c_dists = self.concentration_distributions
+        if parameters['c_distribution'] not in c_dists:
+            raise ValueError('Concentration distribution `%s` is not in '
+                             'supported distributions: %s.'
+                             % (parameters['c_distribution'], c_dists))
+
         # determine how to initialize the variables
         init_state = self.parameters['initialize_state']
         
