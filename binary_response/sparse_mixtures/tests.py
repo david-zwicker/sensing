@@ -36,6 +36,8 @@ class TestLibrarySparse(TestBase):
         # collect all settings that we want to test
         settings = collections.OrderedDict()
         settings['numba_enabled'] = (True, False)
+        settings['c_distribution'] = \
+                                LibrarySparseBase.concentration_distributions
         
         # create all combinations of all settings
         setting_comb = [dict(zip(settings.keys(), items))

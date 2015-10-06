@@ -18,12 +18,23 @@ def lognorm_mean(mean, sigma):
 
 
 
+def lognorm_mean_var(mean, variance):
+    """ returns a lognormal distribution parameterized by its mean and its
+    variance. """
+    mean2 = mean**2
+    scale = mean2/np.sqrt(mean2 + variance)
+    sigma = np.sqrt(np.log(1 + variance/mean2))
+    return stats.lognorm(scale=scale, s=sigma)
+
+
+
 def loguniform_mean(mean, sigma):
     """ returns a loguniform distribution parameterized by its mean and a spread
     parameter `sigma`. The ratio between the maximal value and the minimal value
     is given by sigma**2 """
     scale =  mean * (2*sigma*np.log(sigma)) / (sigma**2 - 1)
     return LogUniformDistribution(scale=scale, s=sigma)
+
 
 
 def random_log_uniform(v_min, v_max, size):

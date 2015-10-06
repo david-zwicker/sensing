@@ -160,13 +160,13 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
     if self.is_correlated_mixture:
         logging.warn('Numba code not implemented for correlated mixtures. '
                      'Falling back to pure-python method.')
-        this = LibrarySparseNumeric_receptor_activity_monte_carlo
+        this = LibrarySparseNumeric_mutual_information_monte_carlo
         return this._python_function(self, ret_prob_activity)
 
     if self.parameters['c_distribution'] != 'exponential':
         logging.warn('Numba code only implemented for exponential mixtures. '
                      'Falling back to pure-python method.')
-        this = LibrarySparseNumeric_receptor_activity_monte_carlo
+        this = LibrarySparseNumeric_mutual_information_monte_carlo
         return this._python_function(self, ret_prob_activity)
 
     # prevent integer overflow in collecting activity patterns

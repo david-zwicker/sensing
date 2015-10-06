@@ -89,27 +89,34 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
             steps = self._sample_steps
         
         # setup the concentration distribution
-        c_distribution = self.parameters['c_distribution']
-        c_means = self.c_means
-        
-        if c_distribution == 'exponential':
-            def generate_concentrations():
-                return np.random.exponential(size=self.Ns) * c_means
+        if self.parameters['c_distribution'] == 'exponential':
+            # special case of an exponential distribution
+            c_means = self.c_means
+            def generate_concentrations(lig_present):
+                """ helper function generating the necessary concentrations """
+                c = np.random.exponential(size=self.Ns) * c_means
+                # set concentration of ligands that are not present to zero 
+                c[~lig_present] = 0
+                return c
+
         else:
-            raise ValueError('Unknown concentration distribution `%s`'
-                             % c_distribution)
+            # code for a generic distribution
+            dists = [self.get_concentration_distribution(i)
+                     for i in range(self.Ns)]
+            c = np.empty(self.Ns)
+            def generate_concentrations(lig_present):
+                """ helper function generating the necessary concentrations """
+                for i in range(self.Ns):
+                    if lig_present[i]:
+                        c[i] = dists[i].rvs()
+                    else:
+                        c[i] = 0
+                return c
         
         # sample mixtures
         for b in _sample_binary_mixtures(self, steps=steps, dtype=np.bool):
             # boolean b vector is True for the ligands that are present
-            
-            # choose c_means for the ligands
-            c = generate_concentrations()
-            
-            # set concentration of ligands that are not present to zero 
-            c[~b] = 0
-            
-            yield c
+            yield generate_concentrations(b)
 
         
     def concentration_statistics_estimate(self):

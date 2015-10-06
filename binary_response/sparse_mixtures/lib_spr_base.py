@@ -12,6 +12,7 @@ import numpy as np
 from scipy import stats
 
 from ..binary_mixtures.lib_bin_base import LibraryBinaryBase
+from utils.math_distributions import lognorm_mean_var
 
 
 
@@ -23,12 +24,17 @@ class LibrarySparseBase(LibraryBinaryBase):
     averages, where each time new commonness vectors are chosen randomly
     according to the parameters of the last call to `set_commonness`.  
     """
+    
+    # supported concentration distributions 
+    concentration_distributions = ['exponential', 'log-normal']
+    
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
         'c_distribution': 'exponential', 
         'c_mean_vector': None,     #< chosen substrate c_means
         'c_mean_parameters': None, #< parameters for substrate concentration
+        'c_var_vector': None,
     }
 
 
@@ -43,8 +49,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         init_state = self.parameters['initialize_state']
         
         # determine how to initialize the c_means
-        init_c_mean = init_state.get('c_mean',
-                                             init_state['default'])
+        init_c_mean = init_state.get('c_mean', init_state['default'])
         if init_c_mean  == 'auto':
             if self.parameters['c_mean_parameters'] is None:
                 init_c_mean = 'exact'
@@ -72,13 +77,24 @@ class LibrarySparseBase(LibraryBinaryBase):
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 
                              init_c_mean)
+            
+        # set the concentration variances
+        self.c_vars = self.parameters['c_var_vector']
 
 
     @property
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseBase, self).repr_params
-        params.append('<mu>=%g' % self.c_means.mean())
+        c_distribution = self.parameters['c_distribution']
+        if c_distribution == 'exponential':
+            params.append('c=expon(<mu>=%g)' % self.c_means.mean())
+        elif c_distribution == 'log-normal':
+            params.append('c=lognorm(<mu>=%g, <sigma>=%g)'
+                          % (self.c_means.mean(), self.c_vars.mean()))
+        else:
+            raise ValueError('Unknown concentration distribution `%s`.'
+                             % c_distribution)
         return params
 
 
@@ -87,12 +103,31 @@ class LibrarySparseBase(LibraryBinaryBase):
         """ create random args for creating test instances """
         args = super(LibrarySparseBase, cls).get_random_arguments(**kwargs)
         
-        if kwargs.get('homogeneous_mixture', False):
-            ds = np.full(args['num_substrates'], np.random.random() + 0.5)
+        # choose concentration distribution
+        if 'c_distribution' in kwargs:
+            c_distribution = kwargs['c_distribution']
         else:
-            ds = np.random.random(args['num_substrates']) + 0.5
+            c_distribution = np.random.choice(['exponential', 'log-normal'])
+
+        # choose concentration mean
+        if kwargs.get('homogeneous_mixture', False):
+            c_means = np.full(args['num_substrates'], np.random.random() + 0.5)
+        else:
+            c_means = np.random.random(args['num_substrates']) + 0.5
             
-        args['parameters'] = {'c_mean_vector': ds}
+        # choose concentration variance
+        if c_distribution == 'log-normal':
+            if kwargs.get('homogeneous_mixture', False):
+                c_vars = np.full(args['num_substrates'],
+                                 np.random.random() + 0.5)
+            else:
+                c_vars = np.random.random(args['num_substrates']) + 0.5
+        else:
+            c_vars = None
+            
+        args['parameters'] = {'c_distribution': c_distribution,
+                              'c_mean_vector': c_means,
+                              'c_var_vector': c_vars}
         return args
     
     
@@ -124,12 +159,23 @@ class LibrarySparseBase(LibraryBinaryBase):
     @property
     def c_vars(self):
         """ return the c_vars vector """
-        c_distribution = self.parameters['c_distribution']
-        if c_distribution == 'exponential':
+        if self.parameters['c_distribution'] == 'exponential':
             return self.c_means
         else:
-            raise ValueError('Unknown concentration distribution `%s`'
-                             % c_distribution)
+            return self._c_vars
+    
+    @c_vars.setter
+    def c_vars(self, variances):
+        """ set the c_vars vector """
+        if variances is None:
+            self._c_vars = np.zeros(self.Ns)
+        elif self.parameters['c_distribution'] == 'exponential':
+            raise RuntimeError('Exponential distributions do not support a '
+                               'variance.')
+        else:
+            self._c_vars = variances
+            # save the values, since they were set explicitly 
+            self.parameters['c_var_vector'] = variances
     
     
     @property
@@ -144,6 +190,8 @@ class LibrarySparseBase(LibraryBinaryBase):
         c_distribution = self.parameters['c_distribution']
         if c_distribution == 'exponential':
             return stats.expon(scale=self.c_means[i])
+        elif c_distribution == 'log-normal':
+            return lognorm_mean_var(self.c_means[i], self.c_vars[i])
         else:
             raise ValueError('Unknown concentration distribution `%s`'
                              % c_distribution)
