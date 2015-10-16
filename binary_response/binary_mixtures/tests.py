@@ -191,7 +191,7 @@ class TestLibraryBinary(TestBase):
             fixed_mixture = model.parameters['fixed_mixture_size'] is not None
             if model.is_correlated_mixture:
                 self.assertRaises(NotImplementedError,
-                                  model.receptor_activity_estimate)
+                                  model.receptor_crosstalk_estimate)
                 
             elif fixed_mixture and numba_patcher.enabled:
                 self.assertRaises(NotImplementedError,
