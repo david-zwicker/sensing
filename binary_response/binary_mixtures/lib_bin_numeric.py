@@ -438,14 +438,20 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
     
     
     def receptor_crosstalk_estimate(self, ret_receptor_activity=False,
-                                    approx_prob=False, clip=False):
+                                    approx_prob=False, clip=False,
+                                    ignore_correlations=False):
         """ estimates the average activity of the receptor as a response to 
         single ligands. 
+        `ret_receptor_activity` determines whether the mean receptor activity
+            will also be returned.
         `approx_prob` determines whether the probabilities of encountering
             ligands in mixtures are calculated exactly or only approximative,
             which should work for small probabilities.
+        `clip` determines whether the estimates will be forced to be in [0, 1].
+        `ignore_correlations` determines whether correlations in the mixtures
+            will be ignored or not.
         """
-        if self.is_correlated_mixture:
+        if not ignore_correlations and self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         S_ni = self.sens_mat
@@ -527,16 +533,18 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
  
     def receptor_activity_estimate(self, ret_correlations=False,
                                    approx_prob=False, clip=False):
-        """ estimates the average activity of each receptor. 
+        """ estimates the average activity of each receptor.
+        `ret_correlations` determines whether the correlations between receptors
+            are returned in addition to the mean activations.
         `approx_prob` determines whether the probabilities of encountering
             substrates in mixtures are calculated exactly or only approximative,
-            which should work for small probabilities. """
-        if self.is_correlated_mixture:
-            raise NotImplementedError('Not implemented for correlated mixtures')
- 
+            which should work for small probabilities.
+        `clip` determines whether the estimates will be forced to be in [0, 1].
+        """
         S_ni = self.sens_mat
         p_i = self.substrate_probabilities
-         
+
+        # calculate receptor activity assuming uncorrelated mixtures         
         if approx_prob:
             # approximate calculation for small p_i
             r_n = np.dot(S_ni, p_i)
@@ -550,15 +558,37 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
             for n in range(self.Nr):
                 r_n[n] = 1 - np.product(1 - p_i[S_ni_mask[n, :]])
          
+        if self.is_correlated_mixture:
+            # add one correction term for correlated mixtures
+            J_ij = self.correlations
+            p_ni = p_i[None, :] * (1 - S_ni)
+            
+            corr1 = 1 - np.einsum('ni,ij,nj->n', p_ni, J_ij, p_ni)
+            corr2 = 1 - np.einsum('i,ij,j->', p_i, J_ij, p_i)
+            r_n = 1 - (1 - r_n) * (1 - corr1 + corr2)
+            if clip:
+                np.clip(r_n, 0, 1, r_n)
+         
         if ret_correlations:
             # estimate the correlations from the estimated crosstalk
-            q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob)
+            q_nm = self.receptor_crosstalk_estimate(approx_prob=approx_prob,
+                                                    ignore_correlations=True)
              
             if approx_prob:
                 r_nm = np.outer(r_n, r_n) + q_nm
             else:
                 r_nm = 1 - (1 - q_nm)*(1 - np.outer(r_n, r_n))
                  
+            if self.is_correlated_mixture:
+                # add one correction term for correlated mixtures
+                J_ij = self.correlations
+                p_nmi = np.einsum('i,ni,mi->nmi', p_i, 1 - S_ni, 1 - S_ni)
+                
+                corr1 = 1 - np.einsum('nmi,ij,nmj->nm', p_nmi, J_ij, p_nmi)
+                # corr2 = 1 - np.einsum('i,ij,j->', p_i, J_ij, p_i)
+                # this term has already been calculated above and can be reused
+                r_nm = 1 - (1 - r_nm) * (1 - corr1 + corr2)
+         
             if clip:
                 np.clip(r_nm, 0, 1, r_nm)
  
@@ -571,9 +601,9 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
     def mutual_information(self, excitation_method='auto', **kwargs):
         """ calculate the mutual information.
         
-        `excitation_method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto']
-            If it is 'auto' than the excitation_method is chosen automatically based on the
-            problem size.
+        `excitation_method` can be ['brute_force', 'monte_carlo', 'estimate', 
+            'auto'] If it is 'auto' than the excitation_method is chosen
+            automatically based on the problem size.
         `ret_prob_activity` determines whether the probabilities of the
             different outputs are returned or not
         """
