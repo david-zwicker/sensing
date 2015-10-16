@@ -150,7 +150,7 @@ def main():
                         help='method for estimating the mutual information')
     parser.add_argument('--optimization-scheme', type=str,
                         default='cma',
-                        choices=['cma', 'Nelder-Mead', 'BFGS'],
+                        choices=['cma', 'cma-parallel', 'Nelder-Mead', 'BFGS'],
                         help='optimization scheme to use')
     parser.add_argument('--optimization-info', action='store_true',
                         default=False,
@@ -197,7 +197,7 @@ def main():
                  'job_count': job_count, 'progress': args.progress}
                  for Ns, Nr, m, conc_mean, conc_var, corr, steps, _
                     in itertools.product(*arg_list)]
-        
+
     # do the optimization
     if args.parallel and len(job_list) > 1:
         results = mp.Pool().map(optimize_library, job_list)

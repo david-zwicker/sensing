@@ -158,7 +158,7 @@ class LibraryExponentialBase(LibraryBase):
         
         if scheme == 'const':
             # all substrates are equally likely
-            p_i = np.full(self.Ns, mean_concentration)
+            p_i = np.full(self.Ns, mean_concentration, np.double)
                 
         elif scheme == 'random_uniform':
             # draw the mean probabilities from a uniform distribution

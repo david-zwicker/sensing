@@ -438,7 +438,7 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
 
     if distribution == 'const':
         # simple constant matrix
-        sens_mat = np.full(shape, mean_sensitivity)
+        sens_mat = np.full(shape, mean_sensitivity, np.double)
 
     elif distribution == 'binary':
         # choose a binary matrix with a typical scale
@@ -465,7 +465,7 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
             
         elif density >= 1:
             # simple case of full matrix
-            sens_mat = np.full(shape, mean_sensitivity)
+            sens_mat = np.full(shape, mean_sensitivity, np.double)
             
         else:
             # choose receptor substrate interaction randomly and don't worry
@@ -501,13 +501,13 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
 
         if width == 0 and correlation == 0:
             # edge case without randomness
-            sens_mat = np.full(shape, mean_sensitivity)
+            sens_mat = np.full(shape, mean_sensitivity, np.double)
 
         elif correlation != 0:
             # correlated receptors
             mu = np.log(mean_sensitivity) - 0.5 * width**2
-            mean = np.full(Nr, mu)
-            cov = np.full((Nr, Nr), correlation * width**2)
+            mean = np.full(Nr, mu, np.double)
+            cov = np.full((Nr, Nr), correlation * width**2, np.double)
             np.fill_diagonal(cov, width**2)
             vals = np.random.multivariate_normal(mean, cov, size=Ns).T
             sens_mat = np.exp(vals)
@@ -523,7 +523,7 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
         sens_mat_params['width'] = width
 
         if width == 0:
-            sens_mat = np.full(shape, mean_sensitivity)
+            sens_mat = np.full(shape, mean_sensitivity, np.double)
         else:
             dist = loguniform_mean(mean_sensitivity, np.exp(width))
             sens_mat = dist.rvs(shape)
@@ -544,8 +544,8 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
             
         elif correlation != 0:
             # correlated receptors
-            mean = np.full(Nr, mean_sensitivity)
-            cov = np.full((Nr, Nr), correlation * width**2)
+            mean = np.full(Nr, mean_sensitivity, np.double)
+            cov = np.full((Nr, Nr), correlation * width**2, np.double)
             np.fill_diagonal(cov, width**2)
             if not is_pos_semidef(cov):
                 raise ValueError('The specified correlation leads to a '
@@ -588,10 +588,9 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
         return sens_mat
     
 
-
-def optimize_continuous_library(model, target, direction='max', steps=100,
-                                method='cma', ret_info=False, args=None,
-                                verbose=False):
+def _optimize_continuous_library_single(model, target, direction='max',
+                                        steps=100, method='cma', ret_info=False,
+                                        args=None, verbose=False):
     """ optimizes the current library to maximize the result of the target
     function using gradient descent. By default, the function returns the
     best value and the associated sensitivity matrix as result.        
@@ -655,7 +654,7 @@ def optimize_continuous_library(model, target, direction='max', steps=100,
         if ret_info: 
             info['states_considered'] = res[3]
             info['iterations'] = res[4]
-        
+
     else:
         # use the standard scipy function
         res = optimize.minimize(cost_function, model.sens_mat.flat,
@@ -676,5 +675,108 @@ def optimize_continuous_library(model, target, direction='max', steps=100,
         info['performance'] = info['states_considered'] / info['total_time']
         return value_best, state_best, info
     else:
+        return value_best, state_best   
+
+
+
+def _optimize_continuous_library_parallel(model, target, direction='max',
+                                          steps=100, method='cma-parallel',
+                                          ret_info=False, args=None,
+                                          verbose=False):
+    """ optimizes the current library to maximize the result of the target
+    function using gradient descent. By default, the function returns the
+    best value and the associated sensitivity matrix as result.        
+    """
+    if ret_info:
+        # store extra information
+        start_time = time.time()
+        info = {'values': []}
+    
+    if method == 'cma-parallel':
+        # use playdoh framework to do CMA-ES
+        try:
+            import playdoh  # @UnresolvedImport
+        except ImportError:
+            raise ImportError('The module `playdoh` is not available. Please '
+                              'install it using `pip install playdoh` or '
+                              'choose a different optimization method.')
+            
+        # determine parameters
+        dim = model.Ns * model.Nr
+        popsize = 4 + int(3*np.log(dim)) #< default CMA-ES scaling
+
+        class TargetClass(playdoh.Fitness):
+            """ class that is used for optimization """
+            
+            def initialize(self, model_class, init_arguments):
+                """ initialize the model in the class """
+                self.model = model_class(**init_arguments)
+                # prepare the target function
+                target_function = getattr(self.model, target)
+                if args is None:
+                    self.target_function = target_function
+                else:
+                    self.target_function = functools.partial(target_function,
+                                                             **args)
+        
+            def evaluate(self, sens_mat_flat):
+                """ evaluate the fitness of a given class """
+                result = np.empty(sens_mat_flat.shape[1])
+                for i in range(sens_mat_flat.shape[1]):
+                    self.model.sens_mat.flat = sens_mat_flat[:, i]
+                    result[i] = self.target_function()
+                return result
+
+        # find the right function to use for optimization
+        if direction == 'min':
+            optimize = playdoh.minimize
+        elif direction == 'max':
+            optimize = playdoh.maximize
+        else:
+            raise ValueError('Unknown optimization direction `%s`' % direction)
+
+        Sopt = 1 / model.concentration_means.sum()
+        initrange = np.tile(np.array([0, 3 * Sopt], np.double), (dim, 1))
+            
+        # do the optimization
+        results = optimize(TargetClass,
+                           popsize=popsize,     # size of the population
+                           maxiter=steps,       # maximum number of iterations
+                           cpu=playdoh.MAXCPU,  # number of CPUs to use on the local machine
+                           algorithm=playdoh.CMAES,
+                           args=(model.__class__, model.init_arguments),
+                           initrange=initrange)
+                    
+        value_best = results.best_fit
+        state_best = results.best_pos.reshape((model.Nr, model.Ns))
+                                              
+    else:
+        raise ValueError('Unknown optimization method `%s`' % method)
+        
+    if direction == 'max':
+        value_best *= -1
+    
+    model.sens_mat = state_best.copy()
+
+    if ret_info:
+        info['total_time'] = time.time() - start_time    
+        info['performance'] = info['states_considered'] / info['total_time']
+        return value_best, state_best, info
+    else:
         return value_best, state_best
+    
+    
+
+def optimize_continuous_library(*args, **kwargs):
+    """ optimizes the current library to maximize the result of the target
+    function using gradient descent. By default, the function returns the
+    best value and the associated sensitivity matrix as result.        
+    """
+    method = kwargs.get('method', 'cma')
+    if 'parallel' in method:
+        return _optimize_continuous_library_parallel(*args, **kwargs)
+    else:
+        return _optimize_continuous_library_single(*args, **kwargs)
+    
+    
     

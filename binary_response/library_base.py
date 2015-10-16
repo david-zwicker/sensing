@@ -385,7 +385,6 @@ class LibraryBase(object):
         q_nm_var = r_nm_var + 4*r_n**2*r_n_var + 2*r_n_var**2
         return self._estimate_MI_from_q_stats(r_n, q_nm, r_n_var, q_nm_var,
                                               method=method)
-      
     
 
 

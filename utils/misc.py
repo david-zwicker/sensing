@@ -238,5 +238,5 @@ class CachedArray(object):
             elif self.value == 0:
                 self._data = np.zeros(shape)
             else: 
-                self._data = np.full(shape, self.value)
+                self._data = np.full(shape, self.value, np.double)
         return self._data

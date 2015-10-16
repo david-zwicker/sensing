@@ -126,7 +126,7 @@ class LibraryBinaryBase(LibraryBase):
         Ns = args['num_substrates']
         
         if homogeneous_mixture:
-            hs = np.full(Ns, np.random.random())
+            hs = np.full(Ns, np.random.random(), np.double)
         else:
             hs = np.random.random(Ns)
             
@@ -153,7 +153,7 @@ class LibraryBinaryBase(LibraryBase):
         if hs is None:
             # initialize with default values, but don't save the parameters
             self._hs = np.zeros(self.Ns)
-            self._ps = np.full(self.Ns, 0.5)
+            self._ps = np.full(self.Ns, 0.5, np.double)
             
         else:
             if len(hs) != self.Ns:
@@ -298,7 +298,7 @@ class LibraryBinaryBase(LibraryBase):
         
         if scheme == 'const':
             # all substrates are equally likely
-            ps = np.full(self.Ns, mean_mixture_size/self.Ns)
+            ps = np.full(self.Ns, mean_mixture_size/self.Ns, np.double)
         
         elif scheme == 'single':
             # the first substrate has a different commonness than the others
@@ -422,7 +422,7 @@ class LibraryBinaryBase(LibraryBase):
 
         if scheme == 'const':
             # all correlations are equal
-            Jij = np.full(shape, magnitude)
+            Jij = np.full(shape, magnitude, np.double)
             
         elif scheme == 'blocks_uniform':
             # choose block diagonal form with uniform block sizes

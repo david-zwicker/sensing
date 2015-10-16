@@ -210,7 +210,7 @@ class LibraryGaussianBase(LibraryBase):
         
         if scheme == 'const':
             # all substrates are equally likely
-            p_i = np.full(self.Ns, mean_concentration)
+            p_i = np.full(self.Ns, mean_concentration, np.double)
                 
         elif scheme == 'random_uniform':
             # draw the mean probabilities from a uniform distribution
@@ -295,7 +295,7 @@ class LibraryGaussianBase(LibraryBase):
                                  'than 1/(1 - Ns) and smaller than 1.')
             
             # create matrix with 1 on diagonal and `correlation` otherwise
-            p_ij = (np.full(shape, correlation)
+            p_ij = (np.full(shape, correlation, np.double)
                     + (1 - correlation) * np.eye(self.Ns))
             
         elif scheme == 'random_factors':

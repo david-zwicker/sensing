@@ -182,7 +182,7 @@ class LibrarySparseBase(LibraryBinaryBase):
             
         else:
             if np.isscalar(variances):
-                self._c_vars = np.full(self.Ns, variances)
+                self._c_vars = np.full(self.Ns, variances, np.double)
             else:
                 self._c_vars = variances
             # save the values, since they were set explicitly 
@@ -238,7 +238,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         
         if scheme == 'const':
             # all substrates are equally likely
-            c_means = np.full(self.Ns, mean_concentration)
+            c_means = np.full(self.Ns, mean_concentration, np.double)
                 
         elif scheme == 'random_uniform':
             # draw the mean probabilities from a uniform distribution
