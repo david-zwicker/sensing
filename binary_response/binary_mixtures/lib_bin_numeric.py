@@ -559,13 +559,16 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
                 r_n[n] = 1 - np.product(1 - p_i[S_ni_mask[n, :]])
          
         if self.is_correlated_mixture:
-            # add one correction term for correlated mixtures
+            # add linear correction term for correlated mixtures
             J_ij = self.correlations
             p_ni = p_i[None, :] * (1 - S_ni)
             
-            corr1 = 1 - np.einsum('ni,ij,nj->n', p_ni, J_ij, p_ni)
-            corr2 = 1 - np.einsum('i,ij,j->', p_i, J_ij, p_i)
-            r_n = 1 - (1 - r_n) * (1 - corr1 + corr2)
+            corr1 = 1 + np.einsum('ij,ni,nj->n', J_ij, p_ni, p_ni)
+            corr2 = 1 + np.einsum('ij,i,j->', J_ij, p_i, p_i)
+            
+            barr_n_0 = 1 - r_n #< we might need this later
+            barr_n = barr_n_0 * (1 + corr1 - corr2)
+            r_n = 1 - barr_n
             if clip:
                 np.clip(r_n, 0, 1, r_n)
          
@@ -584,10 +587,18 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
                 J_ij = self.correlations
                 p_nmi = np.einsum('i,ni,mi->nmi', p_i, 1 - S_ni, 1 - S_ni)
                 
-                corr1 = 1 - np.einsum('nmi,ij,nmj->nm', p_nmi, J_ij, p_nmi)
-                # corr2 = 1 - np.einsum('i,ij,j->', p_i, J_ij, p_i)
+                corr1 = 1 + np.einsum('ij,nmi,nmj->nm', J_ij, p_nmi, p_nmi)
+                # corr2 = 1 + np.einsum('ij,i,j->', J_ij, p_i, p_i)
                 # this term has already been calculated above and can be reused
-                r_nm = 1 - (1 - r_nm) * (1 - corr1 + corr2)
+
+                # convert r_nm_0 (here given as r_nm) into barr_nm_0
+                barr_nm_0 = 1 - barr_n_0[:, None] - barr_n_0[None, :] + r_nm
+                
+                # correct barr_nm for the correlations J_ij
+                barr_nm = barr_nm_0 * (1 + corr1 - corr2)
+
+                # convert barr_nm into r_nm
+                r_nm = 1 - barr_n[:, None] - barr_n[None, :] + barr_nm
          
             if clip:
                 np.clip(r_nm, 0, 1, r_nm)
