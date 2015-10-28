@@ -215,8 +215,10 @@ class LibraryBinaryBase(LibraryBase):
                                  'substrates.')
             self._Jij = np.asarray(Jij)
             
-            # symmetrize the matrix
-            self._Jij = np.tril(Jij) + np.tril(Jij, -1).T
+            # symmetrize the matrix by only using the lower triangle
+            lower_triangle = np.tril(Jij, -1)
+            self._Jij = lower_triangle + lower_triangle.T
+            # the diagonal will also be zero now
         
             # save the values, since they were set explicitly 
             self.parameters['correlation_matrix'] = self._Jij
@@ -397,8 +399,7 @@ class LibraryBinaryBase(LibraryBase):
         self.parameters['commonness_parameters'] = c_params  
 
 
-    def choose_correlations(self, scheme, magnitude, diagonal_zero=True,
-                            **kwargs):
+    def choose_correlations(self, scheme, magnitude, **kwargs):
         """ picks a correlation matrix according to the supplied parameters:
         `magnitude` determines the magnitude of the correlations, which are
         drawn from the random distribution indicated by `scheme`: 
@@ -417,8 +418,7 @@ class LibraryBinaryBase(LibraryBase):
         """
         shape = (self.Ns, self.Ns)
 
-        corr_params = {'scheme': scheme, 'magnitude': magnitude,
-                       'diagonal_zero': diagonal_zero}
+        corr_params = {'scheme': scheme, 'magnitude': magnitude}
 
         if scheme == 'const':
             # all correlations are equal
@@ -457,12 +457,8 @@ class LibraryBinaryBase(LibraryBase):
         else:
             raise ValueError('Unknown commonness scheme `%s`' % scheme)
 
-        # set the diagonals to zero if requested
-        if diagonal_zero:
-            np.fill_diagonal(Jij, 0)
-        
-        # set the probability which also calculates the commonness and saves
-        # the values in the parameters dictionary
+        # set the correlations, which will only use the lower triangle of Jij
+        # and thus symmetrize the matrix and make sure that the diagonal is zero
         self.correlations = Jij
         
         # we additionally store the parameters that were used for this function

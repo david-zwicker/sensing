@@ -189,11 +189,7 @@ class TestLibraryBinary(TestBase):
             
             # check for known exception where the method are not implemented 
             fixed_mixture = model.parameters['fixed_mixture_size'] is not None
-            if model.is_correlated_mixture:
-                self.assertRaises(NotImplementedError,
-                                  model.receptor_crosstalk_estimate)
-                
-            elif fixed_mixture and numba_patcher.enabled:
+            if fixed_mixture and numba_patcher.enabled:
                 self.assertRaises(NotImplementedError,
                                   model.receptor_activity_brute_force)
             

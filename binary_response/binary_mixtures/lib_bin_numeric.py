@@ -288,27 +288,33 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
         return _sample_binary_mixtures(self, steps, dtype)
                         
             
-    def mixture_statistics(self):
+    def mixture_statistics(self, method='auto'):
         """ calculates statistics of mixtures. Returns a vector with the 
         frequencies at which substrates are present in mixtures and a matrix
         of correlations among substrates """
-        
-        fixed_mixture_size = self.parameters['fixed_mixture_size']
-        
-        if self.is_correlated_mixture or fixed_mixture_size is not None:
-            # mixture has correlations => we do Metropolis sampling
-            if self.Ns <= self.parameters['brute_force_threshold_Ns']:
-                return self.mixture_statistics_brute_force()
+
+        if method == 'auto':
+            fixed_mixture_size = self.parameters['fixed_mixture_size']
+            
+            if self.is_correlated_mixture or fixed_mixture_size is not None:
+                # mixture has correlations => we do Metropolis sampling
+                if self.Ns <= self.parameters['brute_force_threshold_Ns']:
+                    method = 'brute-force'
+                else:
+                    method = 'monte-carlo'
             else:
-                return self.mixture_statistics_monte_carlo()
-                
+                # the estimate is exact for mixtures without correlations
+                method = 'estimate'
+
+        if method == 'brute-force'  or method == 'brute_force':
+            return self.mixture_statistics_brute_force()
+        elif method == 'monte-carlo'  or method == 'monte_carlo':
+            return self.mixture_statistics_monte_carlo()
+        elif method == 'estimate':
+            return self.mixture_statistics_estimate()
         else:
-            # mixture does not have correlations => we can calculated the
-            # statistics directly
-            ci_mean = self.substrate_probabilities
-            ci_var = ci_mean - ci_mean**2
-            return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
-                    'cov': np.diag(ci_var)}
+            raise ValueError('Unknown method `%s` for mixture statistics'
+                             % method)
     
     
     def mixture_statistics_brute_force(self):
@@ -338,6 +344,31 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
         """ calculates mixture statistics using a metropolis algorithm """
         return self.concentration_statistics_monte_carlo()
     
+    
+    def mixture_statistics_estimate(self):
+        """ estimates the mixture statistics """
+        ci_mean = self.substrate_probabilities
+        
+        if self.is_correlated_mixture:
+            J_ij = self.correlations
+            pi_s = ci_mean
+            bar_pi_s = 1 - pi_s
+            
+            ci_mean = pi_s * (1 + 2*bar_pi_s*np.dot(J_ij, pi_s))
+            ci_var = ci_mean * (1 - ci_mean)
+            cij_cov = (
+                np.diag(ci_var)
+                + 2*np.einsum('ij,i,j->ij', J_ij, ci_var, ci_var)
+            )
+
+        else:
+            # uncorrelated mixtures
+            ci_var = ci_mean * (1 - ci_mean)
+            cij_cov = np.diag(ci_var)
+
+        return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
+                'cov': cij_cov}
+         
     
     def mixture_entropy(self):
         """ return the entropy in the mixture distribution """
@@ -452,6 +483,16 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
             will be ignored or not.
         """
         if not ignore_correlations and self.is_correlated_mixture:
+            r_n, r_nm = self.receptor_activity_estimate(ret_correlations=True,
+                                                        approx_prob=approx_prob,
+                                                        clip=clip)
+            q_nm = r_nm - np.outer(r_n, r_n)
+            if clip:
+                np.clip(q_nm, 0, 1, q_nm)
+            if ret_receptor_activity:
+                return r_n, q_nm
+            else:
+                return q_nm
             raise NotImplementedError('Not implemented for correlated mixtures')
 
         S_ni = self.sens_mat
@@ -566,7 +607,7 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
             corr1 = 1 + np.einsum('ij,ni,nj->n', J_ij, p_ni, p_ni)
             corr2 = 1 + np.einsum('ij,i,j->', J_ij, p_i, p_i)
             
-            barr_n_0 = 1 - r_n #< we might need this later
+            barr_n_0 = 1 - r_n
             barr_n = barr_n_0 * (1 + corr1 - corr2)
             r_n = 1 - barr_n
             if clip:
@@ -584,7 +625,6 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
                  
             if self.is_correlated_mixture:
                 # add one correction term for correlated mixtures
-                J_ij = self.correlations
                 p_nmi = np.einsum('i,ni,mi->nmi', p_i, 1 - S_ni, 1 - S_ni)
                 
                 corr1 = 1 + np.einsum('ij,nmi,nmj->nm', J_ij, p_nmi, p_nmi)
