@@ -7,6 +7,7 @@ Created on Apr 1, 2015
 from __future__ import division
 
 import logging
+import warnings
 
 import numpy as np
 from scipy import linalg
@@ -417,6 +418,11 @@ class LibraryBinaryBase(LibraryBase):
                 set by the parameter `density`
         """
         shape = (self.Ns, self.Ns)
+        
+        if 'diagonal_zero' in kwargs:
+            warnings.warn("diagonal_zero is deprecated since it is now implied "
+                          "by default.", DeprecationWarning)
+            kwargs.pop('diagonal_zero')
 
         corr_params = {'scheme': scheme, 'magnitude': magnitude}
 
