@@ -159,8 +159,11 @@ def main():
                         help='steps in simulated annealing')
     parser.add_argument('-r', '--repeat', type=int, default=1,
                         help='number of repeats for each parameter set')
-    parser.add_argument('-p', '--parallel', action='store_true',
-                        default=False, help='use multiple processes')
+    cpus = mp.cpu_count()
+    parser.add_argument('-p', '--parallel', action='store', nargs='?',
+                        default=1, const=cpus, type=int,
+                        help='use multiple processes. %d processes are used if '
+                             'only -p is given, without the number.' % cpus)
     parser.add_argument('-q', '--quite', action='store_true',
                         default=False, help='silence the output')
     parser.add_argument('--progress', action='store_true',
@@ -199,8 +202,8 @@ def main():
                     in itertools.product(*arg_list)]
 
     # do the optimization
-    if args.parallel and len(job_list) > 1:
-        results = mp.Pool().map(optimize_library, job_list)
+    if args.parallel > 1 and len(job_list) > 1:
+        results = mp.Pool(args.parallel).map(optimize_library, job_list)
     else:
         results = list(map(optimize_library, job_list))
         

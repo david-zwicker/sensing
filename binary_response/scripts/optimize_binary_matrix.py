@@ -29,7 +29,7 @@ jobs_started = mp.Value('I', 0)
 
 
 
-def optimize_receptors(parameters):
+def optimize_library(parameters):
     """ optimize receptors of the system described by `parameters` """
     global jobs_started
     
@@ -113,8 +113,11 @@ def main():
     parser.add_argument('--optimization-info', action='store_true',
                         default=False,
                         help='store extra information about the optimization')
-    parser.add_argument('-p', '--parallel', action='store_true',
-                        default=False, help='use multiple processes')
+    cpus = mp.cpu_count()
+    parser.add_argument('-p', '--parallel', action='store', nargs='?',
+                        default=1, const=cpus, type=int,
+                        help='use multiple processes. %d processes are used if '
+                             'only -p is given, without the number.' % cpus)
     parser.add_argument('-q', '--quite', action='store_true',
                         default=False, help='silence the output')
     parser.add_argument('--progress', action='store_true',
@@ -144,10 +147,10 @@ def main():
                  for Ns, Nr, m, corr, steps, _  in itertools.product(*arg_list)]
         
     # do the optimization
-    if args.parallel and len(job_list) > 1:
-        results = mp.Pool().map(optimize_receptors, job_list)
+    if args.parallel > 1 and len(job_list) > 1:
+        results = mp.Pool(args.parallel).map(optimize_library, job_list)
     else:
-        results = map(optimize_receptors, job_list)
+        results = map(optimize_library, job_list)
         
     # write the pickled result to file
     with open(args.filename, 'wb') as fp:
