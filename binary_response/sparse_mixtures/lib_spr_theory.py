@@ -271,6 +271,12 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             
             
     @property
+    def variance(self):
+        """ return the variance of the distribution """
+        return self.mean_sensitivity**2 * (np.exp(self.width**2) - 1)
+            
+
+    @property
     def standard_deviation(self):
         """ return the standard deviation of the distribution """
         return self.mean_sensitivity * np.sqrt((np.exp(self.width**2) - 1))

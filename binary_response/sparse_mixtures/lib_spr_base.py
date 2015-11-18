@@ -180,6 +180,10 @@ class LibrarySparseBase(LibraryBinaryBase):
             raise RuntimeError('Exponential distributions do not support a '
                                'variance.')
             
+        elif self.parameters['c_distribution'] == 'bernoulli':
+            raise RuntimeError('Bernoulli distributions do not support a '
+                               'variance.')
+            
         else:
             if np.isscalar(variances):
                 self._c_vars = np.full(self.Ns, variances, np.double)

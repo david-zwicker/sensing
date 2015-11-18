@@ -28,7 +28,7 @@ NUMBA_NOGIL = True
 numba_patcher = NumbaPatcher(module=lib_spr_numeric)
 
 
-
+                
 receptor_activity_monte_carlo_numba_template = """ 
 def function(steps, S_ni, p_i, c_means, c_spread, ret_correlations, r_n, r_nm):
     ''' calculate the mutual information using a monte carlo strategy. The
@@ -67,10 +67,10 @@ def function(steps, S_ni, p_i, c_means, c_spread, ret_correlations, r_n, r_nm):
 def LibrarySparseNumeric_receptor_activity_monte_carlo_numba_generator(conc_gen):
     """ generates a function that calculates the receptor activity for a given
     concentration generator """
-    template_expon = receptor_activity_monte_carlo_numba_template.format(
+    func_code = receptor_activity_monte_carlo_numba_template.format(
         CONCENTRATION_GENERATOR=conc_gen)
     scope = {'np': np} #< make sure numpy is in the scope
-    exec(template_expon, scope)
+    exec(func_code, scope)
     func = scope['function']
     return numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)(func)
 
@@ -95,7 +95,8 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
                                                self, ret_correlations=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
-    if self.is_correlated_mixture:
+    fixed_mixture_size = self.parameters['fixed_mixture_size']
+    if self.is_correlated_mixture or fixed_mixture_size is not None:
         logging.warn('Numba code not implemented for correlated mixtures. '
                      'Falling back to pure-python method.')
         this = LibrarySparseNumeric_receptor_activity_monte_carlo
@@ -208,10 +209,10 @@ def function(steps, S_ni, p_i, c_means, c_spread, prob_a):
 def LibrarySparseNumeric_mutual_information_monte_carlo_numba_generator(conc_gen):
     """ generates a function that calculates the receptor activity for a given
     concentration generator """
-    template_expon = mutual_information_monte_carlo_numba_template.format(
+    func_code = mutual_information_monte_carlo_numba_template.format(
         CONCENTRATION_GENERATOR=conc_gen)
     scope = {'np': np} #< make sure numpy is in the scope
-    exec(template_expon, scope)
+    exec(func_code, scope)
     func = scope['function']
     return numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)(func)
 
