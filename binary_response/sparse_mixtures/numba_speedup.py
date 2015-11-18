@@ -29,14 +29,13 @@ numba_patcher = NumbaPatcher(module=lib_spr_numeric)
 
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
-        steps, S_ni, p_i, c_means, ret_correlations, r_n, r_nm):
-    """ calculate the mutual information using a monte carlo strategy. The
-    number of steps is given by the model parameter 'monte_carlo_steps' """
+receptor_activity_monte_carlo_numba_template = """ 
+def function(steps, S_ni, p_i, c_means, c_spread, ret_correlations, r_n, r_nm):
+    ''' calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' '''
     Nr, Ns = S_ni.shape
     a_n = np.empty(Nr, np.double)
-        
+
     # sample mixtures according to the probabilities of finding ligands
     for _ in range(steps):
         # choose a mixture vector according to substrate probabilities
@@ -44,7 +43,7 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
         for i in range(Ns):
             if np.random.random() < p_i[i]:
                 # mixture contains substrate i
-                c_i = np.random.exponential() * c_means[i]
+                {CONCENTRATION_GENERATOR}
                 for n in range(Nr):
                     a_n[n] += S_ni[n, i] * c_i
         
@@ -62,43 +61,34 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
                         if a_n[m] >= 1:
                             r_nm[n, m] += 1
                             r_nm[m, n] += 1
-                
+"""
+
+
+def LibrarySparseNumeric_receptor_activity_monte_carlo_numba_generator(conc_gen):
+    """ generates a function that calculates the receptor activity for a given
+    concentration generator """
+    template_expon = receptor_activity_monte_carlo_numba_template.format(
+        CONCENTRATION_GENERATOR=conc_gen)
+    scope = {'np': np} #< make sure numpy is in the scope
+    exec(template_expon, scope)
+    func = scope['function']
+    return numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)(func)
+
+
+LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba = \
+    LibrarySparseNumeric_receptor_activity_monte_carlo_numba_generator(
+        "c_i = np.random.exponential() * c_means[i]")
     
-
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_receptor_activity_monte_carlo_lognorm_numba(
-        steps, S_ni, p_i, mus, sigmas, ret_correlations, r_n, r_nm):
-    """ calculate the mutual information using a monte carlo strategy. The
-    number of steps is given by the model parameter 'monte_carlo_steps' """
-    Nr, Ns = S_ni.shape
-    a_n = np.empty(Nr, np.double)
-
-    # sample mixtures according to the probabilities of finding ligands
-    for _ in range(steps):
-        # choose a mixture vector according to substrate probabilities
-        a_n[:] = 0  #< activity pattern of this mixture
-        for i in range(Ns):
-            if np.random.random() < p_i[i]:
-                # mixture contains substrate i
-                c_i = np.random.lognormal(mus[i], sigmas[i])
-                for n in range(Nr):
-                    a_n[n] += S_ni[n, i] * c_i
-        
-        # calculate the activity pattern 
-        for n in range(Nr):
-            if a_n[n] >= 1:
-                r_n[n] += 1
-                
-        if ret_correlations:
-            # calculate the correlations
-            for n in range(Nr):
-                if a_n[n] >= 1:
-                    r_nm[n, n] += 1
-                    for m in range(n):
-                        if a_n[m] >= 1:
-                            r_nm[n, m] += 1
-                            r_nm[m, n] += 1
-                
+# Note that the parameter c_mean is actually the mean of the underlying normal
+# distribution
+LibrarySparseNumeric_receptor_activity_monte_carlo_lognorm_numba = \
+    LibrarySparseNumeric_receptor_activity_monte_carlo_numba_generator(
+        "c_i = np.random.lognormal(c_means[i], c_spread[i])")
+    
+LibrarySparseNumeric_receptor_activity_monte_carlo_bernoulli_numba = \
+    LibrarySparseNumeric_receptor_activity_monte_carlo_numba_generator(
+        "c_i = c_means[i]")
+    
     
 
 def LibrarySparseNumeric_receptor_activity_monte_carlo(
@@ -124,7 +114,7 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
         LibrarySparseNumeric_receptor_activity_monte_carlo_expon_numba(
             steps, self.sens_mat,
             self.substrate_probabilities, #< p_i
-            self.c_means,                 #< c_means
+            self.c_means, 0,              #< concentration statistics
             ret_correlations,
             r_n, r_nm
         )
@@ -136,6 +126,15 @@ def LibrarySparseNumeric_receptor_activity_monte_carlo(
             steps, self.sens_mat,
             self.substrate_probabilities, #< p_i
             mus, sigmas,                  #< concentration statistics
+            ret_correlations,
+            r_n, r_nm
+        )
+
+    elif c_distribution == 'bernoulli':
+        LibrarySparseNumeric_receptor_activity_monte_carlo_bernoulli_numba(
+            steps, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            self.c_means, 0,              #< concentration statistics
             ret_correlations,
             r_n, r_nm
         )
@@ -163,9 +162,35 @@ numba_patcher.register_method(
 
 
 
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
-def _get_MI(prob_a, steps):
-    """ helper function that calculates the mutual information """
+mutual_information_monte_carlo_numba_template = ''' 
+def function(steps, S_ni, p_i, c_means, c_spread, prob_a):
+    """ calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' """
+    Nr, Ns = S_ni.shape
+    a_n = np.empty(Nr, np.double)
+        
+    # sample mixtures according to the probabilities of finding
+    # substrates
+    for _ in range(steps):
+        # choose a mixture vector according to substrate probabilities
+        a_n[:] = 0  #< activity pattern of this mixture
+        for i in range(Ns):
+            if np.random.random() < p_i[i]:
+                # mixture contains substrate i
+                {CONCENTRATION_GENERATOR}
+                for n in range(Nr):
+                    a_n[n] += S_ni[n, i] * c_i
+        
+        # calculate the activity pattern id
+        a_id, base = 0, 1
+        for n in range(Nr):
+            if a_n[n] >= 1:
+                a_id += base
+            base *= 2
+        
+        # increment counter for this output
+        prob_a[a_id] += 1
+        
     # normalize the probabilities by the number of steps we did
     for k in range(len(prob_a)):
         prob_a[k] /= steps
@@ -177,76 +202,35 @@ def _get_MI(prob_a, steps):
             MI -= pa*np.log2(pa)
     
     return MI
+'''
 
 
+def LibrarySparseNumeric_mutual_information_monte_carlo_numba_generator(conc_gen):
+    """ generates a function that calculates the receptor activity for a given
+    concentration generator """
+    template_expon = mutual_information_monte_carlo_numba_template.format(
+        CONCENTRATION_GENERATOR=conc_gen)
+    scope = {'np': np} #< make sure numpy is in the scope
+    exec(template_expon, scope)
+    func = scope['function']
+    return numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)(func)
 
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba(
-        steps, S_ni, p_i, c_means, prob_a):
-    """ calculate the mutual information using a monte carlo strategy. The
-    number of steps is given by the model parameter 'monte_carlo_steps' """
-    Nr, Ns = S_ni.shape
-    a_n = np.empty(Nr, np.double)
-        
-    # sample mixtures according to the probabilities of finding
-    # substrates
-    for _ in range(steps):
-        # choose a mixture vector according to substrate probabilities
-        a_n[:] = 0  #< activity pattern of this mixture
-        for i in range(Ns):
-            if np.random.random() < p_i[i]:
-                # mixture contains substrate i
-                ci = np.random.exponential() * c_means[i]
-                for n in range(Nr):
-                    a_n[n] += S_ni[n, i] * ci
-        
-        # calculate the activity pattern id
-        a_id, base = 0, 1
-        for n in range(Nr):
-            if a_n[n] >= 1:
-                a_id += base
-            base *= 2
-        
-        # increment counter for this output
-        prob_a[a_id] += 1
-        
-    return _get_MI(prob_a, steps)
 
+LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba = \
+    LibrarySparseNumeric_mutual_information_monte_carlo_numba_generator(
+        "c_i = np.random.exponential() * c_means[i]")
+    
+# Note that the parameter c_mean is actually the mean of the underlying normal
+# distribution
+LibrarySparseNumeric_mutual_information_monte_carlo_lognorm_numba = \
+    LibrarySparseNumeric_mutual_information_monte_carlo_numba_generator(
+        "c_i = np.random.lognormal(c_means[i], c_spread[i])")
+    
+LibrarySparseNumeric_mutual_information_monte_carlo_bernoulli_numba = \
+    LibrarySparseNumeric_mutual_information_monte_carlo_numba_generator(
+        "c_i = c_means[i]")
     
 
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL) 
-def LibrarySparseNumeric_mutual_information_monte_carlo_lognorm_numba(
-        steps, S_ni, p_i, mus, sigmas, prob_a):
-    """ calculate the mutual information using a monte carlo strategy. The
-    number of steps is given by the model parameter 'monte_carlo_steps' """
-    Nr, Ns = S_ni.shape
-    a_n = np.empty(Nr, np.double)
-        
-    # sample mixtures according to the probabilities of finding
-    # substrates
-    for _ in range(steps):
-        # choose a mixture vector according to substrate probabilities
-        a_n[:] = 0  #< activity pattern of this mixture
-        for i in range(Ns):
-            if np.random.random() < p_i[i]:
-                # mixture contains substrate i
-                ci = np.random.lognormal(mus[i], sigmas[i])
-                for n in range(Nr):
-                    a_n[n] += S_ni[n, i] * ci
-        
-        # calculate the activity pattern id
-        a_id, base = 0, 1
-        for n in range(Nr):
-            if a_n[n] >= 1:
-                a_id += base
-            base *= 2
-        
-        # increment counter for this output
-        prob_a[a_id] += 1
-        
-    return _get_MI(prob_a, steps)
-
-    
 
 def LibrarySparseNumeric_mutual_information_monte_carlo(
                                                 self, ret_prob_activity=False):
@@ -269,7 +253,7 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
         MI = LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba(
             self.monte_carlo_steps,  self.sens_mat,
             self.substrate_probabilities, #< p_i
-            self.c_means,                 #< d_i
+            self.c_means, 0,              #< concentration statistics
             prob_a
         )
         
@@ -280,6 +264,14 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
             self.monte_carlo_steps,  self.sens_mat,
             self.substrate_probabilities, #< p_i
             mus, sigmas,                  #< concentration statistics
+            prob_a
+        )        
+        
+    elif c_distribution == 'bernoulli':
+        MI = LibrarySparseNumeric_mutual_information_monte_carlo_bernoulli_numba(
+            self.monte_carlo_steps,  self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            self.c_means, 0,              #< concentration statistics
             prob_a
         )        
         

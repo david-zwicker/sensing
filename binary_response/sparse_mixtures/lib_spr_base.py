@@ -12,7 +12,7 @@ import numpy as np
 from scipy import stats
 
 from ..binary_mixtures.lib_bin_base import LibraryBinaryBase
-from utils.math_distributions import lognorm_mean_var
+from utils.math_distributions import lognorm_mean_var, DeterministicDistribution
 
 
 
@@ -26,7 +26,7 @@ class LibrarySparseBase(LibraryBinaryBase):
     """
     
     # supported concentration distributions 
-    concentration_distributions = ['exponential', 'log-normal']
+    concentration_distributions = ['exponential', 'log-normal', 'bernoulli']
     
 
     # default parameters that are used to initialize a class if not overwritten
@@ -203,6 +203,8 @@ class LibrarySparseBase(LibraryBinaryBase):
             return stats.expon(scale=self.c_means[i])
         elif c_distribution == 'log-normal':
             return lognorm_mean_var(self.c_means[i], self.c_vars[i])
+        elif c_distribution == 'bernoulli':
+            return DeterministicDistribution(self.c_means[i])
         else:
             raise ValueError('Unknown concentration distribution `%s`'
                              % c_distribution)

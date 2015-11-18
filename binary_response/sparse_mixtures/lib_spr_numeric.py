@@ -99,6 +99,13 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
                 c[~lig_present] = 0
                 return c
 
+        if self.parameters['c_distribution'] == 'bernoulli':
+            # special case of an exponential distribution
+            c_means = self.c_means
+            def generate_concentrations(lig_present):
+                """ helper function generating the necessary concentrations """
+                return lig_present * c_means
+
         else:
             # code for a generic distribution
             dists = [self.get_concentration_distribution(i)
