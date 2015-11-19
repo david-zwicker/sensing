@@ -238,8 +238,8 @@ class LibrarySparseBase(LibraryBinaryBase):
     
     def choose_concentrations(self, scheme, mean_concentration, **kwargs):
         """ picks a commonness vector according to the supplied parameters:
-        `total_concentration` sets the total concentration to expect for the
-            mixture on average.
+        `mean_concentration` sets the mean concentration of the individual
+            ligands
         """
         
         if scheme == 'const':

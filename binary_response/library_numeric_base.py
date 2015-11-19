@@ -479,6 +479,9 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
         if 'spread' in kwargs:
             logging.warn('Deprecated argument `spread`. Use `width` instead.')
             kwargs.setdefault('width', kwargs['spread'])
+
+        if 'variance' in kwargs:
+            kwargs['standard_deviation'] = np.sqrt(kwargs.pop('variance'))
         
         if 'standard_deviation' in kwargs:
             standard_deviation = kwargs.pop('standard_deviation')

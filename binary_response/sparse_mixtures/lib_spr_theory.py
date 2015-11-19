@@ -252,13 +252,18 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         
         self.mean_sensitivity = mean_sensitivity
         self.correlation = correlation
+        
+        if 'variance' in kwargs:
+            kwargs['standard_deviation'] = np.sqrt(kwargs.pop('variance'))
 
         if 'standard_deviation' in kwargs:
             standard_deviation = kwargs.pop('standard_deviation')
             cv = standard_deviation / mean_sensitivity 
             self.width = np.sqrt(np.log(cv**2 + 1))
+            
         elif 'width' in kwargs:
             self.width = kwargs.pop('width')
+            
         else:
             standard_deviation = 1
             cv = standard_deviation / mean_sensitivity 
