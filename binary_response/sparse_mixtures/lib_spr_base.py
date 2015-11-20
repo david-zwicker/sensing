@@ -262,7 +262,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         # we additionally store the parameters that were used for this function
         c_params = {'scheme': scheme, 'mean_concentration': mean_concentration}
         c_params.update(kwargs)
-        self.parameters['concentration_parameters'] = c_params
+        self.parameters['c_mean_parameters'] = c_params
 
     
         
