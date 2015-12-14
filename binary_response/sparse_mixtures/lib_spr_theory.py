@@ -354,6 +354,9 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
         if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
 
+        ci_stats = self.concentration_statistics()
+        ci2_sum = np.sum(ci_stats['mean']**2)
+
         ctot_stats = self.ctot_statistics()
         ctot_mean = ctot_stats['mean']
         ctot_var = ctot_stats['var']
@@ -363,18 +366,22 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
             # keep the width parameter fixed and determine the others 
             width_opt = self.width
             
-            arg = 1 + ctot_cv2 * np.exp(width_opt**2)
-            S0_opt = np.sqrt(arg) / ctot_mean
+            ctot_stats2 = (ctot_var + ci2_sum) / ctot_mean**2
+            braket = 1 + ctot_cv2 + ctot_stats2 * (np.exp(width_opt**2) - 1)
+            S0_opt = np.sqrt(braket) / ctot_mean
             std_opt = S0_opt * np.sqrt(np.exp(width_opt**2) - 1)
             
         elif fixed_parameter == 'S0':
-            # keep the typical sensitivity fixed and determine the other params 
+            # keep the typical sensitivity fixed and determine the other params
             S0_opt = self.mean_sensitivity
             
-            arg = (ctot_mean**2 * self.mean_sensitivity**2 - 1)/ctot_cv2
-            if arg >= 1:
-                width_opt = np.sqrt(np.log(arg))
-                std_opt = self.mean_sensitivity * np.sqrt(arg - 1)
+            braket = (S0_opt * ctot_mean)**2
+            width_term = braket - 1 - ctot_cv2
+            width_braket = width_term * ctot_mean**2 / (ctot_var + ci2_sum)
+            
+            if width_braket >= 0:
+                width_opt = np.sqrt(np.log(width_braket + 1))
+                std_opt = self.mean_sensitivity * np.sqrt(width_braket)
             else:
                 logging.warn('Given mean sensitivity is too small to find a '
                              'suitable width parameter')
