@@ -158,6 +158,55 @@ def calc_entropy(arr):
 
 
 
+def nlargest_indices(arr, n):
+    """
+    Return the indices of the `n` largest elements of `arr`.
+    This uses a rather slow implementation in python, which compiles well with
+    numba. We use this version to have consistency with the numba version.
+    """
+    indices = np.arange(n)
+    values = np.empty(n)
+    values[:] = arr[:n]
+    minpos = values.argmin()
+    minval = values[minpos]
+    
+    for k in range(n, len(arr)):
+        val = arr[k]
+        if val > minval:
+            indices[minpos] = k
+            values[minpos] = val
+            minpos = values.argmin()
+            minval = values[minpos]
+            
+    return indices
+
+
+
+def popcount(x):
+    """
+    count the number of high bits in the integer `x`.
+    Taken from https://en.wikipedia.org/wiki/Hamming_weight
+    """
+    # put count of each 2 bits into those 2 bits 
+    x -= (x >> 1) & 0x5555555555555555 
+    # put count of each 4 bits into those 4 bits
+    x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333)
+    # put count of each 8 bits into those 8 bits 
+    x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0f  
+    x += x >>  8 # put count of each 16 bits into their lowest 8 bits
+    x += x >> 16 # put count of each 32 bits into their lowest 8 bits
+    x += x >> 32 # put count of each 64 bits into their lowest 8 bits
+    return x & 0x7f
+
+
+
+def take_popcount(arr, n):
+    """ returns only those parts of an array whose indices have a given
+    popcount """
+    return [v for i, v in enumerate(arr) if popcount(i) == n]
+
+
+
 class classproperty(object):
     """ decorator that can be used to define read-only properties for classes. 
     Code copied from http://stackoverflow.com/a/5192374/932593
