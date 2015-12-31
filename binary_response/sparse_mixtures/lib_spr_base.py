@@ -131,9 +131,9 @@ class LibrarySparseBase(LibraryBinaryBase):
         else:
             c_vars = None
             
-        args['parameters'] = {'c_distribution': c_distribution,
-                              'c_mean_vector': c_means,
-                              'c_var_vector': c_vars}
+        args['parameters'].update({'c_distribution': c_distribution,
+                                   'c_mean_vector': c_means,
+                                   'c_var_vector': c_vars})
         return args
     
     

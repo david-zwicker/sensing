@@ -252,7 +252,7 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
     c_distribution = self.parameters['c_distribution']
     if c_distribution == 'exponential':
         MI = LibrarySparseNumeric_mutual_information_monte_carlo_expon_numba(
-            self.monte_carlo_steps,  self.sens_mat,
+            self.monte_carlo_steps, self.sens_mat,
             self.substrate_probabilities, #< p_i
             self.c_means, 0,              #< concentration statistics
             prob_a
@@ -262,7 +262,7 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
         mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars,
                                                    'numpy')
         MI = LibrarySparseNumeric_mutual_information_monte_carlo_lognorm_numba(
-            self.monte_carlo_steps,  self.sens_mat,
+            self.monte_carlo_steps, self.sens_mat,
             self.substrate_probabilities, #< p_i
             mus, sigmas,                  #< concentration statistics
             prob_a
@@ -270,7 +270,7 @@ def LibrarySparseNumeric_mutual_information_monte_carlo(
         
     elif c_distribution == 'bernoulli':
         MI = LibrarySparseNumeric_mutual_information_monte_carlo_bernoulli_numba(
-            self.monte_carlo_steps,  self.sens_mat,
+            self.monte_carlo_steps, self.sens_mat,
             self.substrate_probabilities, #< p_i
             self.c_means, 0,              #< concentration statistics
             prob_a

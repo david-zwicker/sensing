@@ -364,7 +364,6 @@ class LibraryNumericMixin(object):
         for c in self._sample_mixtures():
             # get the activity vector ...
             a = (np.dot(self.sens_mat, c) >= 1)
-            
             # ... and represent it as a single integer
             a_id = np.dot(base, a)
             # increment counter for this output

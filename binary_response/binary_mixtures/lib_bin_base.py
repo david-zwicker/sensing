@@ -138,8 +138,8 @@ class LibraryBinaryBase(LibraryBase):
         else:
             Jij = np.zeros((Ns, Ns))
             
-        args['parameters'] = {'commonness_vector': hs,
-                              'correlation_matrix': Jij}
+        args['parameters'].update({'commonness_vector': hs,
+                                   'correlation_matrix': Jij})
         return args
 
 

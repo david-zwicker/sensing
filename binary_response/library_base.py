@@ -104,22 +104,32 @@ class LibraryBase(object):
 
 
     @classmethod
-    def get_random_arguments(cls, num_substrates=None, num_receptors=None):
+    def get_random_arguments(cls, num_substrates=None, num_receptors=None,
+                             parameters=None):
         """ create random arguments for creating test instances """
         if num_substrates is None:
             num_substrates = np.random.randint(3, 6)
         if num_receptors is None:
             num_receptors =  np.random.randint(2, 4)
+        if parameters is None:
+            parameters = {}
         
         # return the dictionary
         return {'num_substrates': num_substrates,
-                'num_receptors': num_receptors}
+                'num_receptors': num_receptors,
+                'parameters': parameters}
 
 
     @classmethod
     def create_test_instance(cls, **kwargs):
         """ creates a test instance used for consistency tests """
         return cls(**cls.get_random_arguments(**kwargs))
+  
+  
+    @property
+    def mutual_information_max(self):
+        """ returns an upper bound to the mutual information """
+        return self.Nr
   
             
     def get_number_of_cores(self):
