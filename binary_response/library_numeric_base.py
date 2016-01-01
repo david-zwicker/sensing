@@ -411,7 +411,8 @@ class LibraryNumericMixin(object):
 
             
 def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
-                           ensure_mean=False, ret_params=True, **kwargs):
+                           receptor_factors=None,  ensure_mean=False,
+                           ret_params=True, **kwargs):
     """ creates a sensitivity matrix with the given properties
         `Nr` is the number of receptors
         `Ns` is the number of substrates/ligands
@@ -421,18 +422,25 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
             although there are some exceptional distributions. For instance,
             for binary distributions `mean_sensitivity` sets the
             magnitude of the entries that are non-zero.
+        `receptor_factors` is an optional array of pre-factors that are applied
+            for each row of the sensitivity matrix after the random numbers have
+            been drawn from the distribution, but before `ensure_mean` is
+            applied.
         `ensure_mean` makes sure that the mean of the matrix is indeed equal to
             `mean_sensitivity`
         `ret_params` determines whether a dictionary with the parameters that
-            lead to the calculated sensitivity is also returned 
-        Some distributions might accept additional parameters.
+            lead to the calculated sensitivity is also returned
+        Some distributions might accept additional parameters, which can be
+        supplied in the dictionary `parameters`.
     """
+    if mean_sensitivity <= 0:
+        raise ValueError('mean_sensitivity must be positive.')
+    
     shape = (Nr, Ns)
 
-    assert mean_sensitivity > 0
-    
     sens_mat_params = {'distribution': distribution,
                        'mean_sensitivity': mean_sensitivity,
+                       'receptor_factors': receptor_factors,
                        'ensure_mean': ensure_mean}
 
     if distribution == 'const':
@@ -575,7 +583,12 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
     else:
         raise ValueError('Unknown distribution `%s`' % distribution)
         
+    if receptor_factors is not None:
+        # apply weights to the individual receptors 
+        sens_mat *= receptor_factors[:, None]
+        
     if ensure_mean:
+        # make sure that the mean sensitivity is exactly as given
         sens_mat *= mean_sensitivity / sens_mat.mean()
 
     # raise an error if keyword arguments have not been used

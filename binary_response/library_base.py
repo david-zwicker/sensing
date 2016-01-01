@@ -6,6 +6,7 @@ Created on Apr 1, 2015
 
 from __future__ import division, absolute_import
 
+import copy
 import functools
 import logging
 import multiprocessing as mp
@@ -181,8 +182,32 @@ class LibraryBase(object):
         if ret_all:
             return result
         else:
-            result = np.array(result)
-            return result.mean(axis=0), result.std(axis=0)
+            if isinstance(result[0], dict):
+                # average all keys of the dict individually
+                mean = copy.deepcopy(result[0])
+                M2 = {key: 0*value for key, value in mean.items()}
+
+                # online algorithm for calculating the mean and variance
+                for n, data in enumerate(result, 1):
+                    # iterate through all keys
+                    for key in mean:
+                        delta = data[key] - mean[key]
+                        mean[key] += delta / n
+                        M2[key] += delta * (data[key] - mean[key])
+            
+                if n > 1:
+                    std = {key: np.sqrt(value / (n - 1))
+                           for key, value in M2.items()}
+                else:
+                    # only a single item
+                    std = M2
+                    
+                return mean, std
+            
+            else:
+                # assume that individual results are numbers or arrays
+                result = np.array(result)
+                return result.mean(axis=0), result.std(axis=0)
 
 
     def ctot_statistics(self, **kwargs):
