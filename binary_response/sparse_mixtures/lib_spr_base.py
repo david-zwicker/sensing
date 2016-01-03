@@ -150,13 +150,17 @@ class LibrarySparseBase(LibraryBinaryBase):
             self._ds = np.ones(self.Ns)
             
         else:
-            if len(ds) != self.Ns:
-                raise ValueError('Length of the concentration vector must '
-                                 'match the number of substrates.')
-            if any(ds < 0):
+            if any(np.atleast_1d(ds) < 0):
                 raise ValueError('Concentration vector must not contain '
                                  'negative entries.')
-            self._ds = np.asarray(ds)
+                
+            if np.isscalar(ds):
+                self._ds = np.full(self.Ns, ds, np.double)
+            elif len(ds) == self.Ns:
+                self._ds = np.asarray(ds)
+            else:
+                raise ValueError('Length of the concentration vector must '
+                                 'match the number of substrates.')
             
             # save the values, since they were set explicitly 
             self.parameters['c_mean_vector'] = self._ds

@@ -55,7 +55,8 @@ class LibraryBase(object):
         self.parameters = {}
         for cls in reversed(self.__class__.__mro__):
             if hasattr(cls, 'parameters_default'):
-                self.parameters.update(cls.parameters_default)
+                # we need to make a deep copy to copy nested dictionaries
+                self.parameters.update(copy.deepcopy(cls.parameters_default))
                 
         # update parameters with the supplied ones
         if parameters is not None:
