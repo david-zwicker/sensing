@@ -14,17 +14,29 @@ import numba
 import numpy as np
 
 # these methods are used in getattr calls
-from . import numeric
+from . import pc_numeric
+from binary_response.sparse_mixtures.numba_speedup import \
+                        LibrarySparseNumeric_excitation_statistics_monte_carlo
 from utils.misc import take_popcount
 from utils.math_distributions import lognorm_mean_var_to_mu_sigma
-from utils.numba_patcher import (NumbaPatcher, check_return_value_approx)
+from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
+                                 check_return_dict_approx)
 
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
 NUMBA_NOGIL = True
 
 # initialize the numba patcher and add methods one by one
-numba_patcher = NumbaPatcher(module=numeric)
+numba_patcher = NumbaPatcher(module=pc_numeric)
+
+
+
+# copy the accelerated method from the binary_response package
+numba_patcher.register_method(
+    'PrimacyCodingNumeric.excitation_statistics_monte_carlo',
+    LibrarySparseNumeric_excitation_statistics_monte_carlo,
+    check_return_dict_approx
+)
 
 
 
