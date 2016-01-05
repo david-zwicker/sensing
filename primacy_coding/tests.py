@@ -15,7 +15,7 @@ from scipy import misc
 
 from .numeric import PrimacyCodingNumeric, nlargest_indices
 from .numba_speedup import numba_patcher, nlargest_indices_numba
-from ..tests import TestBase 
+from binary_response.tests import TestBase 
 
       
       

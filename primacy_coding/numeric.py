@@ -9,7 +9,7 @@ from __future__ import division, absolute_import
 import numpy as np
 from scipy import misc
 
-from ..sparse_mixtures.lib_spr_numeric import LibrarySparseNumeric
+from binary_response.sparse_mixtures.lib_spr_numeric import LibrarySparseNumeric
 from utils.misc import nlargest_indices, take_popcount
 
 
