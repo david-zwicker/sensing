@@ -184,6 +184,17 @@ class TestLibrarySparse(TestBase):
         self.assertAllClose(np.var(cs), c_stats['var'].sum(), rtol=0.1)
             
             
+    def test_excitation_variances(self):
+        """ test whether the variances are calculated correctly """
+        for model in self._create_test_models():
+            error_msg = model.error_msg
+
+            r1 = model.excitation_statistics_monte_carlo(ret_correlations=True)
+            r2 = model.excitation_statistics_monte_carlo(ret_correlations=False)
+            self.assertAllClose(r1['var'], r2['var'], rtol=0.1, atol=1,
+                                    msg='Excitation variances: ' + error_msg)
+            
+            
     def test_correlations_and_crosstalk(self):
         """ tests the correlations and crosstalk """
         for model in self._create_test_models():
@@ -200,7 +211,7 @@ class TestLibrarySparse(TestBase):
                                     msg='Receptor activities: ' + error_msg)
 
                 r_nm_calc = np.outer(q_n, q_n) + q_nm
-                self.assertAllClose(r_nm, r_nm_calc, rtol=0, atol=0.5,
+                self.assertAllClose(r_nm, r_nm_calc, rtol=0.2, atol=0.2,
                                     msg='Receptor correlations: ' + error_msg)
                 
     

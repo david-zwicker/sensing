@@ -18,7 +18,8 @@ import numpy as np
 from . import lib_spr_numeric
 from utils.math_distributions import lognorm_mean_var_to_mu_sigma
 from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
-                                 check_return_value_exact)
+                                 check_return_value_exact,
+                                 check_return_dict_approx)
 
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
@@ -28,7 +29,149 @@ NUMBA_NOGIL = True
 numba_patcher = NumbaPatcher(module=lib_spr_numeric)
 
 
+excitation_statistics_monte_carlo_numba_template = """ 
+def function(steps, S_ni, p_i, c_means, c_spread, ret_correlations, en_mean,
+             enm_cov):
+    ''' calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' '''
+    Nr, Ns = S_ni.shape
+    e_n = np.empty(Nr, np.double)
+    delta = np.empty(Nr, np.double)
+
+    # sample mixtures according to the probabilities of finding ligands
+    for count in range(1, steps + 1):
+        # choose a mixture vector according to substrate probabilities
+        e_n[:] = 0  #< activity pattern of this mixture
+        for i in range(Ns):
+            if np.random.random() < p_i[i]:
+                # mixture contains substrate i
+                {CONCENTRATION_GENERATOR}
+                for n in range(Nr):
+                    e_n[n] += S_ni[n, i] * c_i
+        
+        # calculate the means of the excitation
+        for n in range(Nr):
+            delta[n] = (e_n[n] - en_mean[n]) / count
+            en_mean[n] += delta[n]
+
+        if ret_correlations:
+            # calculate the full covariance matrix
+            for n in range(Nr):
+                for m in range(Nr):
+                    enm_cov[n, m] += ((count - 1) * delta[n] * delta[m]
+                                      - enm_cov[n, m] / count)
+        else:
+            # only calculate the variances
+            for n in range(Nr):
+                enm_cov[n, n] += ((count - 1) * delta[n] * delta[n]
+                                  - enm_cov[n, n] / count)
                 
+    if steps < 2:
+        enm_cov[:] = np.nan
+    else:
+        enm_cov *= steps / (steps - 1)
+"""
+
+
+def LibrarySparseNumeric_excitation_statistics_monte_carlo_numba_generator(conc_gen):
+    """ generates a function that calculates the receptor activity for a given
+    concentration generator """
+    func_code = excitation_statistics_monte_carlo_numba_template.format(
+        CONCENTRATION_GENERATOR=conc_gen)
+    scope = {'np': np} #< make sure numpy is in the scope
+    exec(func_code, scope)
+    func = scope['function']
+    return numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)(func)
+
+
+LibrarySparseNumeric_excitation_statistics_monte_carlo_expon_numba = \
+    LibrarySparseNumeric_excitation_statistics_monte_carlo_numba_generator(
+        "c_i = np.random.exponential() * c_means[i]")
+    
+# Note that the parameter c_mean is actually the mean of the underlying normal
+# distribution
+LibrarySparseNumeric_excitation_statistics_monte_carlo_lognorm_numba = \
+    LibrarySparseNumeric_excitation_statistics_monte_carlo_numba_generator(
+        "c_i = np.random.lognormal(c_means[i], c_spread[i])")
+    
+LibrarySparseNumeric_excitation_statistics_monte_carlo_bernoulli_numba = \
+    LibrarySparseNumeric_excitation_statistics_monte_carlo_numba_generator(
+        "c_i = c_means[i]")
+    
+    
+
+def LibrarySparseNumeric_excitation_statistics_monte_carlo(
+                                               self, ret_correlations=False):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    fixed_mixture_size = self.parameters['fixed_mixture_size']
+    if self.is_correlated_mixture or fixed_mixture_size is not None:
+        logging.warn('Numba code not implemented for correlated mixtures. '
+                     'Falling back to pure-python method.')
+        this = LibrarySparseNumeric_excitation_statistics_monte_carlo
+        return this._python_function(self, ret_correlations)
+
+    # prevent integer overflow in collecting activity patterns
+    assert self.Nr <= self.parameters['max_num_receptors'] <= 63
+
+    en_mean = np.zeros(self.Nr) 
+    enm_cov = np.zeros((self.Nr, self.Nr)) 
+    steps = self.monte_carlo_steps
+ 
+    # call the jitted function
+    c_distribution = self.parameters['c_distribution']
+    if c_distribution == 'exponential':
+        LibrarySparseNumeric_excitation_statistics_monte_carlo_expon_numba(
+            steps, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            self.c_means, 0,              #< concentration statistics
+            ret_correlations,
+            en_mean, enm_cov
+        )
+    
+    elif c_distribution == 'log-normal':
+        mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars,
+                                                   'numpy')
+        LibrarySparseNumeric_excitation_statistics_monte_carlo_lognorm_numba(
+            steps, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            mus, sigmas,                  #< concentration statistics
+            ret_correlations,
+            en_mean, enm_cov
+        )
+
+    elif c_distribution == 'bernoulli':
+        LibrarySparseNumeric_excitation_statistics_monte_carlo_bernoulli_numba(
+            steps, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            self.c_means, 0,              #< concentration statistics
+            ret_correlations,
+            en_mean, enm_cov
+        )
+        
+    else:
+        logging.warn('Numba code is not implemented for distribution `%s`. '
+                     'Falling back to pure-python method.', c_distribution)
+        this = LibrarySparseNumeric_excitation_statistics_monte_carlo
+        return this._python_function(self, ret_correlations)
+    
+    # return the normalized output
+    en_var = np.diag(enm_cov)
+    if ret_correlations:
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
+                'cov': enm_cov}
+    else:
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var}
+
+
+numba_patcher.register_method(
+    'LibrarySparseNumeric.excitation_statistics_monte_carlo',
+    LibrarySparseNumeric_excitation_statistics_monte_carlo,
+    check_return_dict_approx
+)
+
+
+
 receptor_activity_monte_carlo_numba_template = """ 
 def function(steps, S_ni, p_i, c_means, c_spread, ret_correlations, r_n, r_nm):
     ''' calculate the mutual information using a monte carlo strategy. The

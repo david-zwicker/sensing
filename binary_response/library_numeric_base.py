@@ -162,7 +162,8 @@ class LibraryNumericMixin(object):
                 e_n = np.dot(S_ni, c_i)
                 delta = (e_n - en_mean) / count
                 en_mean += delta
-                enm_cov += (count - 1) * np.outer(delta, delta) - enm_cov / count
+                enm_cov += ((count - 1) * np.outer(delta, delta)
+                            - enm_cov / count)
                 
             # calculate the requested statistics
             if count < 2:
@@ -187,7 +188,7 @@ class LibraryNumericMixin(object):
                 e_n = np.dot(S_ni, c_i)
                 delta = e_n - en_mean
                 en_mean += delta / count
-                en_square += delta*(e_n - en_mean)
+                en_square += delta * (e_n - en_mean)
                 
             # calculate the requested statistics
             if count < 2:
