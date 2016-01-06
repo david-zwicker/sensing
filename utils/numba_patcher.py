@@ -181,8 +181,8 @@ class NumbaPatcher(object):
             func1, func2 = self._prepare_functions(data)
             if not test_func(test_obj, (func1, func2)):
                 print('The numba implementation of `%s` is invalid.' % name)
-                print('Native implementation yields %s' % func1(test_obj))
-                print('Numba implementation yields %s' % func2(test_obj))
+                print('Native implementation yields %s' % str(func1(test_obj)))
+                print('Numba implementation yields %s' % str(func2(test_obj)))
                 print('Input: %r' % test_obj)
                 consistent = False
                 break

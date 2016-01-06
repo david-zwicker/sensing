@@ -62,7 +62,128 @@ def nlargest_indices_numba(arr, n):
     return indices
 
 
-           
+
+excitation_threshold_monte_carlo_numba_template = """ 
+def function(steps, Nr_k, S_ni, p_i, c_means, c_spread):
+    ''' calculate the mutual information using a monte carlo strategy. The
+    number of steps is given by the model parameter 'monte_carlo_steps' '''
+    Nr, Ns = S_ni.shape
+    e_n = np.empty(Nr, np.double)
+    mean, M2 = 0, 0
+
+    # sample mixtures according to the probabilities of finding ligands
+    for step in range(1, steps + 1):
+        # choose a mixture vector according to substrate probabilities
+        e_n[:] = 0  #< activity pattern of this mixture
+        for i in range(Ns):
+            if np.random.random() < p_i[i]:
+                # mixture contains substrate i
+                {CONCENTRATION_GENERATOR}
+                for n in range(Nr):
+                    e_n[n] += S_ni[n, i] * c_i
+        
+        # calculate the excitation threshold
+        indices = nlargest_indices_numba(e_n, Nr_k)
+        thresh = e_n[indices].min()
+
+        # accumulate the statistics
+        delta = thresh - mean
+        mean += delta / step
+        M2 += delta * (thresh - mean)
+
+    if steps < 2:
+        std = np.nan
+    else:
+        std = np.sqrt(M2 / (step - 1))
+        
+    return mean, std
+"""
+
+
+def PrimacyCodingNumeric_excitation_threshold_monte_carlo_numba_generator(conc_gen):
+    """ generates a function that calculates the receptor activity for a given
+    concentration generator """
+    func_code = excitation_threshold_monte_carlo_numba_template.format(
+        CONCENTRATION_GENERATOR=conc_gen)
+    # make sure all necessary objects are in the scope
+    scope = {'np': np, 'nlargest_indices_numba': nlargest_indices_numba} 
+    exec(func_code, scope)
+    func = scope['function']
+    return numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)(func)
+
+
+PrimacyCodingNumeric_excitation_threshold_monte_carlo_expon_numba = \
+    PrimacyCodingNumeric_excitation_threshold_monte_carlo_numba_generator(
+        "c_i = np.random.exponential() * c_means[i]")
+    
+# Note that the parameter c_mean is actually the mean of the underlying normal
+# distribution
+PrimacyCodingNumeric_excitation_threshold_monte_carlo_lognorm_numba = \
+    PrimacyCodingNumeric_excitation_threshold_monte_carlo_numba_generator(
+        "c_i = np.random.lognormal(c_means[i], c_spread[i])")
+    
+PrimacyCodingNumeric_excitation_threshold_monte_carlo_bernoulli_numba = \
+    PrimacyCodingNumeric_excitation_threshold_monte_carlo_numba_generator(
+        "c_i = c_means[i]")
+    
+    
+
+def PrimacyCodingNumeric_excitation_threshold_monte_carlo(
+                                               self, ret_correlations=False):
+    """ calculate the mutual information by constructing all possible
+    mixtures """
+    fixed_mixture_size = self.parameters['fixed_mixture_size']
+    if self.is_correlated_mixture or fixed_mixture_size is not None:
+        logging.warn('Numba code not implemented for correlated mixtures. '
+                     'Falling back to pure-python method.')
+        this = PrimacyCodingNumeric_excitation_threshold_monte_carlo
+        return this._python_function(self, ret_correlations)
+ 
+    # call the jitted function
+    c_distribution = self.parameters['c_distribution']
+    if c_distribution == 'exponential':
+        r = PrimacyCodingNumeric_excitation_threshold_monte_carlo_expon_numba(
+            self.monte_carlo_steps,  
+            self.coding_receptors, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            self.c_means, 0               #< concentration statistics
+        )
+    
+    elif c_distribution == 'log-normal':
+        mus, sigmas = lognorm_mean_var_to_mu_sigma(self.c_means, self.c_vars,
+                                                   'numpy')
+        r = PrimacyCodingNumeric_excitation_threshold_monte_carlo_lognorm_numba(
+            self.monte_carlo_steps,  
+            self.coding_receptors, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            mus, sigmas                   #< concentration statistics
+        )
+
+    elif c_distribution == 'bernoulli':
+        r = PrimacyCodingNumeric_excitation_threshold_monte_carlo_bernoulli_numba(
+            self.monte_carlo_steps,  
+            self.coding_receptors, self.sens_mat,
+            self.substrate_probabilities, #< p_i
+            self.c_means, 0               #< concentration statistics
+        )
+        
+    else:
+        logging.warn('Numba code is not implemented for distribution `%s`. '
+                     'Falling back to pure-python method.', c_distribution)
+        this = PrimacyCodingNumeric_excitation_threshold_monte_carlo
+        return this._python_function(self, ret_correlations)
+    
+    return r
+    
+    
+numba_patcher.register_method(
+    'PrimacyCodingNumeric.excitation_threshold_monte_carlo',
+    PrimacyCodingNumeric_excitation_threshold_monte_carlo,
+    check_return_value_approx
+)
+
+    
+    
 receptor_activity_monte_carlo_numba_template = """ 
 def function(steps, Nr_k, S_ni, p_i, c_means, c_spread, ret_correlations, r_n,
              r_nm):

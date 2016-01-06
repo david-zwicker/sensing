@@ -16,7 +16,33 @@ from utils.misc import nlargest_indices, take_popcount
 
 class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
     """ represents a single receptor library that handles sparse mixtures that
-    encode their signal using the `coding_receptors` most active recpetors """
+    encode their signal using the `coding_receptors` most active receptors """
+            
+
+    def excitation_threshold_monte_carlo(self):
+        """ calculates the average excitation that is necessary to excite
+        receptors """
+        S_ni = self.sens_mat
+        mean = 0
+        M2 = 0
+                
+        for step, c_i in enumerate(self._sample_mixtures(), 1):
+            # get the threshold value for this sample
+            e_n = np.dot(S_ni, c_i)
+            indices = nlargest_indices(e_n, self.coding_receptors)
+            thresh = e_n[indices].min()
+            
+            # accumulate the statistics
+            delta = thresh - mean
+            mean += delta / step
+            M2 += delta * (thresh - mean)
+            
+        if step < 2:
+            std = np.nan
+        else:
+            std = np.sqrt(M2 / (step - 1))
+            
+        return mean, std
             
             
     #===========================================================================

@@ -13,7 +13,8 @@ import unittest
 import numpy as np
 from scipy import misc
 
-from .numeric import PrimacyCodingNumeric, nlargest_indices
+from .pc_numeric import PrimacyCodingNumeric, nlargest_indices
+from .pc_theory import PrimacyCodingTheory
 from .numba_speedup import numba_patcher, nlargest_indices_numba
 from binary_response.tests import TestBase 
 
@@ -119,6 +120,24 @@ class TestLibrarySparse(TestBase):
                 model.choose_commonness(scheme, mean_mixture_size, **params)
                 self.assertAllClose(model.mixture_size_statistics()['mean'],
                                     mean_mixture_size)
+
+
+    def test_theory(self):
+        """ test some theory """
+        # create test instance with many receptors
+        theory = PrimacyCodingTheory.create_test_instance(num_receptors=300,
+                                                          coding_receptors=10)
+        
+        for excitation_dist in ('gaussian', 'log-normal'):
+            theory.parameters['excitation_distribution'] = excitation_dist
+            
+            # compare the excitation thresholds
+            et1 = theory.excitation_threshold(method='approx')[0]
+            et2 = theory.excitation_threshold(method='integrate')[0]
+            
+            msg = ('The calculated excitation thresholds do not agree. (%g != %g)'
+                   % (et1, et2))
+            self.assertAllClose(et1, et2, rtol=0.05, msg=msg)
 
 
     def test_setting_coding_receptors(self):
