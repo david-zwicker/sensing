@@ -16,7 +16,7 @@ Optional python packages, which can be installed through `pip`:
 Package     | Usage                                      
 ------------|-------------------------------------------
 coverage    | For measuring test coverage
-cma         | For Covariance Matrix Adaptation Evolution Strategy
+cma         | For optimizations using CMA-ES
 numba       | For creating compiled code for faster processing
 nose        | For parallel testing
 simanneal   | Simulated annealing algorithm published on github
@@ -34,6 +34,7 @@ The classes in the project are organized as follows:
         ligands are present in a mixture and then chose their concentrations
         independently from exponential distributions. 
     The code for these mixtures is organized in different modules.
+    Additionally, there is a separate package that considers primacy coding.
 - We distinguish between general classes and classes  with a concrete receptor
     library. Here, we distinguish libraries that do numerical simulations and
     libraries that provide analytical results.

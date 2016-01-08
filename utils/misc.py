@@ -158,30 +158,6 @@ def calc_entropy(arr):
 
 
 
-def nlargest_indices(arr, n):
-    """
-    Return the indices of the `n` largest elements of `arr`.
-    This uses a rather slow implementation in python, which compiles well with
-    numba. We use this version to have consistency with the numba version.
-    """
-    indices = np.arange(n)
-    values = np.empty(n)
-    values[:] = arr[:n]
-    minpos = values.argmin()
-    minval = values[minpos]
-    
-    for k in range(n, len(arr)):
-        val = arr[k]
-        if val > minval:
-            indices[minpos] = k
-            values[minpos] = val
-            minpos = values.argmin()
-            minval = values[minpos]
-            
-    return indices
-
-
-
 def popcount(x):
     """
     count the number of high bits in the integer `x`.

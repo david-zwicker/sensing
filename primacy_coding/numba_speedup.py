@@ -9,7 +9,9 @@ methods.
 
 from __future__ import division
 
+import functools
 import logging
+
 import numba
 import numpy as np
 
@@ -29,14 +31,6 @@ NUMBA_NOGIL = True
 # initialize the numba patcher and add methods one by one
 numba_patcher = NumbaPatcher(module=pc_numeric)
 
-
-
-# copy the accelerated method from the binary_response package
-numba_patcher.register_method(
-    'PrimacyCodingNumeric.excitation_statistics_monte_carlo',
-    LibrarySparseNumeric_excitation_statistics_monte_carlo,
-    check_return_dict_approx
-)
 
 
 
@@ -60,6 +54,15 @@ def nlargest_indices_numba(arr, n):
             minval = values[minpos]
             
     return indices
+
+
+
+# copy the accelerated method from the binary_response package
+numba_patcher.register_method(
+    'PrimacyCodingNumeric.excitation_statistics_monte_carlo',
+    LibrarySparseNumeric_excitation_statistics_monte_carlo,
+    check_return_dict_approx
+)
 
 
 
@@ -179,7 +182,7 @@ def PrimacyCodingNumeric_excitation_threshold_monte_carlo(
 numba_patcher.register_method(
     'PrimacyCodingNumeric.excitation_threshold_monte_carlo',
     PrimacyCodingNumeric_excitation_threshold_monte_carlo,
-    check_return_value_approx
+    functools.partial(check_return_value_approx, rtol=1e-1)
 )
 
     

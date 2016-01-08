@@ -10,8 +10,9 @@ from contextlib import contextmanager
 import functools
 
 import numpy as np
+from six.moves import reduce
 
-from .misc import estimate_computation_speed 
+from .misc import estimate_computation_speed, copy_func 
 
 
 
@@ -27,7 +28,7 @@ def check_return_value_approx(obj, funcs, rtol=5e-2, atol=5e-2):
     return np.allclose(val1, val2, rtol=rtol, atol=atol)
 
 
-def check_return_dict_approx(obj, funcs, rtol=2e-1, atol=5e-2):
+def check_return_dict_approx(obj, funcs, rtol=0.2, atol=5e-2):
     """ checks the numba method versus the original one """
     val1, val2 = funcs[0](obj), funcs[1](obj)
     return all(np.allclose(val1[key], val2[key], rtol=rtol, atol=atol)
@@ -61,17 +62,21 @@ class NumbaPatcher(object):
         """ register a new numba method """
         if test_arguments is None:
             test_arguments = {}
+        numba_function = copy_func(numba_function)
         self.numba_methods[name] = {'numba_function': numba_function,
                                     'test_function': test_function,
                                     'test_arguments': test_arguments}
+
+
+    def _resolve_object(self, class_name):
+        """ resolves nested class definitions """
+        return reduce(getattr, class_name.split('.'), self.module)
 
     
     def _save_python_function(self):
         """ save the original function such that they can be restored later """
         for name, data in self.numba_methods.items():
-            class_name, method_name = name.split('.')
-            class_obj = getattr(self.module, class_name)
-            python_function = getattr(class_obj, method_name)
+            python_function = self._resolve_object(name)
             data['python_function'] = python_function
             data['numba_function']._python_function = python_function
         self.saved_python_functions = True
@@ -85,8 +90,8 @@ class NumbaPatcher(object):
             self._save_python_function()
         
         for name, data in self.numba_methods.items():
-            class_name, method_name = name.split('.')
-            class_obj = getattr(self.module, class_name)
+            class_name, method_name = name.rsplit('.', 1)
+            class_obj = self._resolve_object(class_name)
             setattr(class_obj, method_name, data['numba_function'])
         self.enabled = True
         
@@ -98,8 +103,8 @@ class NumbaPatcher(object):
         old_state = self.enabled
 
         for name, data in self.numba_methods.items():
-            class_name, method_name = name.split('.')
-            class_obj = getattr(self.module, class_name)
+            class_name, method_name = name.rsplit('.', 1)
+            class_obj = self._resolve_object(class_name)
             setattr(class_obj, method_name, data['python_function'])
         self.enabled = False
         

@@ -23,7 +23,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
     }
 
 
-    def _excitation_distribution(self):
+    def excitation_distribution(self):
         """ returns a scipy.stats distribution for the excitations with the
         given mean and standard deviation """ 
         excitation_dist = self.parameters['excitation_distribution']
@@ -53,7 +53,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             Commun. Statist. Simula. 28 177-188 (1999)
         """
         # get the distribution of the excitations
-        en_dist = self._excitation_distribution()
+        en_dist = self.excitation_distribution()
         
         # approximate the order statistics
         #alpha = np.pi / 8
@@ -80,26 +80,23 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             order statistics is unity. This is a test for the accuracy of the
             integration routine.
         """
-        en_dist = self._excitation_distribution()
+        en_dist = self.excitation_distribution()
         
         def distribution_func(x, n, k, x_power):
-            """ definition of the distribution function of the order stats """
+            """
+            definition of the distribution function of x_power-th moment of the
+            k-th order statistics of n variables
+            """
             prefactor = k * special.binom(n, k)
-            Fx = en_dist.cdf(x) # 0.5 * special.erfc(-x / np.sqrt(2))
-            fx = en_dist.pdf(x) # np.exp(-(x**2 / 2))/ np.sqrt(2*np.pi)
+            Fx = en_dist.cdf(x) # cdf of the excitations
+            fx = en_dist.pdf(x) # pdf of the excitations
             return prefactor * x**x_power * Fx**(k - 1) * (1 - Fx)**(n - k) * fx
         
         # determine the integration interval 
         mean, std = self.en_order_statistics_approx(Nr, Nc)
         int_min = mean - 10*std
         int_max = mean + 10*std
-#         xs = stats.norm(mean, std).ppf(np.linspace(0, 1, 501)[1:-1])
-#         
-#         def distribution_func_inf(x_power):
-#             """ function that performs the integration """
-#             ys = [distribution_func(x, Nr, Nc, x_power) for x in xs]
-#             return integrate.simps(ys, xs)
-#         
+
         def distribution_func_inf(x_power):
             """ function that performs the integration """
             return integrate.quad(distribution_func, int_min, int_max,
@@ -158,13 +155,17 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
 
 
     def get_optimal_parameters(self):
+        """
+        returns a guess for the optimal parameters for the sensitivity
+        distribution
+        """ 
         raise NotImplementedError
 
 
     def receptor_activity(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
-        raise NotImplementedError
+        return self.coding_receptors / self.Nr
         
         
     def receptor_crosstalk(self):
@@ -175,5 +176,6 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
 
     def mutual_information(self):
         """ calculates the typical mutual information """
+        # TODO: estimate correlations and incorporate this knowledge into I
         raise NotImplementedError
     

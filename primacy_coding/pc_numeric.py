@@ -10,7 +10,31 @@ import numpy as np
 
 from binary_response.sparse_mixtures.lib_spr_numeric import LibrarySparseNumeric
 from .pc_base import PrimacyCodingMixin
-from utils.misc import nlargest_indices, take_popcount
+from utils.misc import take_popcount
+
+
+
+def nlargest_indices(arr, n):
+    """
+    Return the indices of the `n` largest elements of `arr`.
+    This uses a rather slow implementation in python, which compiles well with
+    numba. We use this version to have consistency with the numba version.
+    """
+    indices = np.arange(n)
+    values = np.empty(n)
+    values[:] = arr[:n]
+    minpos = values.argmin()
+    minval = values[minpos]
+    
+    for k in range(n, len(arr)):
+        val = arr[k]
+        if val > minval:
+            indices[minpos] = k
+            values[minpos] = val
+            minpos = values.argmin()
+            minval = values[minpos]
+            
+    return indices
 
 
 
@@ -43,6 +67,14 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
             std = np.sqrt(M2 / (step - 1))
             
         return mean, std
+            
+            
+    def receptor_activity_for_mixture(self, c_i):
+        """ returns the receptors that are activated for the mixture `c_i` """
+        # calculate excitation
+        e_n = np.dot(self.sens_mat, c_i)
+        # return the indices of the strongest receptors
+        return nlargest_indices(e_n, self.coding_receptors)
             
             
     #===========================================================================
@@ -86,22 +118,7 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
                                     excitation_model='default', clip=False):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
-        en_stats = self.excitation_statistics_estimate()
-
-        # calculate the receptor crosstalk
-        q_nm = self._estimate_qnm_from_en(en_stats)
-        if clip:
-            np.clip(q_nm, 0, 1, q_nm)
-
-        if ret_receptor_activity:
-            # calculate the receptor activity
-            q_n = self._estimate_qn_from_en(en_stats, excitation_model)
-            if clip:
-                np.clip(q_n, 0, 1, q_n)
-
-            return q_n, q_nm
-        else:
-            return q_nm
+        raise NotImplementedError
 
 
     def mutual_information_monte_carlo(self, ret_prob_activity=False):
@@ -140,7 +157,7 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
         else:
             return MI
 
-        
+                
     def mutual_information_estimate_fast(self):
         """ returns a simple estimate of the mutual information for the special
         case that ret_prob_activity=False, excitation_model='default',

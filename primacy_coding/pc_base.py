@@ -22,7 +22,7 @@ class PrimacyCodingMixin(object):
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(PrimacyCodingMixin, self).repr_params
-        params.insert(2, 'Nr_k=%d' % self.coding_receptors)
+        params.insert(2, 'Nc=%d' % self.coding_receptors)
         return params
     
     
