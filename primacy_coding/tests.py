@@ -135,7 +135,7 @@ class TestLibrarySparse(TestBase):
             et1 = theory.excitation_threshold(method='approx')[0]
             et2 = theory.excitation_threshold(method='integrate')[0]
             
-            msg = ('The calculated excitation thresholds do not agree. (%g != %g)'
+            msg = ('The calculated excitation thresholds differ. (%g != %g)'
                    % (et1, et2))
             self.assertAllClose(et1, et2, rtol=0.05, msg=msg)
 

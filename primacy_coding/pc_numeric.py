@@ -85,8 +85,6 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
     def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """
         # prevent integer overflow in collecting activity patterns
-        assert self.Nr <= self.parameters['max_num_receptors'] <= 63
-
         S_ni = self.sens_mat
 
         r_n = np.zeros(self.Nr)

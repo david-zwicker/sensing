@@ -38,10 +38,13 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                              "are ['gaussian', 'log-normal']" % excitation_dist)
 
 
-    def en_order_statistics_approx(self, Nr, Nc):
+    def en_order_statistics_approx(self, n, alpha=None):
         """
-        approximates the expected value of the Nc-th variable of the order
-        statistics of Nr numbers.
+        approximates the expected value of the n-th variable of the order
+        statistics of the Nr excitations.
+        
+        If `alpha` is given, the compensated formula is used with the specified
+            alpha. If alpha='auto', alpha = np.pi / 8 is used.
         
         The code for the expectation value is inspired by
             http://stats.stackexchange.com/q/9001/88762
@@ -52,28 +55,32 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             C.-C. Chen and C. W. Tyler
             Commun. Statist. Simula. 28 177-188 (1999)
         """
-        # get the distribution of the excitations
-        en_dist = self.excitation_distribution()
+        if alpha == 'auto':
+            alpha = np.pi / 8
         
         # approximate the order statistics
-        #alpha = np.pi / 8
-        #gamma = (Nc - alpha)/(Nr - 2*alpha + 1)
-        gamma = Nc / Nr
+        if alpha:
+            gamma = (n - alpha)/(self.Nr - 2*alpha + 1)
+        else:
+            gamma = n / self.Nr
+
+        # get the distribution of the excitations
+        en_dist = self.excitation_distribution()
         en_order_mean = en_dist.ppf(gamma)
         
         # approximate the standard deviation using a formula for the standard
         # deviation of the minimum of Nr Gaussian variables. This overestimates
         # the true standard deviation. 
-        en_order_std = 0.5 * (en_dist.ppf(0.8832**(1/Nr))
-                              - en_dist.ppf(0.2142**(1/Nr)))
+        en_order_std = 0.5 * (en_dist.ppf(0.8832**(1/self.Nr))
+                              - en_dist.ppf(0.2142**(1/self.Nr)))
         
         return en_order_mean, en_order_std
     
     
-    def en_order_statistics_integrate(self, Nr, Nc, check_norm=True):
+    def en_order_statistics_integrate(self, n, check_norm=True):
         """
         calculates the expected value and the associated standard deviation of
-        the Nc-th variable of the order statistics of Nr numbers.
+        the n-th variable of the order statistics of self.Nr excitations
         
         `check_norm` determines whether an additional integral is performed
             to check whether the norm of the probability distribution of the
@@ -93,14 +100,14 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             return prefactor * x**x_power * Fx**(k - 1) * (1 - Fx)**(n - k) * fx
         
         # determine the integration interval 
-        mean, std = self.en_order_statistics_approx(Nr, Nc)
+        mean, std = self.en_order_statistics_approx(n)
         int_min = mean - 10*std
         int_max = mean + 10*std
 
         def distribution_func_inf(x_power):
             """ function that performs the integration """
             return integrate.quad(distribution_func, int_min, int_max,
-                                  args=(Nr, Nc, x_power), limit=1000)[0]
+                                  args=(self.Nr, n, x_power), limit=1000)[0]
         
         if check_norm:
             # get the norm of the distribution to test the integration routine
@@ -108,8 +115,8 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             
             if not np.isclose(norm, 1):
                 raise RuntimeError('Integration did not converge for `norm` '
-                                   'and resulted in %g for Nr=%d, Nc=%d'
-                                   % (norm, Nr, Nc))
+                                   'and resulted in %g for n=%d'
+                                   % (norm, n))
         
         # calculate the expected value of the order statistics
         mean = distribution_func_inf(1)
@@ -120,7 +127,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return mean, np.sqrt(M2 - mean**2)
 
 
-    def excitation_threshold(self, Nr=None, Nc=None, method='auto'):
+    def excitation_threshold(self, method='auto'):
         """ returns the approximate excitation threshold that receptors have to
         overcome to be part of the activation pattern.
         
@@ -128,11 +135,6 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         expected value or a tuple consisting of the expected value and the
         associated standard deviation.
         """
-        # setup function arguments
-        if Nr is None:
-            Nr = self.Nr
-        if Nc is None:
-            Nc = self.coding_receptors
         if method == 'auto':
             method = self.parameters['excitation_threshold_method']
         
@@ -146,7 +148,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                              'excitation threshold.' % method)
             
         # calculate the threshold
-        return en_order_statistics(Nr, Nr - Nc)
+        return en_order_statistics(self.Nr - self.coding_receptors)
 
 
     #===========================================================================

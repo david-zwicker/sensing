@@ -258,9 +258,6 @@ def PrimacyCodingNumeric_receptor_activity_monte_carlo(
         this = PrimacyCodingNumeric_receptor_activity_monte_carlo
         return this._python_function(self, ret_correlations)
 
-    # prevent integer overflow in collecting activity patterns
-    assert self.Nr <= self.parameters['max_num_receptors'] <= 63
-
     r_n = np.zeros(self.Nr) 
     r_nm = np.zeros((self.Nr, self.Nr)) 
     steps = self.monte_carlo_steps
