@@ -22,7 +22,7 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
     
     def sensitivity_stats(self):
         """ returns the statistics of the sensitivity matrix """
-        raise NotImplementedError
+        raise NotImplementedError("Needs to be implemented by subclass")
     
     
     def excitation_statistics(self):

@@ -6,17 +6,22 @@ Created on Jan 5, 2016
 
 from __future__ import division
 
+from functools import partial
+
 import numpy as np
 from scipy import integrate, stats, special
 
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
+
 from .pc_base import PrimacyCodingMixin
 from utils.math_distributions import lognorm_mean_var
 
 
 
 class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
-    
+    """ class for theoretical calculations where all sensitivities are drawn
+    from the same distribution """
+
     parameters_default = {
         'excitation_distribution': 'gaussian', 
         'excitation_threshold_method': 'integrate'
@@ -36,7 +41,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         else:
             raise ValueError("Unknown excitation distribution `%s`. Supported "
                              "are ['gaussian', 'log-normal']" % excitation_dist)
-
+            
 
     def en_order_statistics_approx(self, n, alpha=None):
         """
@@ -77,7 +82,8 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return en_order_mean, en_order_std
     
     
-    def en_order_statistics_integrate(self, n, check_norm=True):
+    def en_order_statistics_integrate(self, n, check_norm=True,
+                                      order_stats_alpha=None):
         """
         calculates the expected value and the associated standard deviation of
         the n-th variable of the order statistics of self.Nr excitations
@@ -100,7 +106,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             return prefactor * x**x_power * Fx**(k - 1) * (1 - Fx)**(n - k) * fx
         
         # determine the integration interval 
-        mean, std = self.en_order_statistics_approx(n)
+        mean, std = self.en_order_statistics_approx(n, order_stats_alpha)
         int_min = mean - 10*std
         int_max = mean + 10*std
 
@@ -127,7 +133,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return mean, np.sqrt(M2 - mean**2)
 
 
-    def excitation_threshold(self, method='auto'):
+    def excitation_threshold(self, method='auto', order_stats_alpha=None):
         """ returns the approximate excitation threshold that receptors have to
         overcome to be part of the activation pattern.
         
@@ -142,14 +148,15 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         if method == 'integrate':
             en_order_statistics = self.en_order_statistics_integrate
         elif method == 'approx':
-            en_order_statistics = self.en_order_statistics_approx
+            en_order_statistics = partial(self.en_order_statistics_approx,
+                                          alpha=order_stats_alpha)
         else:
             raise ValueError('Unknown method `%s` for calculating the '
                              'excitation threshold.' % method)
             
         # calculate the threshold
         return en_order_statistics(self.Nr - self.coding_receptors)
-
+    
 
     #===========================================================================
     # OVERWRITE METHODS OF THE BINARY RESPONSE MODEL
@@ -168,8 +175,8 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
         return self.coding_receptors / self.Nr
-        
-        
+            
+
     def receptor_crosstalk(self):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
@@ -180,4 +187,5 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         """ calculates the typical mutual information """
         # TODO: estimate correlations and incorporate this knowledge into I
         raise NotImplementedError
-    
+            
+            
