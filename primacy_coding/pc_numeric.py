@@ -69,7 +69,7 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
         return mean, std
             
             
-    def receptor_activity_for_mixture(self, c_i):
+    def activation_pattern_for_mixture(self, c_i):
         """ returns the receptors that are activated for the mixture `c_i` """
         # calculate excitation
         e_n = np.dot(self.sens_mat, c_i)

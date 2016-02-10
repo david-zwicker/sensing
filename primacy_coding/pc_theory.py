@@ -6,8 +6,6 @@ Created on Jan 5, 2016
 
 from __future__ import division
 
-from functools import partial
-
 import numpy as np
 from scipy import integrate, stats, special
 
@@ -23,8 +21,13 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
     from the same distribution """
 
     parameters_default = {
-        'excitation_distribution': 'gaussian', 
-        'excitation_threshold_method': 'integrate'
+        'excitation_distribution': 'log-normal', 
+        'excitation_threshold_method': 'integrate',
+        'order_statistics_alpha': 0,
+        # two common choices for `order_statistics_alpha` are
+        #     0: H. A. David and H. N. Nagaraja, Order statistics, Wiley (1970)
+        #            see section 4.5, in particular equation (4.5.1)
+        #     np.pi/8: see http://stats.stackexchange.com/q/9001/88762
     }
 
 
@@ -43,13 +46,10 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                              "are ['gaussian', 'log-normal']" % excitation_dist)
             
 
-    def en_order_statistics_approx(self, n, alpha=None):
+    def en_order_statistics_approx(self, n):
         """
         approximates the expected value of the n-th variable of the order
-        statistics of the Nr excitations.
-        
-        If `alpha` is given, the compensated formula is used with the specified
-            alpha. If alpha='auto', alpha = np.pi / 8 is used.
+        statistics of the Nr excitations. Here, n runs from 1 .. Nr.
         
         The code for the expectation value is inspired by
             http://stats.stackexchange.com/q/9001/88762
@@ -60,14 +60,9 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             C.-C. Chen and C. W. Tyler
             Commun. Statist. Simula. 28 177-188 (1999)
         """
-        if alpha == 'auto':
-            alpha = np.pi / 8
-        
         # approximate the order statistics
-        if alpha:
-            gamma = (n - alpha)/(self.Nr - 2*alpha + 1)
-        else:
-            gamma = n / self.Nr
+        alpha = self.parameters['order_statistics_alpha']
+        gamma = (n - alpha)/(self.Nr - 2*alpha + 1)
 
         # get the distribution of the excitations
         en_dist = self.excitation_distribution()
@@ -82,8 +77,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return en_order_mean, en_order_std
     
     
-    def en_order_statistics_integrate(self, n, check_norm=True,
-                                      order_stats_alpha=None):
+    def en_order_statistics_integrate(self, n, check_norm=True):
         """
         calculates the expected value and the associated standard deviation of
         the n-th variable of the order statistics of self.Nr excitations
@@ -106,7 +100,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             return prefactor * x**x_power * Fx**(k - 1) * (1 - Fx)**(n - k) * fx
         
         # determine the integration interval 
-        mean, std = self.en_order_statistics_approx(n, order_stats_alpha)
+        mean, std = self.en_order_statistics_approx(n)
         int_min = mean - 10*std
         int_max = mean + 10*std
 
@@ -133,7 +127,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return mean, np.sqrt(M2 - mean**2)
 
 
-    def excitation_threshold(self, method='auto', order_stats_alpha=None):
+    def excitation_threshold(self, method='auto', corr_term='approx'):
         """ returns the approximate excitation threshold that receptors have to
         overcome to be part of the activation pattern.
         
@@ -148,15 +142,25 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         if method == 'integrate':
             en_order_statistics = self.en_order_statistics_integrate
         elif method == 'approx':
-            en_order_statistics = partial(self.en_order_statistics_approx,
-                                          alpha=order_stats_alpha)
+            en_order_statistics = self.en_order_statistics_approx
         else:
             raise ValueError('Unknown method `%s` for calculating the '
                              'excitation threshold.' % method)
             
+        Nr = self.Nr
+        if corr_term == 'approx':
+            # estimate the correction term such that \sum_n a_n = Nc on average
+            # if the approximate order statistics are used 
+            alpha = self.parameters['order_statistics_alpha']
+            corr_term = (Nr - Nr * alpha
+                         + self.coding_receptors * (2*alpha - 1)
+                         ) / Nr
+            # For alpha = 0, this reduces to the simple form
+            #     corr_term = 1 - self.coding_receptors / self.Nr
+
         # calculate the threshold
-        return en_order_statistics(self.Nr - self.coding_receptors)
-    
+        return en_order_statistics(Nr - self.coding_receptors + corr_term)
+                
 
     #===========================================================================
     # OVERWRITE METHODS OF THE BINARY RESPONSE MODEL
