@@ -19,8 +19,8 @@ from .numba_speedup import numba_patcher, nlargest_indices_numba
 from binary_response.tests import TestBase 
 
       
-      
-class TestLibrarySparse(TestBase):
+
+class TestLibraryPrimacyCoding(TestBase):
     """ unit tests for the continuous library """
 
     _multiprocess_can_split_ = True #< let nose know that tests can run parallel
@@ -132,12 +132,33 @@ class TestLibrarySparse(TestBase):
             theory.parameters['excitation_distribution'] = excitation_dist
             
             # compare the excitation thresholds
-            et1 = theory.excitation_threshold(method='approx')[0]
-            et2 = theory.excitation_threshold(method='integrate')[0]
+            et1 = theory.excitation_threshold(method='approx', corr_term=0)[0]
+            et2 = theory.excitation_threshold(method='integrate', corr_term=0)[0]
             
             msg = ('The calculated excitation thresholds differ. (%g != %g)'
                    % (et1, et2))
             self.assertAllClose(et1, et2, rtol=0.05, msg=msg)
+
+
+    def test_theory_numba(self):
+        """ test numba code in the theory part for consistency """
+        from primacy_coding import pc_theory
+        numba_func = pc_theory._mixture_distance_lognorm_integrand_numba
+        
+        # create test instance
+        theory = PrimacyCodingTheory.create_test_instance(num_receptors=30,
+                                                          coding_receptors=5)
+        # test different excitation models
+        for excitation_dist in ('gaussian', 'log-normal'):
+            theory.parameters['excitation_distribution'] = excitation_dist
+            # test different concentration ratios
+            for c1 in [0.1, 1, 10]:
+                pc_theory._mixture_distance_lognorm_integrand_numba = None
+                h1 = theory.mixture_distance(c1)
+                pc_theory._mixture_distance_lognorm_integrand_numba = numba_func
+                h2 = theory.mixture_distance(c1)
+                self.assertAllClose(h1, h2, msg='Numba code not consistent')
+
 
 
     def test_setting_coding_receptors(self):

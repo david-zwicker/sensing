@@ -14,6 +14,11 @@ from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNorma
 from .pc_base import PrimacyCodingMixin
 from utils.math_distributions import lognorm_mean_var
 
+try:
+    from .numba_speedup import _mixture_distance_lognorm_integrand_numba
+except ImportError:
+    _mixture_distance_lognorm_integrand_numba = None
+
 
 
 class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
@@ -127,6 +132,23 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return mean, np.sqrt(M2 - mean**2)
 
 
+    def _excitation_threshold_order(self):
+        """ return the (real-valued) index in the order statistics of the
+        excitations that corresponds to the excitation threshold. The index is
+        calculated such that \sum_n a_n = Nc on average if approximate order
+        statistics are used. This does not (yet) work for integrated order
+        statistics
+        """
+        # if the approximate order statistics are used 
+        alpha = self.parameters['order_statistics_alpha']
+        n_thresh = (self.Nr - self.Nr * alpha
+                    + self.coding_receptors * (2*alpha - 1)
+                    ) / self.Nr
+        # For alpha = 0, this reduces to the simple form
+        #     n_thresh = 1 - self.coding_receptors / self.Nr
+        return n_thresh
+
+
     def excitation_threshold(self, method='auto', corr_term='approx'):
         """ returns the approximate excitation threshold that receptors have to
         overcome to be part of the activation pattern.
@@ -147,19 +169,51 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             raise ValueError('Unknown method `%s` for calculating the '
                              'excitation threshold.' % method)
             
-        Nr = self.Nr
-        if corr_term == 'approx':
-            # estimate the correction term such that \sum_n a_n = Nc on average
-            # if the approximate order statistics are used 
-            alpha = self.parameters['order_statistics_alpha']
-            corr_term = (Nr - Nr * alpha
-                         + self.coding_receptors * (2*alpha - 1)
-                         ) / Nr
-            # For alpha = 0, this reduces to the simple form
-            #     corr_term = 1 - self.coding_receptors / self.Nr
-
         # calculate the threshold
-        return en_order_statistics(Nr - self.coding_receptors + corr_term)
+        if corr_term == 'approx':
+            return en_order_statistics(self._excitation_threshold_order()) 
+        else:
+            return en_order_statistics(self.Nr - self.coding_receptors
+                                       + corr_term)
+            
+            
+            
+    def mixture_distance(self, c_ratio):
+        """ calculate the expected difference (Hamming distance) between the
+        activity pattern of a single ligand and this ligand plus a second one
+        at a concentration `c_ratio` times the concentration of the first one.
+        """
+        if c_ratio == 0:
+            return 0
+        
+        # determine the excitation thresholds
+        p_inact = 1 - self.coding_receptors / self.Nr
+        en_dist = self.excitation_distribution()
+        e_thresh_0 = en_dist.ppf(p_inact)
+        e_thresh_rho = (1 + c_ratio) * e_thresh_0
+        
+        # determine the probability of changing the activity of a receptor
+        if (self.parameters['excitation_distribution'] == 'log-normal'
+            and _mixture_distance_lognorm_integrand_numba):
+            # use the numba enhanced integral
+            args = (c_ratio, e_thresh_rho, en_dist.mean(), en_dist.var())
+            p_on = p_inact - \
+                   integrate.quad(_mixture_distance_lognorm_integrand_numba,
+                                  0, e_thresh_0, args=args)[0]
+            p_off = integrate.quad(_mixture_distance_lognorm_integrand_numba,
+                                   e_thresh_0, np.inf, args=args)[0]
+            
+        else:
+            # use the general definition of the integral
+            def integrand(e1):
+                """ integrand for the activation probability """ 
+                cdf_val = en_dist.cdf((e_thresh_rho - e1) / c_ratio)
+                return cdf_val * en_dist.pdf(e1)
+            
+            p_on = p_inact - integrate.quad(integrand, en_dist.a, e_thresh_0)[0]
+            p_off = integrate.quad(integrand, e_thresh_0, en_dist.b)[0]
+    
+        return self.Nr * (p_on + p_off)
                 
 
     #===========================================================================

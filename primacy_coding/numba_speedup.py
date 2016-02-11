@@ -11,6 +11,7 @@ from __future__ import division
 
 import functools
 import logging
+import math
 
 import numba
 import numpy as np
@@ -54,6 +55,37 @@ def nlargest_indices_numba(arr, n):
             minval = values[minpos]
             
     return indices
+
+
+
+@numba.jit(nopython=True)
+def _mixture_distance_lognorm_integrand_numba(e1, c_ratio, e_thresh_rho,
+                                              en_mean, en_var):
+    """ evaluates the integrand for calculating the mixture distance with
+    log-normally distributed excitations """
+    if e1 == 0:
+        return 0
+    cdf_arg = (e_thresh_rho - e1) / c_ratio
+    if cdf_arg <= 0:
+        return 0
+
+    # evaluate cdf of the log-normal distribution
+    mean2 = en_mean**2
+    cdf_val = 0.5 * math.erfc(
+        np.log(mean2 / (cdf_arg*np.sqrt(mean2 + en_var)))
+        /(np.sqrt(2*np.log(1 + en_var/mean2)))
+    )
+
+    # evaluate pdf of the log-normal distribution
+    pdf_arg = e1
+    exp_enum = np.log(pdf_arg * np.sqrt(mean2 + en_var) / mean2) ** 2
+    exp_denom = 2. * np.log(1. + en_var / mean2)
+
+    enum = np.exp(-exp_enum / exp_denom)
+    denom = pdf_arg * np.sqrt(2. * np.pi * np.log(1. + (en_var / mean2)))
+    pdf_val = enum / denom
+    
+    return cdf_val * pdf_val
 
 
 
