@@ -177,14 +177,27 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                                        + corr_term)
             
             
+    def mixture_distance_uncorrelated(self):
+        """ calculate the expected difference (Hamming distance) between the
+        activity pattern of two completely uncorrelated mixtures.
+        """
+        Nc = self.coding_receptors
+        return 2*Nc*(1 + Nc/self.Nr)
+        
             
     def mixture_distance(self, c_ratio):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of a single ligand and this ligand plus a second one
         at a concentration `c_ratio` times the concentration of the first one.
         """
-        if c_ratio == 0:
+        # handle some special cases to avoid numerical problems at the
+        # integration boundaries
+        if c_ratio < 0:
+            raise ValueError('Concentration ratio `c_ratio` must be positive.')
+        elif c_ratio == 0:
             return 0
+        elif np.isinf(c_ratio):
+            return self.mixture_distance_uncorrelated()
         
         # determine the excitation thresholds
         p_inact = 1 - self.coding_receptors / self.Nr
@@ -195,13 +208,9 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         # determine the probability of changing the activity of a receptor
         if (self.parameters['excitation_distribution'] == 'log-normal'
             and _mixture_distance_lognorm_integrand_numba):
-            # use the numba enhanced integral
+            # use the numba enhanced integrand
+            integrand = _mixture_distance_lognorm_integrand_numba
             args = (c_ratio, e_thresh_rho, en_dist.mean(), en_dist.var())
-            p_on = p_inact - \
-                   integrate.quad(_mixture_distance_lognorm_integrand_numba,
-                                  0, e_thresh_0, args=args)[0]
-            p_off = integrate.quad(_mixture_distance_lognorm_integrand_numba,
-                                   e_thresh_0, np.inf, args=args)[0]
             
         else:
             # use the general definition of the integral
@@ -210,8 +219,12 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                 cdf_val = en_dist.cdf((e_thresh_rho - e1) / c_ratio)
                 return cdf_val * en_dist.pdf(e1)
             
-            p_on = p_inact - integrate.quad(integrand, en_dist.a, e_thresh_0)[0]
-            p_off = integrate.quad(integrand, e_thresh_0, en_dist.b)[0]
+            args = ()
+            
+        p_on = p_inact - integrate.quad(integrand, en_dist.a, e_thresh_0,
+                                        args=args)[0]
+        p_off = integrate.quad(integrand, e_thresh_0, en_dist.b,
+                               args=args)[0]
     
         return self.Nr * (p_on + p_off)
                 
