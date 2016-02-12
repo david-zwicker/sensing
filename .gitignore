@@ -54,3 +54,10 @@ docs/_build/
 
 # MacOS
 .DS_Store
+
+# LaTeX
+*.aux
+*.bbl
+*.blg
+*.log
+*.synctex.gz
