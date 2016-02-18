@@ -29,6 +29,7 @@ NUMBA_NOGIL = True
 numba_patcher = NumbaPatcher(module=lib_spr_numeric)
 
 
+
 excitation_statistics_monte_carlo_numba_template = """ 
 def function(steps, S_ni, p_i, c_means, c_spread, ret_correlations, en_mean,
              enm_cov):

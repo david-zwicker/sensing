@@ -11,7 +11,6 @@ from __future__ import division
 
 import functools
 import logging
-import math
 
 import numba
 import numpy as np
@@ -24,6 +23,7 @@ from utils.misc import take_popcount
 from utils.math_distributions import lognorm_mean_var_to_mu_sigma
 from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
                                  check_return_dict_approx)
+from utils.numba_tools import nlargest_indices_numba, lognorm_cdf, lognorm_pdf
 
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode
@@ -34,33 +34,9 @@ numba_patcher = NumbaPatcher(module=pc_numeric)
 
 
 
-
-@numba.jit(nopython=NUMBA_NOPYTHON, nogil=NUMBA_NOGIL)
-def nlargest_indices_numba(arr, n):
-    """
-    Return the indices of the `n` largest elements of `arr`
-    """
-    indices = np.arange(n)
-    values = np.empty(n)
-    values[:] = arr[:n]
-    minpos = values.argmin()
-    minval = values[minpos]
-    
-    for k in range(n, len(arr)):
-        val = arr[k]
-        if val > minval:
-            indices[minpos] = k
-            values[minpos] = val
-            minpos = values.argmin()
-            minval = values[minpos]
-            
-    return indices
-
-
-
 @numba.jit(nopython=True)
-def _mixture_distance_lognorm_integrand_numba(e1, c_ratio, e_thresh_rho,
-                                              en_mean, en_var):
+def _activity_distance_tb_lognorm_integrand_numba(e1, c_ratio, e_thresh_rho,
+                                                  en_mean, en_var):
     """ evaluates the integrand for calculating the mixture distance with
     log-normally distributed excitations """
     if e1 == 0:
@@ -70,20 +46,10 @@ def _mixture_distance_lognorm_integrand_numba(e1, c_ratio, e_thresh_rho,
         return 0
 
     # evaluate cdf of the log-normal distribution
-    mean2 = en_mean**2
-    cdf_val = 0.5 * math.erfc(
-        np.log(mean2 / (cdf_arg*np.sqrt(mean2 + en_var)))
-        /(np.sqrt(2*np.log(1 + en_var/mean2)))
-    )
+    cdf_val = lognorm_cdf(cdf_arg, en_mean, en_var)
 
     # evaluate pdf of the log-normal distribution
-    pdf_arg = e1
-    exp_enum = np.log(pdf_arg * np.sqrt(mean2 + en_var) / mean2) ** 2
-    exp_denom = 2. * np.log(1. + en_var / mean2)
-
-    enum = np.exp(-exp_enum / exp_denom)
-    denom = pdf_arg * np.sqrt(2. * np.pi * np.log(1. + (en_var / mean2)))
-    pdf_val = enum / denom
+    pdf_val = lognorm_pdf(e1, en_mean, en_var)
     
     return cdf_val * pdf_val
 

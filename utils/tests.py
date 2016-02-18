@@ -13,6 +13,7 @@ from scipy import stats
 
 from .math_distributions import (lognorm_mean_var_to_mu_sigma, lognorm_mean,
                                  lognorm_mean_var, loguniform_mean)
+from .numba_tools import lognorm_cdf, lognorm_pdf
 
       
       
@@ -87,6 +88,16 @@ class TestMathDistributions(unittest.TestCase):
         dist = loguniform_mean(S0, sigma)
         self.assertAlmostEqual(dist.mean(), S0)
                     
+                    
+    def test_numba_stats(self):
+        """ test the numba implementation of statistics functions """
+        for _ in range(10):
+            mean = np.random.random() + 0.1
+            var = np.random.random() + 0.1
+            x = np.random.random() + 0.1
+            dist_LN = lognorm_mean_var(mean, var)
+            self.assertAlmostEqual(dist_LN.pdf(x), lognorm_pdf(x, mean, var))
+            self.assertAlmostEqual(dist_LN.cdf(x), lognorm_cdf(x, mean, var))
     
 
 if __name__ == '__main__':

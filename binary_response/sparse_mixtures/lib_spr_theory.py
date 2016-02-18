@@ -9,6 +9,7 @@ from __future__ import division
 import logging
 
 import numpy as np
+from scipy import integrate
 
 from .lib_spr_base import LibrarySparseBase
 from utils.math_distributions import (lognorm_mean, loguniform_mean,
@@ -103,7 +104,7 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
             return np.clip(MI, 0, self.Nr)
         else:
             return MI
-        
+
         
     def set_optimal_parameters(self, **kwargs):
         """ adapts the parameters of this library to be close to optimal """
@@ -407,7 +408,60 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
                 'mean_sensitivity': library_opt['mean_sensitivity'],
                 'correlation': 0}
                 
+        
+    def activity_distance_mixtures(self, mixture_size, mixture_overlap=0,
+                                   concentration=None):
+        """ calculates the expected Hamming distance between the activation
+        pattern of two mixtures with `mixture_size` ligands of equal 
+        concentration `concentration`. `mixture_overlap` denotes the number of
+        ligands that are the same in the two mixtures """
+        if mixture_overlap == mixture_size:
+            return 0
+    
+        if concentration is None:
+            concentration = self.c_means.mean()
+    
+        # load sped up function from numba code
+        try:
+            from utils.numba_tools import lognorm_pdf, lognorm_cdf
+        except ImportError:
+            raise ImportError("Calculating the mixture distance is currently "
+                              "only supported if numba is available.")
 
+        # introduce some abbreviations    
+        c = concentration
+        sB = mixture_overlap
+        s = mixture_size
+        S_stats = self.sensitivity_stats() 
+    
+        if sB == 0:
+            # probability that one excitation is below threshold
+            p_1below = lognorm_cdf(1/c, s*S_stats['mean'], s*S_stats['var'])
+            # probability that both excitations are below threshold
+            p_2below = p_1below**2
+            # probability that both eps_L and eps_R bring it above threshold
+            p_2above = (1 - p_1below)**2
+            p_same = p_2below + p_2above
+    
+        else:
+            # sB > 0:
+            sD = s - sB
+            def integrand(eps):
+                """ probability that either one of the excitations caused by the
+                different ligand brings the total excitation above threshold   
+                given a certain excitation eps caused by the same ligands """
+                p_below_thresh = lognorm_cdf(eps, sD*S_stats['mean'],
+                                             sD*S_stats['var'])
+                p_eps = lognorm_pdf(1/c - eps, sB*S_stats['mean'],
+                                    sB*S_stats['var'])
+                return p_below_thresh * (1 - p_below_thresh) * p_eps
+            
+            p_1diff = integrate.quad(integrand, 0, 1/c)
+            p_same = 1 - 2*p_1diff[0]
+        
+        return self.Nr*(1 - p_same)
+        
+        
 
 class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     """ represents a single receptor library with random entries drawn from a

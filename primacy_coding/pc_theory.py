@@ -15,9 +15,9 @@ from .pc_base import PrimacyCodingMixin
 from utils.math_distributions import lognorm_mean_var
 
 try:
-    from .numba_speedup import _mixture_distance_lognorm_integrand_numba
+    from .numba_speedup import _activity_distance_tb_lognorm_integrand_numba
 except ImportError:
-    _mixture_distance_lognorm_integrand_numba = None
+    _activity_distance_tb_lognorm_integrand_numba = None
 
 
 
@@ -38,7 +38,8 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
 
     def excitation_distribution(self):
         """ returns a scipy.stats distribution for the excitations with the
-        given mean and standard deviation """ 
+        given mean and standard deviation
+        """ 
         excitation_dist = self.parameters['excitation_distribution']
         en_stats = self.excitation_statistics()
         
@@ -140,12 +141,15 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         statistics
         """
         # if the approximate order statistics are used 
+        Nr = self.Nr
         alpha = self.parameters['order_statistics_alpha']
-        n_thresh = (self.Nr - self.Nr * alpha
-                    + self.coding_receptors * (2*alpha - 1)
-                    ) / self.Nr
+        n_thresh = (Nr * (1 + Nr - alpha)
+                    - self.coding_receptors * (1 + Nr - 2*alpha)
+                    ) / Nr
         # For alpha = 0, this reduces to the simple form
-        #     n_thresh = 1 - self.coding_receptors / self.Nr
+        #     n_thresh = (1 + 1/self.Nr) * (self.Nr - self.coding_receptors)
+        # which is close to naive expectation
+        #     n_thresh = self.Nr - self.coding_receptors
         return n_thresh
 
 
@@ -177,15 +181,39 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                                        + corr_term)
             
             
-    def mixture_distance_uncorrelated(self):
+    def activity_distance_uncorrelated(self):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of two completely uncorrelated mixtures.
         """
         Nc = self.coding_receptors
-        return 2*Nc*(1 + Nc/self.Nr)
+        return 2*Nc*(1 - Nc/self.Nr)
         
             
-    def mixture_distance(self, c_ratio):
+    def activity_distance_target_background_approx_small(self, c_ratio):
+        """ calculate the expected difference (Hamming distance) between the
+        activity pattern of a single ligand and this ligand plus a second one
+        at a concentration `c_ratio` times the concentration of the first one.
+        
+        This function approximated the distance for small `c_ratios`
+        """
+        en_dist = self.excitation_distribution()
+        en_thresh = self.excitation_threshold('approx')[0]
+        
+        # estimate the probability that a receptor was inactive and gets
+        # activated
+        p_on = (c_ratio
+                * en_dist.pdf(en_thresh)
+                * integrate.quad(en_dist.sf, en_thresh, en_dist.b)[0])
+        
+        # estimate the probability that a receptor was active and gets shut down
+        Nc = self.coding_receptors
+        Nr = self.Nr
+        p_off = c_ratio * Nc/Nr * (1 - Nc/Nr)
+        
+        return Nr*(p_on + p_off)
+            
+            
+    def activity_distance_target_background(self, c_ratio):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of a single ligand and this ligand plus a second one
         at a concentration `c_ratio` times the concentration of the first one.
@@ -207,9 +235,9 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         
         # determine the probability of changing the activity of a receptor
         if (self.parameters['excitation_distribution'] == 'log-normal'
-            and _mixture_distance_lognorm_integrand_numba):
+            and _activity_distance_tb_lognorm_integrand_numba):
             # use the numba enhanced integrand
-            integrand = _mixture_distance_lognorm_integrand_numba
+            integrand = _activity_distance_tb_lognorm_integrand_numba
             args = (c_ratio, e_thresh_rho, en_dist.mean(), en_dist.var())
             
         else:
@@ -229,6 +257,15 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return self.Nr * (p_on + p_off)
                 
 
+    def activity_distance_mixtures(self, mixture_size, mixture_overlap=0,
+                                   concentration=None):
+        """ calculates the expected Hamming distance between the activation
+        pattern of two mixtures with `mixture_size` ligands of equal 
+        concentration `concentration`. `mixture_overlap` denotes the number of
+        ligands that are the same in the two mixtures """
+        pass
+    
+    
     #===========================================================================
     # OVERWRITE METHODS OF THE BINARY RESPONSE MODEL
     #===========================================================================
