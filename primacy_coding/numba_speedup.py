@@ -55,6 +55,18 @@ def _activity_distance_tb_lognorm_integrand_numba(e1, c_ratio, e_thresh_rho,
 
 
 
+@numba.jit(nopython=True)
+def _activity_distance_m_lognorm_integrand_numba(e_same, e_thresh_total, sB, sD,
+                                                 en_mean, en_var):
+    """ probability that the different ligands of either mixture
+    bring the excitation above threshold """ 
+    # prob that the excitation does not exceed threshold
+    cdf_val = lognorm_cdf(e_thresh_total - e_same, sD*en_mean, sD*en_var) 
+
+    return cdf_val * (1 - cdf_val) * lognorm_pdf(e_same, sB*en_mean, sB*en_var)
+
+
+
 # copy the accelerated method from the binary_response package
 numba_patcher.register_method(
     'PrimacyCodingNumeric.excitation_statistics_monte_carlo',

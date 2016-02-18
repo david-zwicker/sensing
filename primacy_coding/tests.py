@@ -140,7 +140,7 @@ class TestLibraryPrimacyCoding(TestBase):
             self.assertAllClose(et1, et2, rtol=0.05, msg=msg)
 
 
-    def test_theory_numba(self):
+    def test_theory_numba_tb(self):
         """ test numba code in the theory part for consistency """
         from primacy_coding import pc_theory
         numba_func = pc_theory._activity_distance_tb_lognorm_integrand_numba
@@ -157,6 +157,26 @@ class TestLibraryPrimacyCoding(TestBase):
                 h1 = theory.activity_distance_target_background(c1)
                 pc_theory._activity_distance_tb_lognorm_integrand_numba = numba_func
                 h2 = theory.activity_distance_target_background(c1)
+                self.assertAllClose(h1, h2, msg='Numba code not consistent')
+
+
+    def test_theory_numba_m(self):
+        """ test numba code in the theory part for consistency """
+        from primacy_coding import pc_theory
+        numba_func = pc_theory._activity_distance_m_lognorm_integrand_numba
+        
+        # create test instance
+        theory = PrimacyCodingTheory.create_test_instance(num_receptors=30,
+                                                          coding_receptors=5)
+        # test different excitation models
+        for excitation_dist in ('gaussian', 'log-normal'):
+            theory.parameters['excitation_distribution'] = excitation_dist
+            # test different concentration ratios
+            for sB in [0, 5, 10]:
+                pc_theory._activity_distance_m_lognorm_integrand_numba = None
+                h1 = theory.activity_distance_mixtures(10, sB)
+                pc_theory._activity_distance_m_lognorm_integrand_numba = numba_func
+                h2 = theory.activity_distance_mixtures(10, sB)
                 self.assertAllClose(h1, h2, msg='Numba code not consistent')
 
 

@@ -6,6 +6,8 @@ Created on Jan 5, 2016
 
 from __future__ import division
 
+import logging
+
 import numpy as np
 from scipy import integrate, stats, special
 
@@ -15,9 +17,11 @@ from .pc_base import PrimacyCodingMixin
 from utils.math_distributions import lognorm_mean_var
 
 try:
-    from .numba_speedup import _activity_distance_tb_lognorm_integrand_numba
+    from .numba_speedup import (_activity_distance_tb_lognorm_integrand_numba,
+                                _activity_distance_m_lognorm_integrand_numba)
 except ImportError:
     _activity_distance_tb_lognorm_integrand_numba = None
+    _activity_distance_m_lognorm_integrand_numba = None
 
 
 
@@ -257,13 +261,69 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return self.Nr * (p_on + p_off)
                 
 
-    def activity_distance_mixtures(self, mixture_size, mixture_overlap=0,
-                                   concentration=None):
+    def activity_distance_mixtures(self, mixture_size, mixture_overlap=0):
         """ calculates the expected Hamming distance between the activation
         pattern of two mixtures with `mixture_size` ligands of equal 
-        concentration `concentration`. `mixture_overlap` denotes the number of
+        concentration. `mixture_overlap` denotes the number of
         ligands that are the same in the two mixtures """
-        pass
+        if not 0 <= mixture_overlap <= mixture_size:
+            raise ValueError('Mixture overlap `mixture_overlap` must be '
+                             'between 0 and `mixture_size`.')
+        elif mixture_overlap == mixture_size:
+            return 0
+        elif mixture_overlap == 0:
+            return self.activity_distance_uncorrelated()
+    
+        s = mixture_size
+        sB = mixture_overlap
+        sD = (s - sB) # number of different ligands
+        
+        if not self.is_homogeneous_mixture:
+            logging.warn('Activity distances can only be estimated for '
+                         'homogeneous mixtures, where all ligands have the '
+                         'same concentration distribution. We are thus using '
+                         'the means of the concentration means and variances.')
+
+        c_mean = self.c_means.mean()
+        c_var = self.c_vars.mean()
+        S_stats = self.sensitivity_stats()
+        en_mean = S_stats['mean'] * c_mean
+        en_var = (S_stats['mean']**2 + S_stats['var']) * c_var
+    
+        # get the excitation distributions of different mixture sizes
+        en_dist_total = lognorm_mean_var(s*en_mean, s*en_var)
+    
+        # determine the excitation thresholds
+        p_inact = 1 - self.coding_receptors / self.Nr
+        e_thresh_total = en_dist_total.ppf(p_inact)
+
+        # determine the probability of changing the activity of a receptor
+        if (self.parameters['excitation_distribution'] == 'log-normal'
+            and _activity_distance_m_lognorm_integrand_numba):
+            # use the numba enhanced integrand
+            p_change_xor = _activity_distance_m_lognorm_integrand_numba
+            args = (e_thresh_total, sB, sD, en_mean, en_var)
+            
+        else:
+            # use the general definition of the integral
+            en_dist_same = lognorm_mean_var(sB*en_mean, sB*en_var)
+            en_dist_diff = lognorm_mean_var(sD*en_mean, sD*en_var)
+
+            # use the general definition of the integral
+            def p_change_xor(e_same):
+                """ probability that the different ligands of either mixture
+                bring the excitation above threshold """ 
+                # prob that the excitation does not exceed threshold
+                cdf_val = en_dist_diff.cdf(e_thresh_total - e_same) 
+                return cdf_val * (1 - cdf_val) * en_dist_same.pdf(e_same)
+
+            args = ()
+    
+        # integrate over all excitations of the common ligands
+        p_different = integrate.quad(p_change_xor, en_dist_total.a,
+                                     e_thresh_total, args=args)[0]
+    
+        return 2 * self.Nr * p_different
     
     
     #===========================================================================
