@@ -34,7 +34,8 @@ The classes in the project are organized as follows:
         ligands are present in a mixture and then chose their concentrations
         independently from exponential distributions. 
     The code for these mixtures is organized in different modules.
-    Additionally, there is a separate package that considers primacy coding.
+- The package `adaptive_response` is an extension of the `binary_response`,
+    which looks into adaptive excitation thresholds.
 - We distinguish between general classes and classes  with a concrete receptor
     library. Here, we distinguish libraries that do numerical simulations and
     libraries that provide analytical results.
