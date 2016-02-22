@@ -482,7 +482,7 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
             nonzeros = (np.random.random(shape) < density)
             sens_mat = S_scale * nonzeros 
 
-    elif distribution == 'log_normal':
+    elif distribution == 'log_normal' or distribution == 'log-normal':
         # log normal distribution
         if 'spread' in kwargs:
             logging.warn('Deprecated argument `spread`. Use `width` instead.')
@@ -528,7 +528,7 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
             dist = lognorm_mean(mean_sensitivity, width)
             sens_mat = dist.rvs(shape)
             
-    elif distribution == 'log_uniform':
+    elif distribution == 'log_uniform' or distribution == 'log-uniform':
         # log uniform distribution
         width = kwargs.pop('width', 1)
         sens_mat_params['width'] = width
@@ -538,9 +538,6 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
         else:
             dist = loguniform_mean(mean_sensitivity, np.exp(width))
             sens_mat = dist.rvs(shape)
-        
-    elif distribution == 'log_gamma':
-        raise NotImplementedError
         
     elif distribution == 'normal':
         # normal distribution
