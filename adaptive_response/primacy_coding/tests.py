@@ -142,7 +142,7 @@ class TestLibraryPrimacyCoding(TestBase):
 
     def test_theory_numba_tb(self):
         """ test numba code in the theory part for consistency """
-        from primacy_coding import pc_theory
+        from . import pc_theory
         numba_func = pc_theory._activity_distance_tb_lognorm_integrand_numba
         
         # create test instance
@@ -162,7 +162,7 @@ class TestLibraryPrimacyCoding(TestBase):
 
     def test_theory_numba_m(self):
         """ test numba code in the theory part for consistency """
-        from primacy_coding import pc_theory
+        from . import pc_theory
         numba_func = pc_theory._activity_distance_m_lognorm_integrand_numba
         
         # create test instance
