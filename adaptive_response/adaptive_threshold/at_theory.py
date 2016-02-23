@@ -69,19 +69,19 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         alpha = self.threshold_factor
         
         # get statistics of the total concentration c_tot = \sum_i c_i
-        ctot_stats = self.ctot_statistics()
-        ctot_mean = ctot_stats['mean']
-        ctot_var = ctot_stats['var']
+        c_stats = self.concentration_statistics()
+        ctot_mean = c_stats['mean'].sum()
+        ctot_var = c_stats['var'].sum()
+        c2_mean = c_stats['mean']**2 + c_stats['var']
+        c2_mean_sum = c2_mean.sum()
         
         # get statistics of the sensitivities S_ni
         S_stats = self.sensitivity_stats()
         S_mean = S_stats['mean']
-        S_var = S_stats['var']
         
-        # calculate statistics of the mean excitation
-        en_mean_mean = ctot_mean * S_mean
-        en_mean_var = (S_mean**2 * ctot_var
-                       + (ctot_var + ctot_mean / self.Ns) * S_var / self.Nr)
+        # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
+        en_mean_mean = S_mean * ctot_mean
+        en_mean_var  = S_mean**2 * ctot_var + S_stats['var'] * c2_mean_sum / self.Nr
         
         # return the statistics of the excitation threshold
         en_thresh_var = alpha**2 * en_mean_var

@@ -19,20 +19,23 @@ from .misc import estimate_computation_speed, copy_func
 def check_return_value(obj, funcs):
     """ checks the numba method versus the original one """
     val1, val2 = funcs[0](obj), funcs[1](obj)
-    return np.allclose(val1, val2)
+    result = np.allclose(val1, val2)
+    return result, (val1, val2)
 
 
 def check_return_value_approx(obj, funcs, rtol=5e-2, atol=5e-2):
     """ checks the numba method versus the original one """
     val1, val2 = funcs[0](obj), funcs[1](obj)
-    return np.allclose(val1, val2, rtol=rtol, atol=atol)
+    result = np.allclose(val1, val2, rtol=rtol, atol=atol)
+    return result, (val1, val2)
 
 
-def check_return_dict_approx(obj, funcs, rtol=0.1, atol=5e-2):
+def check_return_dict_approx(obj, funcs, rtol=0.1, atol=0.1):
     """ checks the numba method versus the original one """
     val1, val2 = funcs[0](obj), funcs[1](obj)
-    return all(np.allclose(val1[key], val2[key], rtol=rtol, atol=atol)
-               for key in val1)
+    result = all(np.allclose(val1[key], val2[key], rtol=rtol, atol=atol)
+                 for key in val1), (val1, val2)
+    return result, (val1, val2)
 
 
 def check_return_value_exact(obj, funcs):
@@ -158,7 +161,7 @@ class NumbaPatcher(object):
         return func1, func2
 
             
-    def test_function_consistency(self, name, repeat=10, verbosity=1,
+    def test_function_consistency(self, name, repeat=3, verbosity=1,
                                   instance_parameters=None):
         """ tests the consistency of a single numba methods with their original
         counter part.
@@ -180,24 +183,25 @@ class NumbaPatcher(object):
             instance_parameters = {}
         
         # check the functions multiple times
-        consistent = True
         for _ in range(repeat):
             test_obj = class_obj.create_test_instance(**instance_parameters)
             func1, func2 = self._prepare_functions(data)
-            if not test_func(test_obj, (func1, func2)):
+            consistent, vals = test_func(test_obj, (func1, func2))
+            if not consistent:
                 print('The numba implementation of `%s` is invalid.' % name)
-                print('Native implementation yields %s' % str(func1(test_obj)))
-                print('Numba implementation yields %s' % str(func2(test_obj)))
+                print('Native implementation yields %s' % str(vals[0]))
+                print('Numba implementation yields %s' % str(vals[1]))
                 print('Input: %r' % test_obj)
-                consistent = False
                 break
             
         else:
             # there were no problems
             if verbosity >= 2:
                 print('`%s` has a valid numba implementation.' % name)
+            return True
                 
-        return consistent
+        # we exited the for loop and there thus was a problem
+        return False
                      
                                 
     def test_consistency(self, repeat=10, verbosity=2):

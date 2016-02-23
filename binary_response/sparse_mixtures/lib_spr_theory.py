@@ -33,22 +33,20 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
             raise NotImplementedError('Not implemented for correlated mixtures')
         
         # get statistics of the total concentration c_tot = \sum_i c_i
-        ctot_stats = self.ctot_statistics()
-        ctot_mean = ctot_stats['mean']
-        ctot_var = ctot_stats['var']
+        c_stats = self.concentration_statistics()
+        ctot_mean = c_stats['mean'].sum()
+        ctot_var = c_stats['var'].sum()
+        c2_mean = c_stats['mean']**2 + c_stats['var']
+        c2_mean_sum = c2_mean.sum()
         
         # get statistics of the sensitivities S_ni
         S_stats = self.sensitivity_stats()
         S_mean = S_stats['mean']
-        S_var = S_stats['var']
-        S_cov = S_stats['cov']
         
         # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
         en_mean = S_mean * ctot_mean
-        en_var  = ((S_mean**2 + S_var) * ctot_var
-                   + S_var * ctot_mean**2 / self.Ns)
-        enm_cov = ((S_mean**2 + S_cov) * ctot_var 
-                   + S_cov * ctot_mean**2 / self.Ns)
+        en_var  = S_mean**2 * ctot_var + S_stats['var'] * c2_mean_sum
+        enm_cov = S_mean**2 * ctot_var + S_stats['cov'] * c2_mean_sum
 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'cov': enm_cov}
