@@ -6,6 +6,7 @@ Created on Jan 5, 2016
 
 from __future__ import division
 
+import numpy as np
 from scipy import stats
 
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
@@ -22,6 +23,14 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
     parameters_default = {
         'excitation_distribution': 'log-normal', 
     }
+            
+    
+    @property
+    def threshold_factor_compensated(self):
+        """ returns the threshold factor corrected for the excitation that was
+        actually measured """
+        alpha = self.threshold_factor
+        return alpha * (self.Nr - 1) / (self.Nr - alpha)
 
 
     def excitation_distribution(self):
@@ -40,18 +49,53 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                              "are ['gaussian', 'log-normal']" % excitation_dist)
             
             
-    def excitation_threshold(self):
+    def excitation_threshold(self, compensated=False):
         """ returns the average excitation threshold that receptors have to
-        overcome to be part of the activation pattern. """
-        en_dist = self.excitation_distribution()
-        return self.threshold_factor * en_dist.mean()
+        overcome to be part of the activation pattern.
+        `compensated` determines whether the compensated threshold factor is
+            used to determine the excitation threshold
+        """
+        if compensated:
+            alpha = self.threshold_factor_compensated
+        else:
+            alpha = self.threshold_factor
+        
+        return  alpha * self.excitation_statistics()['mean']
+
+        
+    def excitation_threshold_statistics(self):
+        """ returns the statistics of the excitation threshold that receptors
+        have to overcome to be part of the activation pattern. """
+        alpha = self.threshold_factor
+        
+        # get statistics of the total concentration c_tot = \sum_i c_i
+        ctot_stats = self.ctot_statistics()
+        ctot_mean = ctot_stats['mean']
+        ctot_var = ctot_stats['var']
+        
+        # get statistics of the sensitivities S_ni
+        S_stats = self.sensitivity_stats()
+        S_mean = S_stats['mean']
+        S_var = S_stats['var']
+        
+        # calculate statistics of the mean excitation
+        en_mean_mean = ctot_mean * S_mean
+        en_mean_var = (S_mean**2 * ctot_var
+                       + (ctot_var + ctot_mean / self.Ns) * S_var / self.Nr)
+        
+        # return the statistics of the excitation threshold
+        en_thresh_var = alpha**2 * en_mean_var
+        return {'mean': alpha * en_mean_mean,
+                'var': en_thresh_var,
+                'std': np.sqrt(en_thresh_var)}
 
 
     def activity_distance_uncorrelated(self):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of two completely uncorrelated mixtures.
         """
-        p_a = self.excitation_distribution().sf(self.threshold_factor)
+        alpha_hat = self.threshold_factor_compensated
+        p_a = self.excitation_distribution().sf(alpha_hat)
         return 2 * self.Nr * p_a * (1 - p_a)
             
             
@@ -72,7 +116,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
         en_dist = self.excitation_distribution()
-        return en_dist.sf(self.excitation_threshold())
+        return en_dist.sf(self.excitation_threshold(compensated=True))
             
 
     def receptor_crosstalk(self):

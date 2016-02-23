@@ -32,14 +32,23 @@ class LibrarySparseTheoryBase(LibrarySparseBase):
         if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
         
+        # get statistics of the total concentration c_tot = \sum_i c_i
         ctot_stats = self.ctot_statistics()
+        ctot_mean = ctot_stats['mean']
+        ctot_var = ctot_stats['var']
+        
+        # get statistics of the sensitivities S_ni
         S_stats = self.sensitivity_stats()
         S_mean = S_stats['mean']
+        S_var = S_stats['var']
+        S_cov = S_stats['cov']
         
-        # calculate statistics of the sum s_n = S_ni * c_i        
-        en_mean = S_mean * ctot_stats['mean']
-        en_var  = (S_mean**2 + S_stats['var']) * ctot_stats['var']
-        enm_cov = (S_mean**2 + S_stats['cov']) * ctot_stats['var']
+        # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
+        en_mean = S_mean * ctot_mean
+        en_var  = ((S_mean**2 + S_var) * ctot_var
+                   + S_var * ctot_mean**2 / self.Ns)
+        enm_cov = ((S_mean**2 + S_cov) * ctot_var 
+                   + S_cov * ctot_mean**2 / self.Ns)
 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'cov': enm_cov}
@@ -159,7 +168,7 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseBinary, self).repr_params
         params.append('xi=%g' % self.density)
-        params.append('S0=%g' % self.mean_sensitivity)
+        params.append('<S>=%g' % self.mean_sensitivity)
         return params
 
 
@@ -292,7 +301,7 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogNormal, self).repr_params
-        params.append('S0=%g' % self.mean_sensitivity)
+        params.append('<S>=%g' % self.mean_sensitivity)
         params.append('width=%g' % self.width)
         params.append('correlation=%g' % self.correlation)
         return params
@@ -485,7 +494,7 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogUniform, self).repr_params
         params.append('width=%g' % self.width)
-        params.append('S0=%g' % self.mean_sensitivity)
+        params.append('<S>=%g' % self.mean_sensitivity)
         return params
 
 

@@ -36,7 +36,7 @@ numba_patcher = NumbaPatcher(module=at_numeric)
 numba_patcher.register_method(
     'AdaptiveThresholdNumeric.excitation_statistics_monte_carlo',
     LibrarySparseNumeric_excitation_statistics_monte_carlo,
-    check_return_dict_approx
+    functools.partial(check_return_dict_approx, atol=0.1, rtol=0.1)
 )
 
 

@@ -28,7 +28,7 @@ def check_return_value_approx(obj, funcs, rtol=5e-2, atol=5e-2):
     return np.allclose(val1, val2, rtol=rtol, atol=atol)
 
 
-def check_return_dict_approx(obj, funcs, rtol=0.2, atol=5e-2):
+def check_return_dict_approx(obj, funcs, rtol=0.1, atol=5e-2):
     """ checks the numba method versus the original one """
     val1, val2 = funcs[0](obj), funcs[1](obj)
     return all(np.allclose(val1[key], val2[key], rtol=rtol, atol=atol)

@@ -52,14 +52,3 @@ class AdaptiveThresholdMixin(object):
         """ set the number of receptors used for coding """
         self.parameters['threshold_factor'] = alpha
         
-        
-    def excitation_threshold_statistics(self, **kwargs):
-        """ returns the statistics of the excitation threshold that receptors
-        have to overcome to be part of the activation pattern. """
-        en_stats = self.excitation_statistics(**kwargs)
-        en_thresh_mean = self.threshold_factor * en_stats['mean'].mean()
-        en_thresh_var = self.threshold_factor**2 * en_stats['var'].mean()
-        return {'mean': en_thresh_mean,
-                'var': en_thresh_var,
-                'std': np.sqrt(en_thresh_var)}
-

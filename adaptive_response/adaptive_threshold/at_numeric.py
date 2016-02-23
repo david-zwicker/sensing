@@ -10,6 +10,7 @@ import numpy as np
 
 from binary_response.sparse_mixtures.lib_spr_numeric import LibrarySparseNumeric
 from .at_base import AdaptiveThresholdMixin
+from utils.misc import StatisticsAccumulator
 
 
 
@@ -17,7 +18,25 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     """ represents a single receptor library that handles sparse mixtures that
     where receptors get active if their excitation is above a fraction of the
     total excitation """
-            
+
+        
+    def excitation_threshold_statistics(self):
+        """ returns the statistics of the excitation threshold that receptors
+        have to overcome to be part of the activation pattern. """
+        S_ni = self.sens_mat
+        alpha = self.threshold_factor
+
+        e_thresh_stats = StatisticsAccumulator()
+
+        # iterate over samples and collect information about the threshold        
+        for c_i in self._sample_mixtures():
+            e_n = np.dot(S_ni, c_i)
+            e_thresh_stats.add(alpha * e_n.mean())
+
+        return {'mean': e_thresh_stats.mean,
+                'var': e_thresh_stats.var,
+                'std': e_thresh_stats.std}
+                    
     
     def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """
@@ -102,3 +121,4 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
             return MI, q_n
         else:
             return MI
+        

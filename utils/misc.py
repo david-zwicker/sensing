@@ -19,6 +19,7 @@ import numpy as np
 from scipy.stats import itemfreq
 
 
+
 def xlog2x(x):
     """ calculates x*np.log2(x) """
     if x == 0:
@@ -265,3 +266,71 @@ class CachedArray(object):
             else: 
                 self._data = np.full(shape, self.value, np.double)
         return self._data
+
+
+
+class StatisticsAccumulator(object):
+    """ class that can be used to calculate statistics of sets of arbitrarily
+    shaped data sets. This uses an online algorithm, allowing the data to be
+    added one after another """
+    
+    def __init__(self, ddof=0, shape=None, dtype=np.double):
+        """ initialize the accumulator
+        `ddof` is the  delta degrees of freedom, which is used in the formula 
+            for the standard deviation.
+        `shape` is the shape of the data. If omitted it will be read from the
+            first value
+        `dtype` is the numpy dtype of the interal accumulator
+        """ 
+        self.count = 0
+        self.ddof = ddof
+        
+        if shape is None:
+            self.mean = None
+            self._M2 = None
+        else:
+            self.mean = np.zeros(shape, dtype=dtype)
+            self._M2 = np.zeros(shape, dtype=dtype)
+            
+        
+    @property
+    def var(self):
+        """ return the variance """
+        if self.count <= self.ddof:
+            raise ValueError('Too few items to calculate variance')
+        else:
+            return self._M2 / (self.count - self.ddof)
+        
+        
+    @property
+    def std(self):
+        """ return the standard deviation """
+        return np.sqrt(self.var)
+            
+            
+    def add(self, value):
+        """ add a value to the accumulator """
+        if self.mean is None:
+            # state needs to be initialized
+            self.count = 1
+            if hasattr(value, '__iter__'):
+                self.mean = np.asarray(value, np.double)
+                self._M2 = np.zeros_like(self.mean)
+            else:
+                self.mean = value
+                self._M2 = 0
+            
+        else:
+            # update internal state
+            self.count += 1
+            delta = value - self.mean
+            self.mean += delta / self.count
+            self._M2 += delta * (value - self.mean)
+            
+    
+    def add_many(self, arr_or_iter):
+        """ adds many values from an array or an iterator """
+        for value in arr_or_iter:
+            self.add(value)
+            
+            
