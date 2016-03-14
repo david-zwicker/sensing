@@ -112,9 +112,6 @@ def LibrarySparseNumeric_excitation_statistics_monte_carlo(
         this = LibrarySparseNumeric_excitation_statistics_monte_carlo
         return this._python_function(self, ret_correlations)
 
-    # prevent integer overflow in collecting activity patterns
-    assert self.Nr <= self.parameters['max_num_receptors'] <= 63
-
     en_mean = np.zeros(self.Nr) 
     enm_cov = np.zeros((self.Nr, self.Nr)) 
     steps = self.monte_carlo_steps

@@ -20,9 +20,13 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     total excitation """
 
         
-    def excitation_threshold_statistics(self):
+    def excitation_threshold_statistics(self, normalized=False):
         """ returns the statistics of the excitation threshold that receptors
-        have to overcome to be part of the activation pattern. """
+        have to overcome to be part of the activation pattern.
+        
+        `normalized` determines whether the statistics of the excitations are
+            calculated for normalized concentration vector 
+        """
         S_ni = self.sens_mat
         alpha = self.threshold_factor
 
@@ -31,28 +35,38 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
         # iterate over samples and collect information about the threshold        
         for c_i in self._sample_mixtures():
             e_n = np.dot(S_ni, c_i)
-            e_thresh_stats.add(alpha * e_n.mean())
+            e_thresh = alpha * e_n.mean()
+            if normalized:
+                e_thresh /= c_i.sum()
+            e_thresh_stats.add(e_thresh)
 
         return {'mean': e_thresh_stats.mean,
                 'var': e_thresh_stats.var,
                 'std': e_thresh_stats.std}
                     
+                    
+    def _sample_activities(self, steps=None):
+        """ sample activity vectors """
+        S_ni = self.sens_mat
+        alpha = self.threshold_factor
+
+        # iterate over mixtures and yield corresponding activities
+        for c_i in self._sample_mixtures(steps):
+            e_n = np.dot(S_ni, c_i)
+            a_n = (e_n >= alpha * e_n.mean())
+            yield a_n
+            
     
     def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """
         # prevent integer overflow in collecting activity patterns
         assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
-        S_ni = self.sens_mat
-        alpha = self.threshold_factor
-
         r_n = np.zeros(self.Nr)
         if ret_correlations:
             r_nm = np.zeros((self.Nr, self.Nr))
         
-        for c_i in self._sample_mixtures():
-            e_n = np.dot(S_ni, c_i)
-            a_n = (e_n >= alpha * e_n.mean())
+        for a_n in self._sample_activities():
             r_n[a_n] += 1
             if ret_correlations:
                 r_nm[np.outer(a_n, a_n)] += 1
@@ -94,18 +108,12 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
         assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
         base = 2 ** np.arange(0, self.Nr)
-        S_ni = self.sens_mat
-        alpha = self.threshold_factor
 
         # sample mixtures according to the probabilities of finding
         # substrates
         count_a = np.zeros(2**self.Nr)
-        for c_i in self._sample_mixtures():
-            
-            # get the activity vector ...
-            e_n = np.dot(S_ni, c_i)
-            a_n = (e_n >= alpha * e_n.mean())
-            # ... and represent it as a single integer
+        for a_n in self._sample_activities():
+            # represent activity as a single integer
             a_id = np.dot(base, a_n)
             # increment counter for this output
             count_a[a_id] += 1
