@@ -8,12 +8,15 @@ from __future__ import division
 
 import collections
 import itertools
+import logging
 import unittest
 
 import numpy as np
 from scipy import misc
 
 from .at_numeric import AdaptiveThresholdNumeric
+from .at_theory import (AdaptiveThresholdTheory,
+                        AdaptiveThresholdTheoryReceptorFactors)
 from . import numba_patcher
 from binary_response.tests import TestBase 
 
@@ -128,6 +131,38 @@ class TestLibraryPrimacyCoding(TestBase):
         model.threshold_factor = .4
         self.assertEqual(model.threshold_factor, .4)
         self.assertEqual(model.parameters['threshold_factor'], .4)
+        
+        
+    def test_theory_consistency(self):
+        """ compares the two theory classes with each other """
+        logging.disable(logging.WARN)
+        
+        theory0 = AdaptiveThresholdTheory.create_test_instance()
+        theoryN = AdaptiveThresholdTheoryReceptorFactors(
+            num_substrates=theory0.Ns, num_receptors=theory0.Nr,
+            mean_sensitivity=theory0.mean_sensitivity, width=theory0.width,
+            parameters=theory0.parameters.copy()
+        )
+        
+        # test sensitivity statistics 
+        stats0 = theory0.sensitivity_stats()
+        statsN = theoryN.sensitivity_stats()
+        self.assertEqual(stats0['mean'], statsN['mean'][0])
+        self.assertEqual(stats0['var'], statsN['var'][0])
+        
+        # test excitation statistics
+        stats0 = theory0.excitation_statistics()
+        statsN = theoryN.excitation_statistics()
+        self.assertEqual(stats0['mean'], statsN['mean'][0])
+        self.assertEqual(stats0['var'], statsN['var'][0])
+        
+        # receptor activity
+        self.assertEqual(theory0.receptor_activity(normalized_variables=False),
+                         theoryN.receptor_activity()[0])
+
+        # mutual information
+        self.assertEqual(theory0.mutual_information(normalized_variables=False),
+                         theoryN.mutual_information())
 
 
     def test_numba_consistency(self):

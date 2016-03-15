@@ -11,6 +11,7 @@ import logging
 import numpy as np
 from scipy import stats
 
+from binary_response.sparse_mixtures.lib_spr_base import LibrarySparseBase
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
 
 from .at_base import AdaptiveThresholdMixin
@@ -21,12 +22,12 @@ from utils.misc import xlog2x
 
 class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
     """ class for theoretical calculations where all sensitivities are drawn
-    from the same distribution """
+    independently from a log-normal distribution """
 
     parameters_default = {
         'excitation_distribution': 'log-normal', 
     }
-    
+
     
     def concentration_statistics(self, normalized=False):
         """ returns statistics for each individual substrate.
@@ -249,3 +250,161 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         return MI
             
             
+            
+class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
+                                             LibrarySparseBase):
+    """ class for theoretical calculations where all sensitivities are drawn
+    independently from log-normal distributions. Here each receptor can have a
+    scaling factor to bias the sensitivities. """
+
+    parameters_default = {
+        'excitation_distribution': 'log-normal', 
+    }
+    
+            
+    def __init__(self, num_substrates, num_receptors, mean_sensitivity=1,
+                 width=1, receptor_factors=None, parameters=None):
+        
+        super(AdaptiveThresholdTheoryReceptorFactors, self).__init__(
+                                     num_substrates, num_receptors, parameters)
+        
+        if receptor_factors is None:
+            receptor_factors = np.ones(num_receptors, np.double)
+        elif np.isscalar(receptor_factors):
+            receptor_factors = np.full(num_receptors, receptor_factors,
+                                       np.double)
+        
+        self.mean_sensitivity = mean_sensitivity
+        self.width = width
+        self.receptor_factors = receptor_factors
+        
+        
+    @property
+    def repr_params(self):
+        """ return the important parameters that are shown in __repr__ """
+        params = super(AdaptiveThresholdTheoryReceptorFactors, self).repr_params
+        params.append('<S>=%g' % self.mean_sensitivity)
+        params.append('width=%g' % self.width)
+        params.append('factors=%g +- %g' % (self.receptor_factors.mean(),
+                                            self.receptor_factors.std()))
+        return params
+    
+    
+    @classmethod
+    def get_random_arguments(cls, mean_sensitivity=None, width=None,
+                             receptor_factors=None, **kwargs):
+        """ create random args for creating test instances """
+        args = super(AdaptiveThresholdMixin, cls).get_random_arguments(**kwargs)
+        
+        if mean_sensitivity is None:
+            mean_sensitivity = 0.5 * np.random.random()
+        if width is None:
+            width = 0.5 * np.random.random()
+        if receptor_factors is None:
+            receptor_factors = 0.5 * np.random.random(args['num_receptors'])
+            
+        args['parameters']['mean_sensitivity'] = mean_sensitivity
+        args['parameters']['width'] = width
+        args['parameters']['receptor_factors'] = receptor_factors
+
+        return args
+    
+    
+    def sensitivity_stats(self, with_receptor_factors=True):
+        """ returns statistics of the sensitivity distribution """
+        if with_receptor_factors:
+            factors = self.receptor_factors
+        else:
+            factors = 1
+        S0 = factors * self.mean_sensitivity
+        var = factors**2 * S0**2 * (np.exp(self.width**2) - 1)
+        return {'mean': S0, 'std': np.sqrt(var), 'var': var}
+
+    
+    def excitation_statistics(self, with_receptor_factors=True):
+        """ calculates the statistics of the excitation of the receptors.
+        Returns the expected mean excitation, the variance, and the covariance
+        matrix of any given receptor """
+        if self.is_correlated_mixture:
+            raise NotImplementedError('Not implemented for correlated mixtures')
+
+        # get statistics of the individual concentrations
+        c_stats = self.concentration_statistics()
+        c2_mean = c_stats['mean']**2 + c_stats['var']
+        c2_mean_sum = c2_mean.sum()
+
+        # get statistics of the total concentration c_tot = \sum_i c_i
+        ctot_mean = c_stats['mean'].sum()
+        ctot_var = c_stats['var'].sum()
+        
+        # get statistics of the sensitivities S_ni
+        S_stats = self.sensitivity_stats(with_receptor_factors)
+        S_mean = S_stats['mean']
+        
+        # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
+        en_mean = S_mean * ctot_mean
+        en_var  = S_mean**2 * ctot_var + S_stats['var'] * c2_mean_sum
+
+        return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var}
+        
+
+    def excitation_distribution_basic(self):
+        """ returns a scipy.stats distribution for the excitations with the
+        given mean and standard deviation, ignoring the receptor_factors
+        """ 
+        excitation_dist = self.parameters['excitation_distribution']
+        en_stats = self.excitation_statistics(with_receptor_factors=False)
+        
+        if  excitation_dist == 'gaussian':
+            return stats.norm(en_stats['mean'], en_stats['std'])
+        elif  excitation_dist == 'log-normal':
+            return lognorm_mean_var(en_stats['mean'], en_stats['var'])
+        else:
+            raise ValueError("Unknown excitation distribution `%s`. Supported "
+                             "are ['gaussian', 'log-normal']" % excitation_dist)   
+            
+
+    def excitation_distributions(self):
+        """ return a list of scipy.stats distribution for the excitations with
+        the given mean and standard deviation, including the receptor_factors 
+        """ 
+        excitation_dist = self.parameters['excitation_distribution']
+        en_stats = self.excitation_statistics(with_receptor_factors=True)
+        
+        if  excitation_dist == 'gaussian':
+            return [stats.norm(mean, std)
+                    for mean, std in zip(en_stats['mean'], en_stats['std'])]
+        elif  excitation_dist == 'log-normal':
+            return [lognorm_mean_var(mean, var)
+                    for mean, var in zip(en_stats['mean'], en_stats['var'])]
+        else:
+            raise ValueError("Unknown excitation distribution `%s`. Supported "
+                             "are ['gaussian', 'log-normal']" % excitation_dist)    
+    
+        
+    def receptor_activity(self):
+        """ return the probability with which a single receptor is activated 
+        by typical mixtures """
+        en_dist = self.excitation_distribution_basic()
+
+        # calculate the effective excitation threshold per receptor 
+        alpha = self.threshold_factor
+        factors = self.receptor_factors
+            
+        en_threshs = (alpha / (self.Nr - alpha)
+                      * (factors.sum() / factors - 1)
+                      * en_dist.mean()) 
+            
+        # probability that excitation exceeds the deterministic threshold
+        a_n = [en_dist.sf(en_thresh) for en_thresh in en_threshs]
+         
+        return a_n        
+            
+            
+    def mutual_information(self):
+        """ calculates the typical mutual information """
+        logging.warn('The estimate of the mutual information does not include '
+                     'receptor correlations, yet.')
+        MI = sum(-(xlog2x(a_n) + xlog2x(1 - a_n))
+                 for a_n in self.receptor_activity())
+        return MI        
