@@ -9,7 +9,7 @@ from __future__ import division
 import logging
 
 import numpy as np
-from scipy import stats
+from scipy import stats, integrate
 
 from binary_response.sparse_mixtures.lib_spr_base import LibrarySparseBase
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
@@ -108,6 +108,24 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                              "are ['gaussian', 'log-normal']" % excitation_dist)
     
     
+    def excitation_distribution_mixture(self, concentration=1, mixture_size=1):
+        """ returns a scipy.stats distribution for the excitations with the
+        given mean and standard deviation
+        """ 
+        excitation_dist = self.parameters['excitation_distribution']
+        S_stats = self.sensitivity_stats()
+        en_mean = S_stats['mean'] * mixture_size * concentration
+        en_var = S_stats['var'] * mixture_size * concentration**2
+        
+        if  excitation_dist == 'gaussian':
+            return stats.norm(en_mean, np.sqrt(en_var))
+        elif  excitation_dist == 'log-normal':
+            return lognorm_mean_var(en_mean, en_var)
+        else:
+            raise ValueError("Unknown excitation distribution `%s`. Supported "
+                             "are ['gaussian', 'log-normal']" % excitation_dist)
+    
+    
     @property
     def threshold_factor_compensated(self):
         """ returns the threshold factor corrected for the excitation that was
@@ -186,15 +204,105 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                 'std': np.sqrt(en_thresh_var)}
 
 
-    def activity_distance_uncorrelated(self):
+    def activity_distance_uncorrelated(self, mixture_size=1):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of two completely uncorrelated mixtures.
         """
-        alpha_hat = self.threshold_factor_compensated
-        p_a = self.excitation_distribution().sf(alpha_hat)
+        e_thresh = (self.threshold_factor_compensated
+                    * self.mean_sensitivity
+                    * mixture_size)
+        en_dist = self.excitation_distribution_mixture(mixture_size=mixture_size)
+        p_a = en_dist.sf(e_thresh)
         return 2 * self.Nr * p_a * (1 - p_a)
             
+          
+    def activity_distance_target_background(self, c_ratio):
+        """ calculate the expected difference (Hamming distance) between the
+        activity pattern of a single ligand and this ligand plus a second one
+        at a concentration `c_ratio` times the concentration of the first one.
+        """
+        # handle some special cases to avoid numerical problems at the
+        # integration boundaries
+        if c_ratio < 0:
+            raise ValueError('Concentration ratio `c_ratio` must be positive.')
+        elif c_ratio == 0:
+            return 0
+        elif np.isinf(c_ratio):
+            return self.activity_distance_uncorrelated()
+        
+        # determine the excitation thresholds
+        en_dist = self.excitation_distribution_mixture()
+        alpha_hat = self.threshold_factor_compensated
+        e_thresh_0 = alpha_hat * en_dist.mean()
+        e_thresh_rho = (1 + c_ratio) * e_thresh_0
+        p_inact = en_dist.cdf(e_thresh_0)
+        
+        # determine the probability of changing the activity of a receptor
+        def integrand(e1):
+            """ integrand for the activation probability """ 
+            cdf_val = en_dist.cdf((e_thresh_rho - e1) / c_ratio)
+            return cdf_val * en_dist.pdf(e1)
             
+        p_on = p_inact - integrate.quad(integrand, en_dist.a, e_thresh_0)[0]
+        p_off = integrate.quad(integrand, e_thresh_0, en_dist.b)[0]
+    
+        return self.Nr * (p_on + p_off)
+    
+
+    def activity_distance_mixtures(self, mixture_size, mixture_overlap=0):
+        """ calculates the expected Hamming distance between the activation
+        pattern of two mixtures with `mixture_size` ligands of equal 
+        concentration. `mixture_overlap` denotes the number of
+        ligands that are the same in the two mixtures """
+        if not 0 <= mixture_overlap <= mixture_size:
+            raise ValueError('Mixture overlap `mixture_overlap` must be '
+                             'between 0 and `mixture_size`.')
+        elif mixture_overlap == mixture_size:
+            return 0
+        elif mixture_overlap == 0:
+            return self.activity_distance_uncorrelated(mixture_size=mixture_size)
+    
+        s = mixture_size
+        sB = mixture_overlap
+        sD = s - sB # number of different ligands
+        
+        if not self.is_homogeneous_mixture:
+            logging.warn('Activity distances can only be estimated for '
+                         'homogeneous mixtures, where all ligands have the '
+                         'same concentration distribution. We are thus using '
+                         'the means of the concentration means and variances.')
+
+        #c_mean = self.c_means.mean()
+        #c_var = self.c_vars.mean()
+        S_stats = self.sensitivity_stats()
+        en_mean = S_stats['mean'] #* c_mean
+        en_var = S_stats['var'] #(S_stats['mean']**2 + S_stats['var']) #* c_var
+    
+        # determine the excitation thresholds
+        alpha_hat = self.threshold_factor_compensated
+        e_thresh_total = s * alpha_hat * en_mean
+
+        # get the excitation distributions of different mixture sizes
+        en_dist_total = lognorm_mean_var(s*en_mean, s*en_var)
+        en_dist_same = lognorm_mean_var(sB*en_mean, sB*en_var)
+        en_dist_diff = lognorm_mean_var(sD*en_mean, sD*en_var)
+
+        # determine the probability of changing the activity of a receptor
+        # use the general definition of the integral
+        def p_change_xor(e_same):
+            """ probability that the different ligands of either mixture
+            bring the excitation above threshold """ 
+            # prob that the excitation does not exceed threshold
+            cdf_val = en_dist_diff.cdf(e_thresh_total - e_same) 
+            return cdf_val * (1 - cdf_val) * en_dist_same.pdf(e_same)
+    
+        # integrate over all excitations of the common ligands
+        p_different = integrate.quad(p_change_xor, en_dist_total.a,
+                                     e_thresh_total)[0]
+    
+        return 2 * self.Nr * p_different
+    
+                    
     #===========================================================================
     # OVERWRITE METHODS OF THE BINARY RESPONSE MODEL
     #===========================================================================
