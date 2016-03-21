@@ -334,21 +334,24 @@ class LibraryNumericMixin(object):
             return q_nm        
         
         
-    def mutual_information(self, excitation_method='auto', ret_prob_activity=False,
+    def mutual_information(self, method='auto', ret_prob_activity=False,
                            **kwargs):
         """ calculate the mutual information of the receptor array.
 
-        `excitation_method` can be one of [monte_carlo', 'estimate'].
+        `method` can be one of [monte_carlo', 'moments', 'estimate'].
         """
-        if excitation_method == 'auto':
-            excitation_method = 'monte_carlo'
+        if method == 'auto':
+            method = 'monte_carlo'
                 
-        if excitation_method == 'monte_carlo' or excitation_method == 'monte-carlo':
+        if method == 'monte_carlo' or method == 'monte-carlo':
             return self.mutual_information_monte_carlo(ret_prob_activity)
-        elif excitation_method == 'estimate':
+        elif method == 'moments':
+            return self.mutual_information_from_moments(ret_prob_activity)
+        elif method == 'estimate':
             return self.mutual_information_estimate(ret_prob_activity, **kwargs)
         else:
-            raise ValueError('Unknown excitation_method `%s`.' % excitation_method)
+            raise ValueError('Unknown method for determining mutual '
+                             'information `%s`.' % method)
 
                                                    
     def mutual_information_monte_carlo(self, ret_prob_activity=False):
@@ -379,6 +382,21 @@ class LibraryNumericMixin(object):
 
         if ret_prob_activity:
             return MI, q_n
+        else:
+            return MI
+
+
+    def mutual_information_from_moments(self, ret_prob_activity=False):
+        """ calculate the mutual information using the first and second moments
+        of the receptor activity distribution """
+        # determine the moments of the receptor activity distribution
+        r_n, r_nm = self.receptor_activity(ret_correlations=True)
+        
+        # determine MI from these moments
+        MI = self._estimate_MI_from_r_values(r_n, r_nm)
+        
+        if ret_prob_activity:
+            return MI, r_n
         else:
             return MI
 

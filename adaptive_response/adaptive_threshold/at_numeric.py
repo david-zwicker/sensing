@@ -130,3 +130,8 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
         else:
             return MI
         
+    
+    def mutual_information_estimate_fast(self):
+        """ not implemented for adaptive thresholds """ 
+        raise NotImplementedError
+        
