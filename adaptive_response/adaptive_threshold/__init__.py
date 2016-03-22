@@ -1,7 +1,9 @@
 from .at_numeric import AdaptiveThresholdNumeric
-from .at_theory import AdaptiveThresholdTheory
+from .at_theory import (AdaptiveThresholdTheory,
+                        AdaptiveThresholdTheoryReceptorFactors)
 
-__all__ = ['AdaptiveThresholdNumeric', 'AdaptiveThresholdTheory']
+__all__ = ['AdaptiveThresholdNumeric', 'AdaptiveThresholdTheory',
+           'AdaptiveThresholdTheoryReceptorFactors']
 
 
 # try importing numba for speeding up calculations

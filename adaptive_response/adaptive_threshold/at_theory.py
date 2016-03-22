@@ -206,7 +206,9 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
 
     def activity_distance_uncorrelated(self, mixture_size=1):
         """ calculate the expected difference (Hamming distance) between the
-        activity pattern of two completely uncorrelated mixtures.
+        activity pattern of two completely uncorrelated mixtures of size
+        `mixture_size`. The mixture size influences the statistics of the
+        excitations and thus influences the result slightly.
         """
         e_thresh = (self.threshold_factor_compensated
                     * self.mean_sensitivity
