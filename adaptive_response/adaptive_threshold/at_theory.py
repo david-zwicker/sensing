@@ -26,6 +26,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
 
     parameters_default = {
         'excitation_distribution': 'log-normal', 
+        'compensated_threshold': False,
     }
 
     
@@ -134,30 +135,30 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         return alpha * (self.Nr - 1) / (self.Nr - alpha)
             
             
-    def excitation_threshold(self, compensated=False, normalized=False):
+    @property
+    def threshold_factor_numerics(self):
+        """ returns the threshold factor corrected for the excitation that was
+        actually measured """
+        if self.parameters['compensated_threshold']:
+            return self.threshold_factor_compensated
+        else:
+            return self.threshold_factor
+            
+            
+    def excitation_threshold(self, normalized=False):
         """ returns the average excitation threshold that receptors have to
         overcome to be part of the activation pattern.
         `compensated` determines whether the compensated threshold factor is
             used to determine the excitation threshold
         """
-        if compensated:
-            alpha = self.threshold_factor_compensated
-        else:
-            alpha = self.threshold_factor
-        
         en_stats = self.excitation_statistics(normalized=normalized)
-        return  alpha * en_stats['mean']
+        return self.threshold_factor_numerics * en_stats['mean']
 
         
-    def excitation_threshold_statistics_new(self, compensated=False,
-                                            normalized=False):
+    def excitation_threshold_statistics_new(self, normalized=False):
         """ returns the statistics of the excitation threshold that receptors
         have to overcome to be part of the activation pattern. """
-        if compensated:
-            alpha = self.threshold_factor_compensated
-        else:
-            alpha = self.threshold_factor
-
+        alpha = self.threshold_factor_numerics
         en_stats = self.excitation_statistics(normalized=normalized)
         
         #en_thresh_var = alpha**2 * en_stats['var'] #/ self.Nr
@@ -167,14 +168,10 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                 'var': alpha**2 * en_stats['var'] / self.Nr }
         
         
-    def excitation_threshold_statistics(self, compensated=False,
-                                        normalized=False):
+    def excitation_threshold_statistics(self, normalized=False):
         """ returns the statistics of the excitation threshold that receptors
         have to overcome to be part of the activation pattern. """
-        if compensated:
-            alpha = self.threshold_factor_compensated
-        else:
-            alpha = self.threshold_factor
+        alpha = self.threshold_factor_numerics
 
         # get statistics of the individual concentrations
         c_stats = self.concentration_statistics(normalized=normalized)
@@ -210,7 +207,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         `mixture_size`. The mixture size influences the statistics of the
         excitations and thus influences the result slightly.
         """
-        e_thresh = (self.threshold_factor_compensated
+        e_thresh = (self.threshold_factor_numerics
                     * self.mean_sensitivity
                     * mixture_size)
         en_dist = self.excitation_distribution_mixture(mixture_size=mixture_size)
@@ -234,8 +231,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         
         # determine the excitation thresholds
         en_dist = self.excitation_distribution_mixture()
-        alpha_hat = self.threshold_factor_compensated
-        e_thresh_0 = alpha_hat * en_dist.mean()
+        e_thresh_0 = self.threshold_factor_numerics * en_dist.mean()
         e_thresh_rho = (1 + c_ratio) * e_thresh_0
         p_inact = en_dist.cdf(e_thresh_0)
         
@@ -281,8 +277,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         en_var = S_stats['var'] #(S_stats['mean']**2 + S_stats['var']) #* c_var
     
         # determine the excitation thresholds
-        alpha_hat = self.threshold_factor_compensated
-        e_thresh_total = s * alpha_hat * en_mean
+        e_thresh_total = s * self.threshold_factor_numerics * en_mean
 
         # get the excitation distributions of different mixture sizes
         en_dist_total = lognorm_mean_var(s*en_mean, s*en_var)
@@ -322,18 +317,17 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
         if normalized_variables:
-            en_thresh = (self.threshold_factor_compensated
-                         * self.mean_sensitivity)
+            en_thresh = self.threshold_factor_numerics * self.mean_sensitivity
             en_dist = self.excitation_distribution(normalized=True)
             
         else:
-            en_thresh = self.excitation_threshold(compensated=True)
+            en_thresh = self.excitation_threshold()
             en_dist = self.excitation_distribution(normalized=False)
             
         if integrate:
             # probability that the excitation exceeds the threshold
             en_thresh_stats = self.excitation_threshold_statistics_new(
-                           compensated=True, normalized=normalized_variables)
+                                                normalized=normalized_variables)
             en_thresh_dist = lognorm_mean_var(en_thresh_stats['mean'],
                                               en_thresh_stats['var'])
             
