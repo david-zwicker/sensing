@@ -34,7 +34,7 @@ numba_patcher = NumbaPatcher(module=at_numeric)
 
 # copy the accelerated method from the binary_response package
 numba_patcher.register_method(
-    'AdaptiveThresholdNumeric.excitation_statistics_monte_carlo',
+    'AdaptiveThresholdNumeric.excitation_statistics_monte_carlo_pure',
     LibrarySparseNumeric_excitation_statistics_monte_carlo,
     functools.partial(check_return_dict_approx, atol=0.1, rtol=0.1)
 )

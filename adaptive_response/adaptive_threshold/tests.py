@@ -156,13 +156,18 @@ class TestLibraryPrimacyCoding(TestBase):
         self.assertEqual(stats0['mean'], statsN['mean'][0])
         self.assertEqual(stats0['var'], statsN['var'][0])
         
+        # test backing out the threshold factor
+        an = theory0.receptor_activity()
+        alpha_est = theory0.threshold_factor_from_activity(an)
+        self.assertAlmostEqual(alpha_est, theory0.threshold_factor, 5)
+        
         # receptor activity
-        self.assertEqual(theory0.receptor_activity(normalized_variables=False),
-                         theoryN.receptor_activity()[0])
+        an = theory0.receptor_activity(normalized_variables=False)
+        self.assertAlmostEqual(an, theoryN.receptor_activity().mean())
 
         # mutual information
-        self.assertEqual(theory0.mutual_information(normalized_variables=False),
-                         theoryN.mutual_information())
+        MI = theory0.mutual_information(normalized_variables=False)
+        self.assertAlmostEqual(MI, theoryN.mutual_information())
 
 
     def test_numba_consistency(self):

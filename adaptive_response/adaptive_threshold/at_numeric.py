@@ -18,9 +18,60 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     """ represents a single receptor library that handles sparse mixtures that
     where receptors get active if their excitation is above a fraction of the
     total excitation """
-
+    
+    
+    def excitation_statistics_monte_carlo_pure(self, ret_correlations=False):
+        """ 
+        calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
+        This function just calculates the statistics of unnormalized
+        excitations, which is implemented in the parent function
+        We implemented this as a separate function so it can selectively be
+        replaced with a version that is sped up by numba         
+        """
+        parent = super(AdaptiveThresholdNumeric, self)
+        return parent.excitation_statistics_monte_carlo(ret_correlations)
+    
+    
+    def excitation_statistics_monte_carlo(self, ret_correlations=False,
+                                          normalized=False):
+        """
+        calculates the statistics of the excitation of the receptors.
+        Returns the mean excitation, the variance, and the covariance matrix.
         
-    def excitation_threshold_statistics(self, normalized=False):
+        The algorithms used here have been taken from
+            https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+        """
+        if not normalized:
+            return self.excitation_statistics_monte_carlo_pure(ret_correlations)
+            
+        S_ni = self.sens_mat
+        S_ni_mean = S_ni.mean()
+
+        # initialize the statistics calculation
+        stats = StatisticsAccumulator(ret_cov=ret_correlations)
+
+        # sample mixtures and safe the requested data
+        for c_i in self._sample_mixtures():
+            e_n = np.dot(S_ni, c_i)
+            e_n /= c_i.sum() * S_ni_mean #< normalize
+            stats.add(e_n)
+
+        # return the requested statistics
+        if ret_correlations:
+            try:
+                enm_cov = stats.cov
+            except RuntimeError:
+                enm_cov = np.full((self.Nr, self.Nr), np.nan, np.double)
+            en_var = np.diag(enm_cov)
+            return {'mean': stats.mean, 'std': np.sqrt(en_var), 'var': en_var,
+                    'cov': enm_cov}
+        else:        
+            en_var = stats.var 
+            return {'mean': stats.mean, 'std': np.sqrt(en_var), 'var': en_var}
+                
+
+    def excitation_threshold_statistics(self):
         """ returns the statistics of the excitation threshold that receptors
         have to overcome to be part of the activation pattern.
         
@@ -36,8 +87,6 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
         for c_i in self._sample_mixtures():
             e_n = np.dot(S_ni, c_i)
             e_thresh = alpha * e_n.mean()
-            if normalized:
-                e_thresh /= c_i.sum()
             e_thresh_stats.add(e_thresh)
 
         return {'mean': e_thresh_stats.mean,

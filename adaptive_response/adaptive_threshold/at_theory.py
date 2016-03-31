@@ -201,11 +201,37 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                 'std': np.sqrt(en_thresh_var)}
 
 
+    def threshold_factor_from_activity(self, activity, normalized=True):
+        """ estimates the threshold factor that leads to a given receptor
+        activity.
+        `normalized` determines whether normalized variables are used
+        """
+        # determine the statistics of the excitations
+        en_stats = self.excitation_statistics(normalized=normalized)
+        en_dist = self.excitation_distribution(normalized=normalized)
+
+        # determine the threshold that leads to a given activity
+        en_thresh = en_dist.isf(activity)
+        
+        # determine the associated threshold factor
+        alpha =  en_thresh / en_stats['mean']
+        
+        if self.parameters['compensated_threshold']:
+            # get the factor that was not compensated
+            alpha = (self.N * alpha) / (self.Nr - 1 + alpha)
+        
+        return alpha
+
+
     def activity_distance_uncorrelated(self, mixture_size=1):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of two completely uncorrelated mixtures of size
-        `mixture_size`. The mixture size influences the statistics of the
-        excitations and thus influences the result slightly.
+        `mixture_size`.
+        This calculation assumes that the `mixture_size` ligands all appear with
+        the same concentration, such that the concentration distributions does
+        *not* influence the result of this method. However, the `mixture_size` 
+        itself influences the statistics of the excitations and thus influences
+        the result slightly.
         """
         e_thresh = (self.threshold_factor_numerics
                     * self.mean_sensitivity
@@ -363,6 +389,7 @@ class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
 
     parameters_default = {
         'excitation_distribution': 'log-normal', 
+        'compensated_threshold': False,
     }
     
             
@@ -495,16 +522,19 @@ class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
         alpha = self.threshold_factor
         factors = self.receptor_factors
             
-        en_threshs = (alpha / (self.Nr - alpha)
-                      * (factors.sum() / factors - 1)
-                      * en_dist.mean()) 
+        if self.parameters['compensated_threshold']:
+            en_threshs = (alpha / (self.Nr - alpha)
+                          * (factors.sum() / factors - 1)
+                          * en_dist.mean())
+        else: 
+            en_threshs = (alpha / self.Nr
+                          * factors.sum() / factors
+                          * en_dist.mean())
             
         # probability that excitation exceeds the deterministic threshold
-        a_n = [en_dist.sf(en_thresh) for en_thresh in en_threshs]
-         
-        return a_n        
-            
-            
+        return en_dist.sf(en_threshs)
+    
+    
     def mutual_information(self):
         """ calculates the typical mutual information """
         logging.warn('The estimate of the mutual information does not include '
