@@ -134,6 +134,20 @@ class TestLibraryPrimacyCoding(TestBase):
         
         
     def test_theory_consistency(self):
+        """ do some consistency checks on the theory """
+        theory0 = AdaptiveThresholdTheory.create_test_instance()
+
+        # test backing out the threshold factor
+        an = theory0.receptor_activity()
+        alpha_est = theory0.threshold_factor_from_activity(an)
+        self.assertAlmostEqual(alpha_est, theory0.threshold_factor, 5)
+                
+        d_max1 = theory0.activity_distance_uncorrelated(3)
+        d_max2 = theory0.activity_distance_uncorrelated((3, 3))
+        self.assertAlmostEqual(d_max1, d_max2)
+        
+        
+    def test_theory_receptor_factors_consistency(self):
         """ compares the two theory classes with each other """
         logging.disable(logging.WARN)
         
@@ -155,11 +169,6 @@ class TestLibraryPrimacyCoding(TestBase):
         statsN = theoryN.excitation_statistics()
         self.assertEqual(stats0['mean'], statsN['mean'][0])
         self.assertEqual(stats0['var'], statsN['var'][0])
-        
-        # test backing out the threshold factor
-        an = theory0.receptor_activity()
-        alpha_est = theory0.threshold_factor_from_activity(an)
-        self.assertAlmostEqual(alpha_est, theory0.threshold_factor, 5)
         
         # receptor activity
         an = theory0.receptor_activity(normalized_variables=False)

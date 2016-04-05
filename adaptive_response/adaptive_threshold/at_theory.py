@@ -233,15 +233,34 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         itself influences the statistics of the excitations and thus influences
         the result slightly.
         """
-        e_thresh = (self.threshold_factor_numerics
-                    * self.mean_sensitivity
-                    * mixture_size)
-        en_dist = self.excitation_distribution_mixture(mixture_size=mixture_size)
-        p_a = en_dist.sf(e_thresh)
-        return 2 * self.Nr * p_a * (1 - p_a)
+        if hasattr(mixture_size, '__iter__'):
+            # are two mixture sizes given?
             
-          
-    def activity_distance_target_background(self, c_ratio):
+            # handle the two mixtures
+            p = [None, None]
+            for k in (0, 1):
+                e_thresh = (self.threshold_factor_numerics
+                            * self.mean_sensitivity
+                            * mixture_size[k])
+                en_dist = self.excitation_distribution_mixture(
+                                                   mixture_size=mixture_size[k])
+                p[k] = en_dist.sf(e_thresh)
+            
+            return self.Nr * (p[0] + p[1] - 2*p[0]*p[1])
+            
+        else:
+            # apprently only one mixture size is given
+            e_thresh = (self.threshold_factor_numerics
+                        * self.mean_sensitivity
+                        * mixture_size)
+            en_dist = self.excitation_distribution_mixture(
+                                                   mixture_size=mixture_size)
+            p_a = en_dist.sf(e_thresh)
+            return 2 * self.Nr * p_a * (1 - p_a)
+            
+                        
+    def activity_distance_target_background(self, c_ratio, target_size=1,
+                                            background_size=1):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of a single ligand and this ligand plus a second one
         at a concentration `c_ratio` times the concentration of the first one.
@@ -253,26 +272,35 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         elif c_ratio == 0:
             return 0
         elif np.isinf(c_ratio):
-            return self.activity_distance_uncorrelated()
+            return self.activity_distance_uncorrelated((target_size,
+                                                        background_size))
         
+        # determine the excitation distributions
+        en_dist_t = self.excitation_distribution_mixture(
+                             concentration=c_ratio, mixture_size=target_size)
+        en_dist_b = self.excitation_distribution_mixture(
+                             concentration=1, mixture_size=background_size)
+
         # determine the excitation thresholds
-        en_dist = self.excitation_distribution_mixture()
-        e_thresh_0 = self.threshold_factor_numerics * en_dist.mean()
-        e_thresh_rho = (1 + c_ratio) * e_thresh_0
-        p_inact = en_dist.cdf(e_thresh_0)
+        e_thresh_b = self.threshold_factor_numerics * en_dist_b.mean()
+        e_thresh_m = (self.threshold_factor_numerics
+                      * (en_dist_b.mean() + en_dist_t.mean()))
+        
+        # determine the probability that a channel was inactive                                               
+        p_inact = en_dist_b.cdf(e_thresh_b)
         
         # determine the probability of changing the activity of a receptor
-        def integrand(e1):
+        def integrand(e_b):
             """ integrand for the activation probability """ 
-            cdf_val = en_dist.cdf((e_thresh_rho - e1) / c_ratio)
-            return cdf_val * en_dist.pdf(e1)
+            cdf_val = en_dist_t.cdf(e_thresh_m - e_b)
+            return cdf_val * en_dist_b.pdf(e_b)
             
-        p_on = p_inact - integrate.quad(integrand, en_dist.a, e_thresh_0)[0]
-        p_off = integrate.quad(integrand, e_thresh_0, en_dist.b)[0]
+        p_on = p_inact - integrate.quad(integrand, en_dist_b.a, e_thresh_b)[0]
+        p_off = integrate.quad(integrand, e_thresh_b, en_dist_b.b)[0]
     
         return self.Nr * (p_on + p_off)
     
-
+    
     def activity_distance_mixtures(self, mixture_size, mixture_overlap=0):
         """ calculates the expected Hamming distance between the activation
         pattern of two mixtures with `mixture_size` ligands of equal 
