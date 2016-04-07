@@ -569,4 +569,4 @@ class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
                      'receptor correlations, yet.')
         MI = sum(-(xlog2x(a_n) + xlog2x(1 - a_n))
                  for a_n in self.receptor_activity())
-        return MI        
+        return MI       
