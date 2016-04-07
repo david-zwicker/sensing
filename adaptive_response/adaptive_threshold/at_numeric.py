@@ -141,6 +141,13 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
         raise NotImplementedError
 
 
+    def receptor_activity_for_mixture(self, c_i):
+        """ returns the receptors that are activated for the mixture `c_i` """
+        # calculate excitation
+        e_n = np.dot(self.sens_mat, c_i)
+        return (e_n >= self.threshold_factor * e_n.mean())
+
+    
     def activation_pattern_for_mixture(self, c_i):
         """ returns the receptors that are activated for the mixture `c_i` """
         # calculate excitation
