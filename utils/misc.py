@@ -227,14 +227,13 @@ if sys.version_info[0] == 2:
                                   f.func_closure)
 
 else:
-    # python 3 version as the default for compatability
+    # python 3 version as the default for compatibility
     def copy_func(f, name=None):
-        """ copies a python function. Taken from
+        """ copies a python function. Inspired from
         http://stackoverflow.com/a/6528148/932593
         """ 
         return types.FunctionType(f.__code__, f.__globals__, name or f.__name__,
                                   f.__defaults__, f.__closure__)
-
 
 
 
