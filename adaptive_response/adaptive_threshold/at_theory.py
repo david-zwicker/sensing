@@ -9,7 +9,7 @@ from __future__ import division
 import logging
 
 import numpy as np
-from scipy import stats, integrate
+from scipy import stats, integrate, optimize
 
 from binary_response.sparse_mixtures.lib_spr_base import LibrarySparseBase
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
@@ -143,8 +143,63 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
             return self.threshold_factor_compensated
         else:
             return self.threshold_factor
+        
+
+    def set_threshold_from_activity(self, activity, normalized_variables=True,
+                                    integrate=False):
+        """ determines the threshold that leads to a certain activity """
+        if not 0 < activity < 1:
+            raise ValueError('Activity must be between 0 and 1')
+        
+        if integrate:
+            # in this case we have to use the numerical method
+            self.set_threshold_from_activity_numeric(activity,
+                                                     normalized_variables,
+                                                     integrate=True)
             
+        else: 
+            # probability that excitation exceeds the deterministic threshold
+            if normalized_variables:
+                en_dist = self.excitation_distribution(normalized=True)
+            else:
+                en_dist = self.excitation_distribution(normalized=False)
+
+            # determine threshold that leads to a given activity 
+            alpha = en_dist.isf(activity)
+            # normalize by mean excitation
+            alpha /= en_dist.mean()
             
+            # correct for a possibly compensated threshold
+            if self.parameters['compensated_threshold']:
+                alpha = (self.Nr * alpha) / (self.Nr - 1 + alpha)
+                
+            self.threshold_factor = alpha
+        
+        
+    def set_threshold_from_activity_numeric(self, activity,
+                                            normalized_variables=True,
+                                            integrate=False):
+        """ determines the threshold that leads to a certain activity """
+        if not 0 < activity < 1:
+            raise ValueError('Activity must be between 0 and 1')
+        
+        def activity_for_threshold(alpha):
+            """ objective function """
+            self.threshold_factor = alpha
+            an = self.receptor_activity(normalized_variables, integrate)
+            return an - activity
+        
+        # determine an interval in which the activity lies
+        alpha_min, alpha_max = 0, 1
+        while activity_for_threshold(alpha_max) > 0:
+            alpha_min = alpha_max
+            alpha_max *= 2
+            
+        # determine the correct threshold by bisection
+        alpha = optimize.brentq(activity_for_threshold, alpha_min, alpha_max)
+        self.threshold_factor = alpha
+            
+        
     def excitation_threshold(self, normalized=False):
         """ returns the average excitation threshold that receptors have to
         overcome to be part of the activation pattern.
@@ -399,10 +454,12 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         raise NotImplementedError
 
 
-    def mutual_information(self, normalized_variables=True, integrate=False):
+    def mutual_information(self, normalized_variables=True, integrate=False,
+                           warn=True):
         """ calculates the typical mutual information """
-        logging.warn('The estimate of the mutual information does not include '
-                     'receptor correlations, yet.')
+        if warn:
+            logging.warn('The estimate of the mutual information does not '
+                         'include receptor correlations, yet.')
         a_n = self.receptor_activity(normalized_variables, integrate)
         MI = -self.Nr * (xlog2x(a_n) + xlog2x(1 - a_n))
         return MI
@@ -563,10 +620,11 @@ class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
         return en_dist.sf(en_threshs)
     
     
-    def mutual_information(self):
+    def mutual_information(self, warn=True):
         """ calculates the typical mutual information """
-        logging.warn('The estimate of the mutual information does not include '
-                     'receptor correlations, yet.')
+        if warn:
+            logging.warn('The estimate of the mutual information does not '
+                         'include receptor correlations, yet.')
         MI = sum(-(xlog2x(a_n) + xlog2x(1 - a_n))
                  for a_n in self.receptor_activity())
         return MI       

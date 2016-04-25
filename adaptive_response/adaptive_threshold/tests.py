@@ -146,6 +146,16 @@ class TestLibraryPrimacyCoding(TestBase):
         d_max2 = theory0.activity_distance_uncorrelated((3, 3))
         self.assertAlmostEqual(d_max1, d_max2)
         
+        # test determining the threshold factor
+        for n in (True, False):
+            for i in (True, False):
+                theory0.set_threshold_from_activity(0.1, n, i)
+                alpha = theory0.threshold_factor
+                theory0.set_threshold_from_activity_numeric(0.1, n, i)
+
+                self.assertAlmostEqual(theory0.threshold_factor, alpha)
+                self.assertAlmostEqual(theory0.receptor_activity(n, i), 0.1)
+        
         
     def test_theory_receptor_factors_consistency(self):
         """ compares the two theory classes with each other """
