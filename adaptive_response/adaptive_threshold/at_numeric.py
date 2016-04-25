@@ -190,4 +190,30 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     def mutual_information_estimate_fast(self):
         """ not implemented for adaptive thresholds """ 
         raise NotImplementedError
+    
+    
+    def set_threshold_from_activity_numeric(self, activity, method='auto',
+                                            steps=50, verbose=False):
+        """ determines the threshold that leads to a certain activity """
+        import cma
+        
+        if not 0 < activity < 1:
+            raise ValueError('Activity must be between 0 and 1')
+        
+        def cost_function(alpha):
+            """ objective function """
+            self.threshold_factor = alpha.mean()
+            an = self.receptor_activity(method='auto').mean()
+            return (an - activity)**2
+        
+        options = {'maxfevals': steps,
+                   'bounds': [0, np.inf],
+                   'verb_disp': 1 * int(verbose),
+                   'verb_log': 0}
+        
+        # determine the correct threshold by optimization
+        res = cma.fmin(cost_function, [1, 1], 0.1, options=options)
+            
+        self.threshold_factor = res[0].mean()
+        return self.threshold_factor    
         

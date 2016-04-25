@@ -92,7 +92,11 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
 
     def excitation_distribution(self, normalized=False):
         """ returns a scipy.stats distribution for the excitations with the
-        given mean and standard deviation
+        mean and standard deviation determined from the sensitivity distribution
+        and the odor statistics.
+         
+        `normalized` determines whether the statistics for the normalized
+            excitations or the unnormalized excitations are returned
         """ 
         excitation_dist = self.parameters['excitation_distribution']
         en_stats = self.excitation_statistics(normalized=normalized)
@@ -109,15 +113,26 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                              "are ['gaussian', 'log-normal']" % excitation_dist)
     
     
-    def excitation_distribution_mixture(self, concentration=1, mixture_size=1):
+    def excitation_distribution_mixture(self, concentration=1, mixture_size=1,
+                                        normalized=False):
         """ returns a scipy.stats distribution for the excitations with the
-        given mean and standard deviation
+        mean and standard deviation determined from the sensitivity distribution
+        and the statistics for a mixture of size `mixture_size`. Note that this
+        function returns statistics for unnormalized excitations.
         """ 
-        excitation_dist = self.parameters['excitation_distribution']
+        # determine the statistics of the excitations
         S_stats = self.sensitivity_stats()
-        en_mean = S_stats['mean'] * mixture_size * concentration
-        en_var = S_stats['var'] * mixture_size * concentration**2
+        if normalized:
+            en_mean = 1
+            en_var = S_stats['var']  / (S_stats['mean']**2 * mixture_size)
+            # note that the normalized en_var is given by en_var / en_mean**2
+            # of the normalized variables
+        else:
+            en_mean = S_stats['mean'] * mixture_size * concentration
+            en_var = S_stats['var'] * mixture_size * concentration**2
         
+        # return the appropriate distribution
+        excitation_dist = self.parameters['excitation_distribution']
         if  excitation_dist == 'gaussian':
             return stats.norm(en_mean, np.sqrt(en_var))
         elif  excitation_dist == 'log-normal':
@@ -125,7 +140,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         else:
             raise ValueError("Unknown excitation distribution `%s`. Supported "
                              "are ['gaussian', 'log-normal']" % excitation_dist)
-    
+
     
     @property
     def threshold_factor_compensated(self):
@@ -175,6 +190,8 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                 
             self.threshold_factor = alpha
         
+        return self.threshold_factor
+        
         
     def set_threshold_from_activity_numeric(self, activity,
                                             normalized_variables=True,
@@ -198,6 +215,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         # determine the correct threshold by bisection
         alpha = optimize.brentq(activity_for_threshold, alpha_min, alpha_max)
         self.threshold_factor = alpha
+        return self.threshold_factor
             
         
     def excitation_threshold(self, normalized=False):
@@ -277,6 +295,49 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         
         return alpha
 
+                    
+    def get_optimal_parameters(self):
+        """
+        returns a guess for the optimal parameters for the sensitivity
+        distribution
+        """ 
+        raise NotImplementedError
+
+
+    def receptor_activity(self, normalized_variables=True, integrate=False):
+        """ return the probability with which a single receptor is activated 
+        by typical mixtures """
+        if normalized_variables:
+            en_thresh = self.threshold_factor_numerics * self.mean_sensitivity
+            en_dist = self.excitation_distribution(normalized=True)
+            
+        else:
+            en_thresh = self.excitation_threshold()
+            en_dist = self.excitation_distribution(normalized=False)
+            
+        if integrate:
+            # probability that the excitation exceeds the threshold
+            en_thresh_stats = self.excitation_threshold_statistics_new(
+                                                normalized=normalized_variables)
+            en_thresh_dist = lognorm_mean_var(en_thresh_stats['mean'],
+                                              en_thresh_stats['var'])
+            
+            return en_dist.expect(en_thresh_dist.cdf)
+            #return en_thresh_dist.expect(en_dist.sf)
+            
+        else: 
+            # probability that excitation exceeds the deterministic threshold
+            return en_dist.sf(en_thresh)
+
+
+    def receptor_activity_for_mixture(self, mixture_size=1):
+        """ returns expected receptor activity for a mixture of given size """
+        # a single mixture size is given
+        en_dist = self.excitation_distribution_mixture(
+                                   mixture_size=mixture_size, normalized=False)
+        e_thresh = self.threshold_factor_numerics * en_dist.mean() 
+        return en_dist.sf(e_thresh)
+
 
     def activity_distance_uncorrelated(self, mixture_size=1):
         """ calculate the expected difference (Hamming distance) between the
@@ -289,28 +350,15 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         the result slightly.
         """
         if hasattr(mixture_size, '__iter__'):
-            # are two mixture sizes given?
-            
-            # handle the two mixtures
-            p = [None, None]
-            for k in (0, 1):
-                e_thresh = (self.threshold_factor_numerics
-                            * self.mean_sensitivity
-                            * mixture_size[k])
-                en_dist = self.excitation_distribution_mixture(
-                                                   mixture_size=mixture_size[k])
-                p[k] = en_dist.sf(e_thresh)
-            
+            # multiple mixture sizes are given
+            # => we here only use the first two
+            p = [self.receptor_activity_for_mixture(s)
+                 for s in mixture_size[:2]]
             return self.Nr * (p[0] + p[1] - 2*p[0]*p[1])
             
         else:
-            # apprently only one mixture size is given
-            e_thresh = (self.threshold_factor_numerics
-                        * self.mean_sensitivity
-                        * mixture_size)
-            en_dist = self.excitation_distribution_mixture(
-                                                   mixture_size=mixture_size)
-            p_a = en_dist.sf(e_thresh)
+            # a single mixture size is given
+            p_a = self.receptor_activity_for_mixture(mixture_size)
             return 2 * self.Nr * p_a * (1 - p_a)
             
                         
@@ -332,9 +380,13 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         
         # determine the excitation distributions
         en_dist_t = self.excitation_distribution_mixture(
-                             concentration=c_ratio, mixture_size=target_size)
+                        concentration=c_ratio, mixture_size=target_size,
+                        normalized=False
+                    )
         en_dist_b = self.excitation_distribution_mixture(
-                             concentration=1, mixture_size=background_size)
+                        concentration=1, mixture_size=background_size,
+                        normalized=False
+                    )
 
         # determine the excitation thresholds
         e_thresh_b = self.threshold_factor_numerics * en_dist_b.mean()
@@ -407,53 +459,14 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                                      e_thresh_total)[0]
     
         return 2 * self.Nr * p_different
-    
-                    
-    #===========================================================================
-    # OVERWRITE METHODS OF THE BINARY RESPONSE MODEL
-    #===========================================================================
-
-
-    def get_optimal_parameters(self):
-        """
-        returns a guess for the optimal parameters for the sensitivity
-        distribution
-        """ 
-        raise NotImplementedError
-
-
-    def receptor_activity(self, normalized_variables=True, integrate=False):
-        """ return the probability with which a single receptor is activated 
-        by typical mixtures """
-        if normalized_variables:
-            en_thresh = self.threshold_factor_numerics * self.mean_sensitivity
-            en_dist = self.excitation_distribution(normalized=True)
-            
-        else:
-            en_thresh = self.excitation_threshold()
-            en_dist = self.excitation_distribution(normalized=False)
-            
-        if integrate:
-            # probability that the excitation exceeds the threshold
-            en_thresh_stats = self.excitation_threshold_statistics_new(
-                                                normalized=normalized_variables)
-            en_thresh_dist = lognorm_mean_var(en_thresh_stats['mean'],
-                                              en_thresh_stats['var'])
-            
-            return en_dist.expect(en_thresh_dist.cdf)
-            #return en_thresh_dist.expect(en_dist.sf)
-            
-        else: 
-            # probability that excitation exceeds the deterministic threshold
-            return en_dist.sf(en_thresh)
             
 
     def receptor_crosstalk(self):
         """ calculates the average activity of the receptor as a response to 
         single ligands. """
         raise NotImplementedError
-
-
+    
+        
     def mutual_information(self, normalized_variables=True, integrate=False,
                            warn=True):
         """ calculates the typical mutual information """
