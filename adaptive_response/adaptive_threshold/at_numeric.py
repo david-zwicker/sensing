@@ -212,6 +212,8 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
                    'verb_log': 0}
         
         # determine the correct threshold by optimization
+        # we here use a two dimensional search, because this particular
+        # implementation of cma is not implemented for scalar optimization.
         res = cma.fmin(cost_function, [1, 1], 0.1, options=options)
             
         self.threshold_factor = res[0].mean()
