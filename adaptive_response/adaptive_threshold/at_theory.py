@@ -539,6 +539,35 @@ class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
         return args
     
     
+    def choose_receptor_factors(self, distribution, **kwargs):
+        """ chooses the receptor factors from a random distribution """
+        if distribution == 'uniform':
+            xi_min = kwargs.pop('min', 0)
+            xi_max = 2 - xi_min # ensures that mean = 1
+            self.receptor_factors = np.random.uniform(xi_min, xi_max, self.Nr)
+            
+        elif distribution == 'log_normal' or distribution == 'log-normal':
+            if 'standard_deviation' in kwargs:
+                kwargs['variance'] = kwargs.pop('standard_deviation')**2
+        
+            var = kwargs.pop('variance', 1)
+            
+            if var == 0:
+                self.receptor_factors = np.ones(self.Nr)
+            else:
+                dist = lognorm_mean_var(1, var)
+                self.receptor_factors = dist.rvs(self.Nr)
+            
+        else:
+            raise ValueError('Unknown distribution `%s` for receptor factors'
+                             % distribution)
+
+        # raise an error if keyword arguments have not been used
+        if len(kwargs) > 0:
+            raise ValueError('The following keyword arguments have not been '
+                             'used: %s' % str(kwargs)) 
+    
+    
     def sensitivity_stats(self, with_receptor_factors=True):
         """ returns statistics of the sensitivity distribution """
         if with_receptor_factors:
