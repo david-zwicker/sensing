@@ -94,6 +94,15 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
                 'std': e_thresh_stats.std}
                     
                     
+    def _sample_excitations(self, steps=None):
+        """ sample excitation vectors """
+        S_ni = self.sens_mat
+
+        # iterate over mixtures and yield corresponding excitations
+        for c_i in self._sample_mixtures(steps):
+            yield np.dot(S_ni, c_i)
+            
+    
     def _sample_activities(self, steps=None):
         """ sample activity vectors """
         S_ni = self.sens_mat
