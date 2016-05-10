@@ -170,7 +170,7 @@ class LibraryBase(object):
             # run the calculations in multiple processes
             arguments = (self.__class__, init_arguments, method, args)
             pool = mp.Pool(processes=self.get_number_of_cores())
-            result = pool.map(_ensemble_average_job, [arguments] * avg_num)
+            results = pool.map(_ensemble_average_job, [arguments] * avg_num)
             
             # Apparently, multiprocessing sometimes opens too many files if
             # processes are launched to quickly and the garbage collector cannot
@@ -180,68 +180,63 @@ class LibraryBase(object):
         else:
             # run the calculations in this process
             cls = self.__class__
-            result = [getattr(cls(**self.init_arguments), method)(**args)
-                      for _ in range(avg_num)]
+            results = [getattr(cls(**self.init_arguments), method)(**args)
+                       for _ in range(avg_num)]
     
         # collect the results and calculate the statistics
         if ret_all:
-            return result
+            return results
         else:
-            if isinstance(result[0], dict):
-                # average all keys of the dict individually
-                mean = copy.deepcopy(result[0])
-                M2 = {key: 0*value for key, value in mean.items()}
-
-                # online algorithm for calculating the _mean and variance
-                for n, data in enumerate(result, 1):
-                    # iterate through all keys
-                    for key in mean:
-                        delta = data[key] - mean[key]
-                        mean[key] += delta / n
-                        M2[key] += delta * (data[key] - mean[key])
+            return self._result_statistics(results)
+        
+        
+    def _result_statistics(self, results):
+        """ returns the means and the standard deviation of the `results` """
+        
+        if isinstance(results[0], dict):
+            # average all keys of the dict individually
+            acc_list = {key: StatisticsAccumulator() for key in results[0]}
             
-                if n > 1:
-                    std = {key: np.sqrt(value / (n - 1))
-                           for key, value in M2.items()}
-                else:
-                    # only a single item
-                    std = M2
+            # iterate through all results and build the statistics
+            for result in results:
+                for key, value in result.items():
+                    acc_list[key].add(value)
+
+            # return the statistics
+            means = {key: stats.mean for key, stats in acc_list.items()}
+            stds = {key: stats.std for key, stats in acc_list.items()}
+            return means, stds
+        
+        # determine the format of the result
+        try:
+            shapes = set([v.shape for v in results[0]])
+        except (TypeError, AttributeError):
+            # results[0] was either not a list or its items are not numpy arrays
+            # => assume that individual results are numbers or arrays
+            handle_as_array = True
+        else:
+            # results[0] is a list of numpy arrays
+            handle_as_array = (len(shapes) == 1) 
+
+        # calculate the statistics with the determined method 
+        if handle_as_array:
+            # handle result as one array
+            results = np.array(results)
+            return results.mean(axis=0), results.std(axis=0)
+        
+        else:
+            # handle list items separately
+            acc_list = [StatisticsAccumulator() for _ in range(len(results[0]))]
+            
+            # iterate through all results and build the statistics
+            for result in results:
+                for k, dataset in enumerate(result):
+                    acc_list[k].add(dataset)
                     
-                return mean, std
-            
-            # determine the format of the result
-            try:
-                shapes = set([v.shape for v in result[0]])
-            except (TypeError, AttributeError):
-                # result[0] was either not a list or its items are not
-                # numpy arrays
-                # => assume that individual results are numbers or arrays
-                handle_as_array = True
-            else:
-                # result[0] is a list of numpy arrays
-                handle_as_array = (len(shapes) == 1) 
-
-            # calculate the statistics with the determined method 
-            if handle_as_array:
-                # handle result as one array
-                result = np.array(result)
-                return result.mean(axis=0), result.std(axis=0)
-            
-            else:
-                # handle list items separately
-                acc_list = [StatisticsAccumulator()
-                            for _ in range(len(result[0]))]
-                
-                # iterate through all results and build the statistics
-                for res in result:
-                    for k, dataset in enumerate(res):
-                        acc_list[k].add(dataset)
-                        
-                # return the statistics
-                means = [stats.mean for stats in acc_list]
-                std = [stats.std for stats in acc_list]
-                return means, std
-
+            # return the statistics
+            means = [stats.mean for stats in acc_list]
+            stds = [stats.std for stats in acc_list]
+            return means, stds
 
 
     def ctot_statistics(self, **kwargs):
