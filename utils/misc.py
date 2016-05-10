@@ -303,17 +303,27 @@ class StatisticsAccumulator(object):
         
         if shape is None:
             self.shape = None
-            self.mean = None
+            self._mean = None
             self._M2 = None
         else:
             self.shape = shape
             size = np.prod(shape)
-            self.mean = np.zeros(size, dtype=dtype)
+            self._mean = np.zeros(size, dtype=dtype)
             if ret_cov:
                 self._M2 = np.zeros((size, size), dtype=dtype)
             else:
                 self._M2 = np.zeros(size, dtype=dtype)
             
+            
+    @property
+    def mean(self):
+        """ return the mean """
+        if self.shape is None:
+            return self._mean
+        else:
+            return self._mean.reshape(self.shape)
+        
+        
     @property
     def cov(self):
         """ return the variance """
@@ -358,20 +368,20 @@ class StatisticsAccumulator(object):
             size = value_arr.size
 
             # store 1d version of it
-            self.mean = np.ravel(value)
+            self._mean = np.ravel(value)
             if self.ret_cov:
                 self._M2 = np.zeros((size, size), self.dtype)
             else:
                 self._M2 = np.zeros(size, self.dtype)
         else:
             self.shape = None
-            self.mean = value
+            self._mean = value
             self._M2 = 0
         
             
     def add(self, value):
         """ add a value to the accumulator """
-        if self.mean is None:
+        if self._mean is None:
             self._initialize(value)
             
         else:
@@ -380,13 +390,13 @@ class StatisticsAccumulator(object):
                 value = np.ravel(value)
             
             self.count += 1
-            delta = value - self.mean
-            self.mean += delta / self.count
+            delta = value - self._mean
+            self._mean += delta / self.count
             if self.ret_cov:
                 self._M2 += ((self.count - 1) * np.outer(delta, delta)
                             - self._M2 / self.count)
             else:
-                self._M2 += delta * (value - self.mean)
+                self._M2 += delta * (value - self._mean)
             
     
     def add_many(self, arr_or_iter):

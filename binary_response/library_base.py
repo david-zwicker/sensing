@@ -15,7 +15,7 @@ import numpy as np
 from scipy import special
 from six import string_types
 
-from utils.misc import xlog2x
+from utils.misc import xlog2x, StatisticsAccumulator
 from utils.numba_tools import random_seed
 
 
@@ -146,7 +146,11 @@ class LibraryBase(object):
     def ensemble_average(self, method, avg_num=None, multiprocessing=False, 
                          ret_all=False, args=None, initialize_state='ensemble'):
         """ calculate an ensemble average of the result of the `method` of
-        multiple different receptor libraries """
+        multiple different receptor libraries
+        
+        The function returns the ensemble mean and the ensemble standard
+        deviation of the values returned by `method`. 
+        """
         
         if avg_num is None:
             avg_num = self.parameters['ensemble_average_num']
@@ -188,7 +192,7 @@ class LibraryBase(object):
                 mean = copy.deepcopy(result[0])
                 M2 = {key: 0*value for key, value in mean.items()}
 
-                # online algorithm for calculating the mean and variance
+                # online algorithm for calculating the _mean and variance
                 for n, data in enumerate(result, 1):
                     # iterate through all keys
                     for key in mean:
@@ -205,10 +209,39 @@ class LibraryBase(object):
                     
                 return mean, std
             
+            # determine the format of the result
+            try:
+                shapes = set([v.shape for v in result[0]])
+            except (TypeError, AttributeError):
+                # result[0] was either not a list or its items are not
+                # numpy arrays
+                # => assume that individual results are numbers or arrays
+                handle_as_array = True
             else:
-                # assume that individual results are numbers or arrays
+                # result[0] is a list of numpy arrays
+                handle_as_array = (len(shapes) == 1) 
+
+            # calculate the statistics with the determined method 
+            if handle_as_array:
+                # handle result as one array
                 result = np.array(result)
                 return result.mean(axis=0), result.std(axis=0)
+            
+            else:
+                # handle list items separately
+                acc_list = [StatisticsAccumulator()
+                            for _ in range(len(result[0]))]
+                
+                # iterate through all results and build the statistics
+                for res in result:
+                    for k, dataset in enumerate(res):
+                        acc_list[k].add(dataset)
+                        
+                # return the statistics
+                means = [stats.mean for stats in acc_list]
+                std = [stats.std for stats in acc_list]
+                return means, std
+
 
 
     def ctot_statistics(self, **kwargs):
@@ -257,13 +290,13 @@ class LibraryBase(object):
                                                    en_stats['var'])
 
         elif 'trunc-normal' in excitation_model:
-            # use a truncated normal distribution with estimated mean and
+            # use a truncated normal distribution with estimated _mean and
             # variance
             q_n = _estimate_qn_from_en_truncnorm(en_stats['mean'],
                                                  en_stats['var'])
 
         elif 'gamma' in excitation_model:
-            # use a Gamma distribution with estimated mean and variance
+            # use a Gamma distribution with estimated _mean and variance
             q_n = _estimate_qn_from_en_gamma(en_stats['mean'], en_stats['var'])
 
         else:

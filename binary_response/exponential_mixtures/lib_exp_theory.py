@@ -72,29 +72,6 @@ class LibraryExponentialLogNormal(LibraryExponentialBase):
         return args
 
 
-#     @classmethod
-#     def from_numeric(cls, numeric_model, typical_sensitivity=None, width=None,
-#                      parameters=None):
-#         """ creates an instance of this class by using parameters from a related
-#         numeric instance """
-#         # set parameters
-#         kwargs = {'parameters': parameters}
-#         if typical_sensitivity is not None:
-#             kwargs['mean_sensitivity'] = typical_sensitivity
-#         elif numeric_model.sens_mat is not None:
-#             kwargs['mean_sensitivity'] = numeric_model.sens_mat.mean()
-#         if width is not None:
-#             kwargs['width'] = width
-#         
-#         # create the object
-#         obj = cls(numeric_model.Ns, numeric_model.Nr, **kwargs)
-#         
-#         # copy the commonness from the numeric model
-#         obj.concentration = numeric_model.commonness
-#         
-#         return obj
-
-
     def receptor_activity(self):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
