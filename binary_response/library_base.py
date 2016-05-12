@@ -146,10 +146,19 @@ class LibraryBase(object):
     def ensemble_average(self, method, avg_num=None, multiprocessing=False, 
                          ret_all=False, args=None, initialize_state='ensemble'):
         """ calculate an ensemble average of the result of the `method` of
-        multiple different receptor libraries
+        multiple different receptor libraries.
         
-        The function returns the ensemble mean and the ensemble standard
-        deviation of the values returned by `method`. 
+        `avg_num` is the number of receptor libraries that we average over
+        `multiprocessing` determines whether the calculations run in parallel.
+            The number of cores that are used can be specified by the class 
+            parameter `multiprocessing_cores`.
+        `ret_all` is a flag determining whether all results are returned as a
+            list of length `avg_num` or whether the ensemble mean and the
+            ensemble standard deviation are returned.
+        `args` is a dictionary with additional arguments supplied to `method`
+        `initialize_state` is a flag that determines how the receptor libraries
+            are initialized. This influences which parameters are the same
+            across the ensemble.
         """
         
         if avg_num is None:

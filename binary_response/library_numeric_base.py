@@ -285,6 +285,30 @@ class LibraryNumericMixin(object):
             return r_n   
         
 
+    def receptor_pearson_correlation(self, method='auto', ret_all=False):
+        """ calculates Pearson's correlation coefficient between receptors.
+    
+        `method` determines the method used to calculated the receptor activity
+        `ret_all` determines if the coefficients between all receptor pairs
+            should be returned or whether the mean and the standard deviation
+            of the coefficients are returned
+        """
+        _, r_nm = self.receptor_activity(method, ret_correlations=True)
+        
+        # calculate the standard deviation of the activities
+        r_std = np.sqrt(np.diag(r_nm))
+        
+        # calculate Pearson's correlation coefficient
+        corr = r_nm / np.outer(r_std, r_std)
+        
+        if ret_all:
+            return corr
+        else:
+            # only return the statistics of the correlation coefficient
+            entries = corr[np.triu_indices(self.Nr, 1)]
+            return entries.mean(), entries.std()
+
+
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
                            clip=False, **kwargs):
         """ calculates the average activity of the receptor as a response to 

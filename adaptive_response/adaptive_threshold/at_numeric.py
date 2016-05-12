@@ -20,7 +20,7 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     total excitation """
     
     
-    def excitation_statistics_monte_carlo_pure(self, ret_correlations=False):
+    def _excitation_statistics_monte_carlo_base(self, ret_correlations=False):
         """ 
         calculates the statistics of the excitation of the receptors.
         Returns the mean excitation, the variance, and the covariance matrix.
@@ -43,7 +43,8 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
             https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
         """
         if not normalized:
-            return self.excitation_statistics_monte_carlo_pure(ret_correlations)
+            return self._excitation_statistics_monte_carlo_base(
+                                                            ret_correlations)
             
         S_ni = self.sens_mat
         S_ni_mean = S_ni.mean()
@@ -203,7 +204,13 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     
     def set_threshold_from_activity_numeric(self, activity, method='auto',
                                             steps=50, verbose=False):
-        """ determines the threshold that leads to a certain activity """
+        """ determines the threshold that leads to a given `activity`.
+        
+        `method` determines the method that is used to determine the receptor
+            activity
+        `steps` sets the number of optimization steps that are used
+        `verbose` determines whether intermediate output should be printed       
+        """
         import cma
         
         if not 0 < activity < 1:
@@ -212,7 +219,7 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
         def cost_function(alpha):
             """ objective function """
             self.threshold_factor = alpha.mean()
-            an = self.receptor_activity(method='auto').mean()
+            an = self.receptor_activity(method=method).mean()
             return (an - activity)**2
         
         options = {'maxfevals': steps,
