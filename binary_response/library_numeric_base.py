@@ -285,28 +285,50 @@ class LibraryNumericMixin(object):
             return r_n   
         
 
-    def receptor_pearson_correlation(self, method='auto', ret_all=False):
+    def receptor_pearson_correlation(self, method='auto', ret=None):
         """ calculates Pearson's correlation coefficient between receptors.
     
         `method` determines the method used to calculated the receptor activity
-        `ret_all` determines if the coefficients between all receptor pairs
-            should be returned or whether the mean and the standard deviation
-            of the coefficients are returned
+        `ret` is a list which determines which values are returned. If ret is
+            None, the mean and the standard deviation of the correlation
+            coefficients are returned
         """
-        _, r_nm = self.receptor_activity(method, ret_correlations=True)
+        if ret is None:
+            ret = ['pearson_mean', 'pearson_std']
+        ret = set(ret)
+
+        # calculate the statistics of the receptor activities        
+        r_n, r_nm = self.receptor_activity(method, ret_correlations=True)
         
         # calculate the standard deviation of the activities
         r_std = np.sqrt(np.diag(r_nm))
         
         # calculate Pearson's correlation coefficient
         corr = r_nm / np.outer(r_std, r_std)
-        
-        if ret_all:
-            return corr
-        else:
-            # only return the statistics of the correlation coefficient
-            entries = corr[np.triu_indices(self.Nr, 1)]
-            return entries.mean(), entries.std()
+        # get all entries of the upper triangle
+        corr_tri = corr[np.triu_indices(self.Nr, 1)]
+
+        result = {}
+        if 'activity' in ret:
+            result['activity'] = r_n
+            ret.remove('activity')
+        if 'correlation' in ret:
+            result['correlation'] = r_nm
+            ret.remove('correlation')
+        if 'pearson' in ret:
+            result['pearson'] = corr
+            ret.remove('pearson')
+        if 'pearson_mean' in ret:
+            result['pearson_mean'] = corr_tri.mean()
+            ret.remove('pearson_mean')
+        if 'pearson_std' in ret:
+            result['pearson_std'] = corr_tri.std()
+            ret.remove('pearson_std')
+            
+        if ret:
+            raise ValueError('The values %s cannot be returned' % ret)
+            
+        return result
 
 
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
