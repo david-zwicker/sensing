@@ -66,7 +66,7 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
 
     def choose_sensitivity_matrix(self, distribution, mean_sensitivity=1,
                                   **kwargs):
-        """ chooses the sensitivity matrix """
+        """ choose the sensitivity matrix. Docstring is overwritten below """
         self.sens_mat, sens_mat_params = get_sensitivity_matrix(
                   self.Nr, self.Ns, distribution, mean_sensitivity, **kwargs)
 
@@ -74,6 +74,15 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
         self.parameters['sensitivity_matrix_params'] = sens_mat_params
 
     choose_sensitivity_matrix.__doc__ = get_sensitivity_matrix.__doc__  
+
+
+    def sensitivities_statistics(self):
+        """ returns statistics of the sensitivity matrix """
+        Sni_var = self.sens_mat.var()
+        
+        # return the results in a dictionary to be able to extend it later
+        return {'mean': self.sens_mat.mean(), 'std': np.sqrt(Sni_var),
+                'var': Sni_var}
 
 
     @property

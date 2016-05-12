@@ -319,10 +319,10 @@ class LibraryNumericMixin(object):
             result['pearson'] = corr
             ret.remove('pearson')
         if 'pearson_mean' in ret:
-            result['pearson_mean'] = corr_tri.mean()
+            result['pearson_mean'] = np.nanmean(corr_tri)
             ret.remove('pearson_mean')
         if 'pearson_std' in ret:
-            result['pearson_std'] = corr_tri.std()
+            result['pearson_std'] = np.nanstd(corr_tri)
             ret.remove('pearson_std')
             
         if ret:
