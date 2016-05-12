@@ -52,3 +52,4 @@ class AdaptiveThresholdMixin(object):
         """ set the number of receptors used for coding """
         self.parameters['threshold_factor'] = alpha
         
+        

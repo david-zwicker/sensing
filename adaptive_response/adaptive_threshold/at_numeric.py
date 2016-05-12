@@ -203,18 +203,27 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     
     
     def set_threshold_from_activity_numeric(self, activity, method='auto',
-                                            steps=50, verbose=False):
+                                            steps=50, verbose=False,
+                                            estimate=None):
         """ determines the threshold that leads to a given `activity`.
         
         `method` determines the method that is used to determine the receptor
             activity
         `steps` sets the number of optimization steps that are used
-        `verbose` determines whether intermediate output should be printed       
+        `verbose` determines whether intermediate output should be printed
+        `estimate` gives an estimate for the threshold_factor. A good estimate
+            generally speeds up the convergence of the algorithm.
         """
+        # lazy import of the Covariance Matrix Adaptation Evolution Strategy
+        # package since it is only used in this method and the rest of the code
+        # should be able to run without it
         import cma
         
         if not 0 < activity < 1:
             raise ValueError('Activity must be between 0 and 1')
+        
+        if estimate is None:
+            estimate = 1
         
         def cost_function(alpha):
             """ objective function """
@@ -230,7 +239,7 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
         # determine the correct threshold by optimization
         # we here use a two dimensional search, because this particular
         # implementation of cma is not implemented for scalar optimization.
-        res = cma.fmin(cost_function, [1, 1], 0.1, options=options)
+        res = cma.fmin(cost_function, [estimate]*2, 0.1, options=options)
             
         self.threshold_factor = res[0].mean()
         return self.threshold_factor    
