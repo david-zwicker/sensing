@@ -416,7 +416,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         if not 0 <= mixture_overlap <= mixture_size:
             raise ValueError('Mixture overlap `mixture_overlap` must be '
                              'between 0 and `mixture_size`.')
-        elif mixture_overlap == mixture_size:
+        if mixture_overlap == mixture_size:
             return 0
         elif mixture_overlap == 0:
             return self.activity_distance_uncorrelated(mixture_size=mixture_size)
@@ -431,11 +431,10 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                          'same concentration distribution. We are thus using '
                          'the means of the concentration means and variances.')
 
-        #c_mean = self.c_means.mean()
-        #c_var = self.c_vars.mean()
+        # get excitation statistics for a single ligand at concentration c=1
         S_stats = self.sensitivity_stats()
-        en_mean = S_stats['mean'] #* c_mean
-        en_var = S_stats['var'] #(S_stats['mean']**2 + S_stats['var']) #* c_var
+        en_mean = S_stats['mean']
+        en_var = S_stats['var']
     
         # determine the excitation thresholds
         e_thresh_total = s * self.threshold_factor_numerics * en_mean
