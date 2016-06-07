@@ -293,7 +293,7 @@ class StatisticsAccumulator(object):
             for the standard deviation.
         `shape` is the shape of the data. If omitted it will be read from the
             first value
-        `dtype` is the numpy dtype of the interal accumulator
+        `dtype` is the numpy dtype of the internal accumulator
         `ret_cov` determines whether the covariances are also calculated
         """ 
         self.count = 0
@@ -368,12 +368,14 @@ class StatisticsAccumulator(object):
             size = value_arr.size
 
             # store 1d version of it
-            self._mean = np.ravel(value)
+            self._mean = value.flatten()
             if self.ret_cov:
                 self._M2 = np.zeros((size, size), self.dtype)
             else:
                 self._M2 = np.zeros(size, self.dtype)
+                
         else:
+            # simple scalar value
             self.shape = None
             self._mean = value
             self._M2 = 0
@@ -399,9 +401,9 @@ class StatisticsAccumulator(object):
                 self._M2 += delta * (value - self._mean)
             
     
-    def add_many(self, arr_or_iter):
+    def add_many(self, iterator):
         """ adds many values from an array or an iterator """
-        for value in arr_or_iter:
+        for value in iterator:
             self.add(value)
             
             
