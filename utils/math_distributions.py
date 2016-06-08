@@ -2,12 +2,16 @@
 Created on Feb 24, 2015
 
 @author: David Zwicker <dzwicker@seas.harvard.edu>
+
+This module provides functions and classes for probability distributions, which
+build upon the scipy.stats package and extend it.   
 '''
 
 from __future__ import division
 
 import numpy as np
 from scipy import stats, special, linalg
+
 
 
 def lognorm_mean(mean, sigma):
@@ -43,6 +47,14 @@ def lognorm_mean_var(mean, variance):
 
 
 
+def gamma_mean_var(mean, variance):
+    """ returns a gamma distribution with given mean and variance """
+    alpha = mean**2 / variance
+    beta = variance / mean
+    return stats.gamma(scale=beta, a=alpha)
+
+
+
 def loguniform_mean(mean, sigma):
     """ returns a loguniform distribution parameterized by its mean and a spread
     parameter `sigma`. The ratio between the maximal value and the minimal value
@@ -57,6 +69,14 @@ def random_log_uniform(v_min, v_max, size):
     log_min, log_max = np.log(v_min), np.log(v_max)
     res = np.random.uniform(log_min, log_max, size)
     return np.exp(res)
+
+
+
+def dist_skewness(dist):
+    """ returns the skewness of the distribution `dist` """
+    mean = dist.mean()
+    var = dist.var()
+    return (dist.moment(3) - 3*mean*var - mean**3) / var**(3/2)
 
 
 

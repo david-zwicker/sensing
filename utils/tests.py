@@ -11,8 +11,7 @@ import unittest
 import numpy as np
 from scipy import stats 
 
-from .math_distributions import (lognorm_mean_var_to_mu_sigma, lognorm_mean,
-                                 lognorm_mean_var, loguniform_mean)
+from . import math_distributions
 from .numba_tools import lognorm_cdf, lognorm_pdf
 
       
@@ -32,9 +31,12 @@ class TestMathDistributions(unittest.TestCase):
         """ test random variates """
         # create some distributions to test
         distributions = [
-            lognorm_mean(np.random.random() + 0.1, np.random.random() + 0.1),
-            lognorm_mean_var(np.random.random() + 0.1, np.random.random() + 0.2),
-            loguniform_mean(np.random.random() + 0.1, np.random.random() + 1.1),
+            math_distributions.lognorm_mean(np.random.random() + 0.1,
+                                            np.random.random() + 0.1),
+            math_distributions.lognorm_mean_var(np.random.random() + 0.1,
+                                                np.random.random() + 0.2),
+            math_distributions.loguniform_mean(np.random.random() + 0.1,
+                                               np.random.random() + 1.1),
         ]
         
         # calculate random variates and compare them to the given mean and var.
@@ -55,7 +57,8 @@ class TestMathDistributions(unittest.TestCase):
         var = S0**2 * (np.exp(sigma**2) - 1)
         
         # test our distribution and the scipy distribution
-        dists = (lognorm_mean(S0, sigma), stats.lognorm(scale=mu, s=sigma))
+        dists = (math_distributions.lognorm_mean(S0, sigma),
+                 stats.lognorm(scale=mu, s=sigma))
         for dist in dists:
             self.assertAlmostEqual(dist.mean(), S0)
             self.assertAlmostEqual(dist.var(), var)
@@ -67,25 +70,37 @@ class TestMathDistributions(unittest.TestCase):
 
         # test the numpy distribution
         mean, var = np.random.random() + 0.1, np.random.random() + 0.1
-        dist = lognorm_mean(mean, var)
+        dist = math_distributions.lognorm_mean(mean, var)
         self.assertAlmostEqual(dist.mean(), mean)
-        dist = lognorm_mean_var(mean, var)
+        dist = math_distributions.lognorm_mean_var(mean, var)
         self.assertAlmostEqual(dist.mean(), mean)
         self.assertAlmostEqual(dist.var(), var)
         
-        mu, sigma = lognorm_mean_var_to_mu_sigma(mean, var, 'numpy')
+        mu, sigma = math_distributions.lognorm_mean_var_to_mu_sigma(mean, var,
+                                                                    'numpy')
         rvs = np.random.lognormal(mu, sigma, size=1000000)
         self.assertAlmostEqual(rvs.mean(), mean, places=2)
         self.assertAlmostEqual(rvs.var(), var, places=1)
 
 
+    def test_gamma(self):
+        """ test the log uniform distribution """
+        mean = np.random.random() + 0.1
+        var = np.random.random() + 1.1
+        
+        # test our distribution and the scipy distribution
+        dist = math_distributions.gamma_mean_var(mean, var)
+        self.assertAlmostEqual(dist.mean(), mean)
+        self.assertAlmostEqual(dist.var(), var)
+                    
+                    
     def test_log_uniform(self):
         """ test the log uniform distribution """
         S0 = np.random.random() + 0.1
         sigma = np.random.random() + 1.1
         
         # test our distribution and the scipy distribution
-        dist = loguniform_mean(S0, sigma)
+        dist = math_distributions.loguniform_mean(S0, sigma)
         self.assertAlmostEqual(dist.mean(), S0)
                     
                     
@@ -95,9 +110,10 @@ class TestMathDistributions(unittest.TestCase):
             mean = np.random.random() + 0.1
             var = np.random.random() + 0.1
             x = np.random.random() + 0.1
-            dist_LN = lognorm_mean_var(mean, var)
+            dist_LN = math_distributions.lognorm_mean_var(mean, var)
             self.assertAlmostEqual(dist_LN.pdf(x), lognorm_pdf(x, mean, var))
             self.assertAlmostEqual(dist_LN.cdf(x), lognorm_cdf(x, mean, var))
+    
     
 
 if __name__ == '__main__':
