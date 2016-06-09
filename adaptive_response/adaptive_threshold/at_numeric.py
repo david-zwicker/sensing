@@ -20,6 +20,20 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     total excitation """
     
     
+    def concentration_statistics_normalized_monte_carlo(self):
+        """ determines the statistics of the normalized concentration
+        numerically using a monte carlo method """
+        c_hat_stats = StatisticsAccumulator()
+        for ci in self._sample_mixtures():
+            ctot = ci.sum()
+            if ctot > 0:
+                ci /= ctot
+            c_hat_stats.add(ci)
+            
+        return {'mean': c_hat_stats.mean, 'std': c_hat_stats.std,
+                'var': c_hat_stats.var}
+    
+    
     def _excitation_statistics_monte_carlo_base(self, ret_correlations=False):
         """ 
         calculates the statistics of the excitation of the receptors.
@@ -75,9 +89,6 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
     def excitation_threshold_statistics(self):
         """ returns the statistics of the excitation threshold that receptors
         have to overcome to be part of the activation pattern.
-        
-        `normalized` determines whether the statistics of the excitations are
-            calculated for normalized concentration vector 
         """
         S_ni = self.sens_mat
         alpha = self.threshold_factor
