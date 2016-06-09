@@ -10,7 +10,7 @@ build upon the scipy.stats package and extend it.
 from __future__ import division
 
 import numpy as np
-from scipy import stats, special, linalg
+from scipy import stats, special, linalg, optimize
 
 
 
@@ -45,6 +45,64 @@ def lognorm_mean_var(mean, variance):
     scale, sigma = lognorm_mean_var_to_mu_sigma(mean, variance, 'scipy')
     return stats.lognorm(scale=scale, s=sigma)
 
+
+
+def lognorm_sum_leastsq(count, var_norm, sim_terms=1e5, bins=64):
+    """ returns the parameters of a log-normal distribution that estimates the
+    sum of `count` log-normally distributed random variables with mean 1 and
+    variance `var_norm`. These parameters are determined by fitting the 
+    probability density function to a histogram obtained by drawing `sim_terms`
+    random numbers """
+    sum_mean = count
+    sum_var = count * var_norm
+    
+        # get random numbers
+    dist = lognorm_mean_var(1, var_norm)
+    vals = dist.rvs((int(sim_terms), count)).sum(axis=1)
+    
+    # get the histogram
+    val_max = sum_mean + 3 * np.sqrt(sum_var)
+    bins = np.linspace(0, val_max, bins + 1)
+    xs = 0.5*(bins[:-1] + bins[1:])
+    density, _ = np.histogram(vals, bins=bins, range=[0, val_max],
+                              density=True)
+    
+    def pdf_diff(params):
+        """ evaluate the estimated pdf """
+        scale, sigma = params
+        return stats.lognorm.pdf(xs, scale=scale, s=sigma) - density
+        
+    # do the least square fitting
+    params_init = lognorm_mean_var_to_mu_sigma(sum_mean, sum_var, 'scipy')
+    params, _ = optimize.leastsq(pdf_diff, params_init)
+    return params
+
+
+
+def lognorm_sum(count, mean, variance, method='fenton'):
+    """ returns an estimate of the distribution of the sum of `count`
+    log-normally distributed variables with `mean` and `variance`. The returned
+    distribution is again log-normal with mean and variance determined from the
+    given parameters. Here, several methods can be used:
+        `fenton` - match the first two moments of the distribution
+        `leastsq` - minimize the error in the interval 
+    
+    """
+    if method == 'fenton':
+        # use the moments directly
+        return lognorm_mean_var(count * mean, count * variance)
+        
+    elif method == 'leastsq':
+        # determine the moments from fitting
+        var_norm = variance / mean**2
+        scale, sigma = lognorm_sum_leastsq(count, var_norm)
+        return stats.lognorm(scale=scale * mean, s=sigma)
+        
+    else:
+        raise ValueError('Unknown method `%s` for determining the sum of '
+                         'lognormal distributions. Accepted methods are '
+                         '[`fenton`, `fit`].')
+    
 
 
 def gamma_mean_var(mean, variance):
