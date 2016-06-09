@@ -15,7 +15,7 @@ from binary_response.sparse_mixtures.lib_spr_base import LibrarySparseBase
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
 
 from .at_base import AdaptiveThresholdMixin
-from utils.math_distributions import lognorm_mean_var
+from utils.math_distributions import lognorm_mean_var, lognorm_sum
 from utils.misc import xlog2x
 
 
@@ -25,6 +25,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
     independently from a log-normal distribution """
 
     parameters_default = {
+        'ctot_method': 'fenton',
         'excitation_distribution': 'log-normal', 
         'compensated_threshold': False,
     }
@@ -38,53 +39,99 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         # get real concentration statistics
         parent = super(AdaptiveThresholdTheory, self)
         ci_stats = parent.concentration_statistics()
-        
+
         if normalized:
+            # get statistics of the normalized concentrations
+            pi = self.substrate_probabilities
+            c_means = self.c_means
+            c_vars = self.c_vars
+
             # get statistics of the total concentration
             ctot_mean = ci_stats['mean'].sum()
-            ctot_var = ci_stats['var'].sum()
-            ctot_eff = ctot_var / ctot_mean**2
+            #ctot_var = ci_stats['var'].sum()
+
+            # estimate the parameters of the log-normal distribution of ctot             
+            if self.is_homogeneous_mixture:
+                ctot_dist = lognorm_sum(pi.sum(), c_means.mean(), c_vars.mean(),
+                                        method=self.parameters['ctot_method'])
+                mu_t = ctot_dist.mean()
+                
+            elif self.parameters['ctot_method'] == 'fenton': 
+                mu_t = ctot_mean
+                
+            else:
+                raise ValueError('The approximation of the total concentration '
+                                 'of mixtures that are not homogeneous can '
+                                 'only be calculated using the `fenton` '
+                                 'method.')
+                
+            # get statistics of the normalized concentrations            
+            ci_hat_mean = pi * c_means / mu_t
+            ci_hat_var = pi * (c_vars + (1 - pi) * c_means**2) / mu_t**2
             
-            # scale the concentration statistics
-            chi = (1 + ctot_eff)
-            ci_stats['mean'] = ci_stats['mean'] / ctot_mean * chi
-            ci_stats['var'] = (chi / ctot_mean)**2 * \
-                            (ci_stats['var'] * chi + ci_stats['mean']*ctot_eff)
-                                 
-            ci_stats['cov'] = np.diag(ci_stats['var'])
-            ci_stats['std'] = np.sqrt(ci_stats['var'])            
+            return {'mean': ci_hat_mean, 'std': np.sqrt(ci_hat_var),
+                    'var': ci_hat_var, 'cov': np.diag(ci_hat_var),
+                    'cov_is_diagonal': True}
             
-        return ci_stats
+        else:
+            # just return the concentration statistics
+            return ci_stats
 
 
     def excitation_statistics(self, normalized=False):
         """ calculates the statistics of the excitation of the receptors.
         Returns the expected mean excitation, the variance, and the covariance
-        matrix of any given receptor """
+        matrix of any given receptor.
+        If `normalized` is True, normalized quantities are used, i.e, the
+        concentrations of the individual components are divided by the total
+        concentration and the sensitivities are divided by the mean sensitivity
+        """
+        # check whether we can actually calculate the statistics 
         if self.is_correlated_mixture:
             raise NotImplementedError('Not implemented for correlated mixtures')
+
+        if (normalized and
+            self.parameters['excitation_distribution'] == 'gaussian'):
+            
+            raise ValueError('Gaussian distributions are not supported for '
+                             'normalized excitations.')
 
         # get statistics of the individual concentrations
         c_stats = self.concentration_statistics(normalized=normalized)
         c2_mean = c_stats['mean']**2 + c_stats['var']
         c2_mean_sum = c2_mean.sum()
 
-        # get statistics of the total concentration c_tot = \sum_i c_i
         if normalized:
-            ctot_mean = 1
-            ctot_var = 0
-        else:
+            # The statistics of the total concentration c_tot = \sum_i \hat c_i
+            # are ctot_mean = 1 and ctot_var = 0, because of the constraint
+            # \sum_i \hat c_i = 1.
+            
+            # get statistics of the sensitivities S_ni
+            S_stats = self.sensitivity_stats()
+            S_mean2 = S_stats['mean']**2 
+            S_var = S_stats['var'] / S_mean2
+            S_cov = S_stats['cov'] / S_mean2
+            
+            # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
+            en_mean = 1
+            en_var  = S_var * c2_mean_sum
+            enm_cov = S_cov * c2_mean_sum
+            
+        else: # not normalized
+            # get statistics of the total concentration c_tot = \sum_i c_i
             ctot_mean = c_stats['mean'].sum()
             ctot_var = c_stats['var'].sum()
+
+            # get statistics of the sensitivities S_ni
+            S_stats = self.sensitivity_stats()
+            S_mean = S_stats['mean']
+            S_var = S_stats['var']
+            S_cov = S_stats['cov']
         
-        # get statistics of the sensitivities S_ni
-        S_stats = self.sensitivity_stats()
-        S_mean = S_stats['mean']
-        
-        # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
-        en_mean = S_mean * ctot_mean
-        en_var  = S_mean**2 * ctot_var + S_stats['var'] * c2_mean_sum
-        enm_cov = S_mean**2 * ctot_var + S_stats['cov'] * c2_mean_sum
+            # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
+            en_mean = S_mean * ctot_mean
+            en_var  = S_mean**2 * ctot_var + S_var * c2_mean_sum
+            enm_cov = S_mean**2 * ctot_var + S_cov * c2_mean_sum
 
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'cov': enm_cov}
@@ -96,17 +143,15 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         and the odor statistics.
          
         `normalized` determines whether the statistics for the normalized
-            excitations or the unnormalized excitations are returned
+            concentrations or the unnormalized concentrations are returned. Note
+            that the sensitivities are not normalized.
         """ 
         excitation_dist = self.parameters['excitation_distribution']
         en_stats = self.excitation_statistics(normalized=normalized)
         
-        if  excitation_dist == 'gaussian':
-            if normalized:
-                raise ValueError('Gaussian distributions are not supported for '
-                                 'normalized excitations.')
+        if excitation_dist == 'gaussian':
             return stats.norm(en_stats['mean'], en_stats['std'])
-        elif  excitation_dist == 'log-normal':
+        elif excitation_dist == 'log-normal':
             return lognorm_mean_var(en_stats['mean'], en_stats['var'])
         else:
             raise ValueError("Unknown excitation distribution `%s`. Supported "
@@ -117,8 +162,9 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                                         normalized=False):
         """ returns a scipy.stats distribution for the excitations with the
         mean and standard deviation determined from the sensitivity distribution
-        and the statistics for a mixture of size `mixture_size`. Note that this
-        function returns statistics for unnormalized excitations.
+        and the statistics for a mixture of size `mixture_size`.
+        If `normalized` is True, the distribution for the normalized excitations
+        is returned.
         """ 
         # determine the statistics of the excitations
         S_stats = self.sensitivity_stats()
@@ -234,39 +280,37 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         alpha = self.threshold_factor_numerics
         en_stats = self.excitation_statistics(normalized=normalized)
         
-        #en_thresh_var = alpha**2 * en_stats['var'] #/ self.Nr
-        
         return {'mean': alpha * en_stats['mean'],
                 'std': alpha * en_stats['std'] / np.sqrt(self.Nr),
                 'var': alpha**2 * en_stats['var'] / self.Nr }
         
         
-    def excitation_threshold_statistics(self, normalized=False):
+    def excitation_threshold_statistics_old(self, normalized=False):
         """ returns the statistics of the excitation threshold that receptors
         have to overcome to be part of the activation pattern. """
         alpha = self.threshold_factor_numerics
-
+ 
         # get statistics of the individual concentrations
         c_stats = self.concentration_statistics(normalized=normalized)
         c2_mean = c_stats['mean']**2 + c_stats['var']
         c2_mean_sum = c2_mean.sum()
-         
+          
         # get statistics of the total concentration c_tot = \sum_i c_i
         if normalized:
             ctot_mean = 1
         else:
             ctot_mean = c_stats['mean'].sum()
         ctot_var = c_stats['var'].sum()
-         
+          
         # get statistics of the sensitivities S_ni
         S_stats = self.sensitivity_stats()
         S_mean = S_stats['mean']
-         
+          
         # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
         en_mean_mean = S_mean * ctot_mean
         en_mean_var  = S_mean**2 * ctot_var \
                        + S_stats['var'] * c2_mean_sum / self.Nr
-         
+          
         # return the statistics of the excitation threshold
         en_thresh_var = alpha**2 * en_mean_var
         return {'mean': alpha * en_mean_mean,
@@ -287,7 +331,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         en_thresh = en_dist.isf(activity)
         
         # determine the associated threshold factor
-        alpha =  en_thresh / en_stats['mean']
+        alpha = en_thresh / en_stats['mean']
         
         if self.parameters['compensated_threshold']:
             # get the factor that was not compensated
@@ -308,7 +352,7 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         """ return the probability with which a single receptor is activated 
         by typical mixtures """
         if normalized_variables:
-            en_thresh = self.threshold_factor_numerics * self.mean_sensitivity
+            en_thresh = self.threshold_factor_numerics
             en_dist = self.excitation_distribution(normalized=True)
             
         else:
@@ -328,8 +372,8 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         else: 
             # probability that excitation exceeds the deterministic threshold
             return en_dist.sf(en_thresh)
-
-
+        
+    
     def receptor_activity_for_mixture(self, mixture_size=1):
         """ returns expected receptor activity for a mixture of given size """
         # a single mixture size is given
