@@ -1074,7 +1074,7 @@ def _sample_binary_mixtures(model, steps, dtype=np.uint):
         # use simple monte carlo algorithm
         prob_s = model.substrate_probabilities
         
-        for _ in range(steps):
+        for _ in range(int(steps)):
             # choose a mixture vector according to substrate probabilities
             yield (np.random.random(model.Ns) < prob_s).astype(dtype)
 
@@ -1089,7 +1089,7 @@ def _sample_binary_mixtures(model, steps, dtype=np.uint):
         c = np.random.random_integers(0, 1, model.Ns).astype(dtype)
         E_last = -np.dot(np.dot(Jij, c) + hi, c)
         
-        for _ in range(steps):
+        for _ in range(int(steps)):
             i = random.randrange(model.Ns)
             c[i] = 1 - c[i] #< switch the entry
             Ei = -np.dot(np.dot(Jij, c) + hi, c)
@@ -1127,7 +1127,7 @@ def _sample_binary_mixtures(model, steps, dtype=np.uint):
         np.random.shuffle(c)
         E_last = -np.dot(np.dot(Jij, c) + hi, c)
         
-        for _ in range(steps):
+        for _ in range(int(steps)):
             # find the next mixture by swapping two items
             i0 = random.choice(np.flatnonzero(c == 0)) #< find 0
             i1 = random.choice(np.flatnonzero(c))      #< find 1
