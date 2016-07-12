@@ -56,7 +56,7 @@ def lognorm_sum_leastsq(count, var_norm, sim_terms=1e5, bins=64):
     sum_mean = count
     sum_var = count * var_norm
     
-        # get random numbers
+    # get random numbers
     dist = lognorm_mean_var(1, var_norm)
     vals = dist.rvs((int(sim_terms), count)).sum(axis=1)
     
