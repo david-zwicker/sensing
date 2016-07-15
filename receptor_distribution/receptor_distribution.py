@@ -6,9 +6,16 @@ Created on Jul 15, 2016
 
 from __future__ import division
 
+import functools
+
 import numpy as np
 from scipy import optimize, spatial
 
+try:
+    import numba
+except ImportError:
+    numba = None
+    
 
 
 class ExcitationProfiles(object):
@@ -37,7 +44,8 @@ class ExcitationProfiles(object):
 class ReceptorDistribution(object):
     """ class that describes the distribution of receptors """
     
-    cost_weight_total = 1 #< weight of the total excitation in the cost function 
+    perf_weight_smooth = 0    #< weight of the smoothness in the cost
+    perf_weight_total_exc = 1 #< weight of the total excitation in the cost 
     
     
     def __init__(self, Nr, num_x=16):
@@ -108,27 +116,51 @@ class ReceptorDistribution(object):
         e_tot = np.einsum('ij,ij->i', self.distribution,
                           excitations.distribution)
         
-        return (self.cost_weight_total * e_tot.sum()
-                - spatial.distance.pdist(e_tot[:, None]).sum())
+        perf = self.perf_weight_total_exc * e_tot.sum()
+        perf -= spatial.distance.pdist(e_tot[:, None]).sum()
+        
+        if self.perf_weight_smooth != 0:
+            exc = self.distribution * excitations.distribution
+            roughness = np.linalg.norm(np.diff(exc, axis=1))
+            perf -= self.perf_weight_smooth * roughness
+        
+        return perf
+    
     
 
-    def optimize(self, excitations, method='scipy'):
+    def optimize(self, excitations, method='scipy', use_numba=True):
         """ optimizes the receptor distribution for the given excitations """
         assert excitations.Nr == self.Nr
         assert excitations.num_x == self.num_x
         
         # prepare initial condition
-        dist_reduced = self._distribution_real2reduced(self.distribution)
+        dist_reduced = self.distribution_reduced.ravel()
         
         # define the objective function
-        def objective_function(dist_reduced):
-            self.distribution_reduced = dist_reduced
-            return -self.performance(excitations)
+        if use_numba and numba is not None:
+            # define numba accelerated cost function
+            objective_function = \
+                functools.partial(objective_function_numba,
+                                  dist_excitations=excitations.distribution,
+                                  cost_weight_total=self.perf_weight_total_exc)
+                
+            # check the function for consistency
+            if not np.isclose(objective_function(dist_reduced),
+                              -self.performance(excitations)):
+                raise RuntimeError('The numba-accelerated cost function is not '
+                                   'consistent with the underlying python '
+                                   'function.')
+            
+        else:
+            # define simple cost function
+            def objective_function(dist_reduced):
+                self.distribution_reduced = dist_reduced
+                return -self.performance(excitations)
 
         # perform the constraint optimization
         if method == 'scipy':
             bounds = np.array([[0, 1]] * dist_reduced.size)
-            opt = optimize.minimize(objective_function, dist_reduced.ravel(),
+            opt = optimize.minimize(objective_function, dist_reduced,
                                     bounds=bounds)
             self.distribution_reduced = opt.x
             
@@ -146,7 +178,7 @@ class ReceptorDistribution(object):
                        'verb_disp': 0,
                        'verb_log': 0}
             
-            opt = cma.fmin(objective_function, dist_reduced.ravel(), 1/self.Nr,
+            opt = cma.fmin(objective_function, dist_reduced, 1/self.Nr,
                            options=options)
             self.distribution_reduced = opt[0]
             
@@ -155,3 +187,33 @@ class ReceptorDistribution(object):
         
         # return the result
         return self.distribution
+    
+
+
+if numba is not None:
+    # define numba-accelerated functions
+    
+    @numba.jit(nopython=True)
+    def objective_function_numba(dist_reduced, dist_excitations,
+                                 cost_weight_total=1):
+        """ numba-accelerated objective function """
+        Nr, lx = dist_excitations.shape
+        
+        # determine total excitation for each receptor by integrating over space
+        Es = np.zeros(Nr)
+        for x in range(lx):
+            a = 1
+            for n in range(Nr - 1):
+                Es[n] += a * dist_reduced[n*lx + x] * dist_excitations[n, x]
+                a *= 1 - dist_reduced[n*lx + x]
+            Es[Nr - 1] += a * dist_excitations[Nr - 1, x]
+    
+        # determine cost function from the total excitations
+        cost = 0
+        for n in range(Nr):
+            cost -= cost_weight_total*Es[n]
+            for m in range(n + 1, Nr):
+                cost += np.abs(Es[n] - Es[m])
+                
+        return cost
+
