@@ -14,7 +14,7 @@ import scipy.stats
 from .lib_exp_base import LibraryExponentialBase
 from .lib_exp_theory import LibraryExponentialLogNormal
 from .numba_speedup import numba_patcher
-from ..tests import TestBase
+from utils.tests import TestBase
 
 
 
