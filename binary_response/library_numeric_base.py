@@ -224,6 +224,10 @@ class LibraryNumericMixin(object):
         """ calculates the average activity of each receptor
         
         `method` can be one of [monte_carlo', 'estimate'].
+        `ret_correlations` determines whether the correlations are returned
+            alongside the mean activities. Note that the correlations are not
+            the connected correlation coefficients but the bare expectation
+            values <a_n a_m>.
         """
         if method == 'auto':
             method = 'monte_carlo'
@@ -237,7 +241,13 @@ class LibraryNumericMixin(object):
      
             
     def receptor_activity_monte_carlo(self, ret_correlations=False):
-        """ calculates the average activity of each receptor """
+        """ calculates the average activity of each receptor
+        
+        `ret_correlations` determines whether the correlations are returned
+            alongside the mean activities. Note that the correlations are not
+            the connected correlation coefficients but the bare expectation
+            values <a_n a_m>.        
+        """
         # prevent integer overflow in collecting activity patterns
         assert self.Nr <= self.parameters['max_num_receptors'] <= 63
 
@@ -264,7 +274,15 @@ class LibraryNumericMixin(object):
                         
     def receptor_activity_estimate(self, ret_correlations=False,
                                    excitation_model='default', clip=False):
-        """ estimates the average activity of each receptor """
+        """ estimates the average activity of each receptor
+
+        `ret_correlations` determines whether the correlations are returned
+            alongside the mean activities. Note that the correlations are not
+            the connected correlation coefficients but the bare expectation
+            values <a_n a_m>.
+        `excitation_model` defines what model is used to estimate the excitation
+            statistics.
+        """
         en_stats = self.excitation_statistics_estimate()
 
         # calculate the receptor activity
@@ -291,20 +309,27 @@ class LibraryNumericMixin(object):
         `method` determines the method used to calculated the receptor activity
         `ret` is a list which determines which values are returned. If ret is
             None, the mean and the standard deviation of the correlation
-            coefficients are returned
+            coefficients are returned. If ret is `all`, all possible values are
+            returned.
         """
         if ret is None:
             ret = ['pearson_mean', 'pearson_std']
+        elif ret is 'all':
+            ret = ['activity', 'covariance', 'pearson', 'pearson_mean',
+                   'pearson_std']
         ret = set(ret)
 
         # calculate the statistics of the receptor activities        
         r_n, r_nm = self.receptor_activity(method, ret_correlations=True)
         
+        # calculate the covariance matrix
+        r_cov = r_nm - np.outer(r_n, r_n)
+        
         # calculate the standard deviation of the activities
-        r_std = np.sqrt(np.diag(r_nm))
+        r_std = np.sqrt(np.diag(r_cov))
         
         # calculate Pearson's correlation coefficient
-        corr = r_nm / np.outer(r_std, r_std)
+        corr = r_cov / np.outer(r_std, r_std)
         # get all entries of the upper triangle
         corr_tri = corr[np.triu_indices(self.Nr, 1)]
 
@@ -312,9 +337,9 @@ class LibraryNumericMixin(object):
         if 'activity' in ret:
             result['activity'] = r_n
             ret.remove('activity')
-        if 'correlation' in ret:
-            result['correlation'] = r_nm
-            ret.remove('correlation')
+        if 'covariance' in ret:
+            result['covariance'] = r_cov
+            ret.remove('covariance')
         if 'pearson' in ret:
             result['pearson'] = corr
             ret.remove('pearson')
@@ -333,12 +358,15 @@ class LibraryNumericMixin(object):
 
     def receptor_crosstalk(self, method='auto', ret_receptor_activity=False,
                            clip=False, **kwargs):
-        """ calculates the average activity of the receptor as a response to 
-        single ligands.
+        """ calculates the crosstalk between receptors, which is quantified by
+        the covariance cov(a_n, a_m) = <a_n a_m> - <a_n><a_m> between the 
+        receptors.
         
         `method` can be ['brute_force', 'monte_carlo', 'estimate', 'auto'].
             If it is 'auto' than the method is chosen automatically based on the
             problem size.
+        `ret_receptor_activity` determines whether the mean receptor activities
+            are also returned. This will return a tuple (mean_a, cov_a).
         """
         if method == 'estimate':
             kwargs['clip'] = False
@@ -360,8 +388,10 @@ class LibraryNumericMixin(object):
         
     def receptor_crosstalk_estimate(self, ret_receptor_activity=False,
                                     excitation_model='default', clip=False):
-        """ calculates the average activity of the receptor as a response to 
-        single ligands. """
+        """ estimates the crosstalk between receptors, which is quantified by
+        the covariance cov(a_n, a_m) = <a_n a_m> - <a_n><a_m> between the 
+        receptors.
+        """
         en_stats = self.excitation_statistics_estimate()
 
         # calculate the receptor crosstalk
