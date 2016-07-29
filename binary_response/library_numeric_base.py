@@ -303,7 +303,8 @@ class LibraryNumericMixin(object):
             return r_n   
         
 
-    def receptor_pearson_correlation(self, method='auto', ret=None):
+    def receptor_pearson_correlation(self, method='auto', ret=None,
+                                     invalid_value=np.nan):
         """ calculates Pearson's correlation coefficient between receptors.
     
         `method` determines the method used to calculated the receptor activity
@@ -311,47 +312,70 @@ class LibraryNumericMixin(object):
             None, the mean and the standard deviation of the correlation
             coefficients are returned. If ret is `all`, all possible values are
             returned.
+        `invalid_value` defines the value that is returned for invalid values
+            of the correlation coefficient. The default is `numpy.nan`
+            
+        Note that `pearson_mean` and `pearson_std` are only calculated for valid
+        entries of the Pearson's correlation coefficient matrix. 
         """
         if ret is None:
             ret = ['pearson_mean', 'pearson_std']
-        elif ret is 'all':
+        elif ret == 'all':
             ret = ['activity', 'covariance', 'pearson', 'pearson_mean',
                    'pearson_std']
         ret = set(ret)
 
         # calculate the statistics of the receptor activities        
         r_n, r_nm = self.receptor_activity(method, ret_correlations=True)
-        
         # calculate the covariance matrix
         r_cov = r_nm - np.outer(r_n, r_n)
         
         # calculate the standard deviation of the activities
         r_std = np.sqrt(np.diag(r_cov))
         
-        # calculate Pearson's correlation coefficient
-        corr = r_cov / np.outer(r_std, r_std)
+        # calculate Pearson's correlation coefficient for non-zero entries
+        with np.errstate(divide='ignore', invalid='ignore'):
+            corr = r_cov / np.outer(r_std, r_std)
+        
         # get all entries of the upper triangle
-        corr_tri = corr[np.triu_indices(self.Nr, 1)]
+        corr_tri = corr[np.triu_indices_from(corr, 1)]
+        is_valid = np.any(np.isfinite(corr_tri))
 
         result = {}
         if 'activity' in ret:
             result['activity'] = r_n
             ret.remove('activity')
+            
         if 'covariance' in ret:
             result['covariance'] = r_cov
             ret.remove('covariance')
+            
         if 'pearson' in ret:
+            # set invalid values if requested
+            if not np.isnan(invalid_value):
+                idx_invalid = (r_std == 0)
+                corr[idx_invalid, :] = corr[:, idx_invalid] = invalid_value
+                np.fill_diagonal(corr, 1)
+            
             result['pearson'] = corr
             ret.remove('pearson')
+            
         if 'pearson_mean' in ret:
-            result['pearson_mean'] = np.nanmean(corr_tri)
+            if is_valid:
+                result['pearson_mean'] = np.nanmean(corr_tri)
+            else:
+                result['pearson_mean'] = invalid_value
             ret.remove('pearson_mean')
+            
         if 'pearson_std' in ret:
-            result['pearson_std'] = np.nanstd(corr_tri)
+            if is_valid:
+                result['pearson_std'] = np.nanstd(corr_tri)
+            else:
+                result['pearson_std'] = invalid_value
             ret.remove('pearson_std')
             
         if ret:
-            raise ValueError('The values %s cannot be returned' % ret)
+            raise ValueError('Do not know how to calculate %s' % ret)
             
         return result
 
