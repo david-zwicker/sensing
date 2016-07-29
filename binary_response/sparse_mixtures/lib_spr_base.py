@@ -96,7 +96,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         if c_distribution == 'exponential':
             params.append('c=expon(<mean>=%g)' % self.c_means.mean())
         elif c_distribution == 'log-normal':
-            params.append('c=lognorm(<mean>=%g, <var>=%g)'
+            params.append('c=lognorm(mean=%g, var=%g)'
                           % (self.c_means.mean(), self.c_vars.mean()))
         else:
             raise ValueError('Unknown concentration distribution `%s`.'
