@@ -19,7 +19,7 @@ import numpy as np
 from . import pc_numeric
 from binary_response.sparse_mixtures.numba_speedup import \
                         LibrarySparseNumeric_excitation_statistics_monte_carlo
-from utils.misc import take_popcount
+from utils.math import take_popcount
 from utils.math_distributions import lognorm_mean_var_to_mu_sigma
 from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
                                  check_return_dict_approx)
