@@ -15,7 +15,7 @@ import numpy as np
 from scipy import special
 from six import string_types
 
-from utils.misc import xlog2x, StatisticsAccumulator
+from utils.math import xlog2x, StatisticsAccumulator
 from utils.numba_tools import random_seed
 
 

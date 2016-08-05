@@ -14,7 +14,7 @@ import numpy as np
 from scipy import optimize
 
 from utils.math_distributions import lognorm_mean, loguniform_mean
-from utils.misc import is_pos_semidef
+from utils.math import is_pos_semidef
 
 
 

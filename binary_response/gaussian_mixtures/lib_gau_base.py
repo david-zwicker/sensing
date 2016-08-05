@@ -12,7 +12,7 @@ import numpy as np
 from scipy import stats
 
 from ..library_base import LibraryBase
-from utils.misc import is_pos_semidef
+from utils.math import is_pos_semidef
 
 
 

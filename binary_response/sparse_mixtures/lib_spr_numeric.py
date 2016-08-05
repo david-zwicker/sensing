@@ -9,7 +9,7 @@ from __future__ import division, absolute_import
 import numpy as np
 from scipy import special
 
-from utils.misc import xlog2x
+from utils.math import xlog2x
 
 from .lib_spr_base import LibrarySparseBase  # @UnresolvedImport
 from ..binary_mixtures.lib_bin_numeric import _sample_binary_mixtures
