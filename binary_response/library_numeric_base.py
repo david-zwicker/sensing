@@ -13,7 +13,7 @@ import time
 import numpy as np
 from scipy import optimize
 
-from utils.math_distributions import lognorm_mean, loguniform_mean
+from utils.math.distributions import lognorm_mean, loguniform_mean
 from utils.math import is_pos_semidef
 
 

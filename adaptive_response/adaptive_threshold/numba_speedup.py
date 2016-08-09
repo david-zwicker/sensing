@@ -19,8 +19,8 @@ import numpy as np
 from . import at_numeric
 from binary_response.sparse_mixtures.numba_speedup import \
                         LibrarySparseNumeric_excitation_statistics_monte_carlo
-from utils.math_distributions import lognorm_mean_var_to_mu_sigma
-from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
+from utils.math.distributions import lognorm_mean_var_to_mu_sigma
+from utils.numba.patcher import (NumbaPatcher, check_return_value_approx,
                                  check_return_dict_approx)
 
 

@@ -16,8 +16,8 @@ import numpy as np
 
 # these methods are used in getattr calls
 from . import lib_spr_numeric
-from utils.math_distributions import lognorm_mean_var_to_mu_sigma
-from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
+from utils.math.distributions import lognorm_mean_var_to_mu_sigma
+from utils.numba.patcher import (NumbaPatcher, check_return_value_approx,
                                  check_return_value_exact,
                                  check_return_dict_approx)
 

@@ -15,7 +15,7 @@ from binary_response.sparse_mixtures.lib_spr_base import LibrarySparseBase
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
 
 from .at_base import AdaptiveThresholdMixin
-from utils.math_distributions import lognorm_mean_var, lognorm_sum
+from utils.math.distributions import lognorm_mean_var, lognorm_sum
 from utils.math import xlog2x
 
 

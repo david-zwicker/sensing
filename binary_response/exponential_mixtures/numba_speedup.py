@@ -14,7 +14,7 @@ import numpy as np
 
 # these methods are used in getattr calls
 from . import lib_exp_numeric
-from utils.numba_patcher import NumbaPatcher, check_return_value_approx
+from utils.numba.patcher import NumbaPatcher, check_return_value_approx
 
 
 NUMBA_NOPYTHON = True #< globally decide whether we use the nopython mode

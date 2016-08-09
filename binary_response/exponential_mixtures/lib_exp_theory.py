@@ -12,7 +12,7 @@ import numpy as np
 from scipy import stats, integrate, optimize, special
 
 from .lib_exp_base import LibraryExponentialBase
-from utils.math_distributions import (lognorm_mean, DeterministicDistribution,
+from utils.math.distributions import (lognorm_mean, DeterministicDistribution,
                                       HypoExponentialDistribution) 
 
 

@@ -14,7 +14,7 @@ from scipy import integrate, stats, special
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
 
 from .pc_base import PrimacyCodingMixin
-from utils.math_distributions import lognorm_mean_var
+from utils.math.distributions import lognorm_mean_var
 
 try:
     from .numba_speedup import (_activity_distance_tb_lognorm_integrand_numba,

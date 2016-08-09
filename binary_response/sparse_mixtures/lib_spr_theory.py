@@ -12,7 +12,7 @@ import numpy as np
 from scipy import integrate
 
 from .lib_spr_base import LibrarySparseBase
-from utils.math_distributions import (lognorm_mean, loguniform_mean,
+from utils.math.distributions import (lognorm_mean, loguniform_mean,
                                       DeterministicDistribution)
 
 

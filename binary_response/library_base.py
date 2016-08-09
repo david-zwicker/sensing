@@ -15,8 +15,9 @@ import numpy as np
 from scipy import special
 from six import string_types
 
-from utils.math import xlog2x, StatisticsAccumulator
-from utils.numba_tools import random_seed
+from utils.math import xlog2x
+from utils.math.stats import StatisticsAccumulator
+from utils.numba.tools import random_seed
 
 
 LN2 = np.log(2)

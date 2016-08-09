@@ -12,7 +12,7 @@ import numpy as np
 from scipy import stats
 
 from ..binary_mixtures.lib_bin_base import LibraryBinaryBase
-from utils.math_distributions import lognorm_mean_var, DeterministicDistribution
+from utils.math.distributions import lognorm_mean_var, DeterministicDistribution
 
 
 

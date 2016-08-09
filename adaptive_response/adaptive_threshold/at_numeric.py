@@ -10,7 +10,7 @@ import numpy as np
 
 from binary_response.sparse_mixtures.lib_spr_numeric import LibrarySparseNumeric
 from .at_base import AdaptiveThresholdMixin
-from utils.math import StatisticsAccumulator
+from utils.math.stats import StatisticsAccumulator
 
 
 

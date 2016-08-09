@@ -16,7 +16,7 @@ import numpy as np
 
 # these methods are used in getattr calls
 from . import lib_bin_numeric
-from utils.numba_patcher import (NumbaPatcher, check_return_value_approx,
+from utils.numba.patcher import (NumbaPatcher, check_return_value_approx,
                                  check_return_value_exact)
 
 
