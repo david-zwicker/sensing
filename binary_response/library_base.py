@@ -64,8 +64,8 @@ class LibraryBase(object):
 
             # remove old definitions of `initialize_state` 
             if isinstance(parameters.get('initialize_state'), string_types):
-                logging.warn('Initialized model with old `initialize_state` that '
-                             'is a string.')
+                logging.warning('Initialized model with old `initialize_state` '
+                                'that is a string.')
                 parameters.pop('initialize_state')
             
             self.parameters.update(parameters)

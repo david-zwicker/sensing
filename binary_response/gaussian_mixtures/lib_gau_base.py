@@ -68,8 +68,8 @@ class LibraryGaussianBase(LibraryBase):
                 logging.debug('Choose concentrations from given parameters')
                 self.choose_concentrations(**conc_params)
             else:
-                logging.warn('Requested to set concentrations from parameters, '
-                             'but parameters were not supplied.')
+                logging.warning('Requested to set concentrations from '
+                                'parameters, but parameters were not supplied.')
                 self.concentrations = None
                     
         else:
@@ -98,8 +98,8 @@ class LibraryGaussianBase(LibraryBase):
                 logging.debug('Choose covariance matrix from given parameters')
                 self.choose_covariance(**covariance_parameters)
             else:
-                logging.warn('Requested to set covariance from parameters, '
-                             'but parameters were not supplied.')
+                logging.warning('Requested to set covariance from parameters, '
+                                'but parameters were not supplied.')
                 self.covariance = None
         else:
             raise ValueError('Unknown initialization protocol `%s`' % 

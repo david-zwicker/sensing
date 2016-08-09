@@ -470,10 +470,11 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         sD = s - sB # number of different ligands
         
         if not self.is_homogeneous_mixture:
-            logging.warn('Activity distances can only be estimated for '
-                         'homogeneous mixtures, where all ligands have the '
-                         'same concentration distribution. We are thus using '
-                         'the means of the concentration means and variances.')
+            logging.warning('Activity distances can only be estimated for '
+                            'homogeneous mixtures, where all ligands have the '
+                            'same concentration distribution. We are thus '
+                            'using the means of the concentration means and '
+                            'variances.')
 
         # get excitation statistics for a single ligand at concentration c=1
         S_stats = self.sensitivity_stats()
@@ -514,8 +515,8 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
                            warn=True):
         """ calculates the typical mutual information """
         if warn:
-            logging.warn('The estimate of the mutual information does not '
-                         'include receptor correlations, yet.')
+            logging.warning('The estimate of the mutual information does not '
+                            'include receptor correlations, yet.')
         a_n = self.receptor_activity(normalized_variables, integrate)
         MI = -self.Nr * (xlog2x(a_n) + xlog2x(1 - a_n))
         return MI
@@ -708,8 +709,8 @@ class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
     def mutual_information(self, warn=True):
         """ calculates the typical mutual information """
         if warn:
-            logging.warn('The estimate of the mutual information does not '
-                         'include receptor correlations, yet.')
+            logging.warning('The estimate of the mutual information does not '
+                            'include receptor correlations, yet.')
         MI = sum(-(xlog2x(a_n) + xlog2x(1 - a_n))
                  for a_n in self.receptor_activity())
         return MI       

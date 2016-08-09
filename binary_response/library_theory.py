@@ -83,8 +83,8 @@ class LibraryLogNormal(object):
                 the optimization procedure
         """
         if self.mixture.is_correlated_mixture:
-            logging.warn('The optimization has not been tested for correlated '
-                         'mixtures')
+            logging.warning('The optimization has not been tested for '
+                            'correlated mixtures')
 
         ctot_stats = self.mixture.ctot_statistics()
         ctot_mean = ctot_stats['mean']
@@ -108,8 +108,8 @@ class LibraryLogNormal(object):
                 width_opt = np.sqrt(np.log(arg))
                 std_opt = self.mean_sensitivity * np.sqrt(arg - 1)
             else:
-                logging.warn('Given mean sensitivity is too small to find a '
-                             'suitable width parameter')
+                logging.warning('Given mean sensitivity is too small to find a '
+                                'suitable width parameter')
                 width_opt = 0
                 std_opt = 0
             

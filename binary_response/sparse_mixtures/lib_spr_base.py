@@ -76,8 +76,8 @@ class LibrarySparseBase(LibraryBinaryBase):
                 logging.debug('Choose c_means from given parameters')
                 self.choose_concentrations(**conc_params)
             else:
-                logging.warn('Requested to set c_means from parameters, '
-                             'but parameters were not supplied.')
+                logging.warning('Requested to set c_means from parameters, '
+                                'but parameters were not supplied.')
                 self.c_means = None
                     
         else:

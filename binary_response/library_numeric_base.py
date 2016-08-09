@@ -55,8 +55,8 @@ class LibraryNumericMixin(object):
             logging.debug('Initialize with given sensitivity matrix')
             sens_mat = self.parameters['sensitivity_matrix']
             if sens_mat is None:
-                logging.warn('Sensitivity matrix was not given. Initialize '
-                             'empty matrix.')
+                logging.warning('Sensitivity matrix was not given. Initialize '
+                                'empty matrix.')
                 self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
             else:
                 self.sens_mat = sens_mat.copy()
@@ -65,8 +65,8 @@ class LibraryNumericMixin(object):
             logging.debug('Choose sensitivity matrix from given parameters')
             sens_params = self.parameters['sensitivity_matrix_params']
             if sens_params is None:
-                logging.warn('Parameters for sensitivity matrix were not '
-                             'specified. Initialize empty matrix.')
+                logging.warning('Parameters for sensitivity matrix were not '
+                                'specified. Initialize empty matrix.')
                 self.sens_mat = np.zeros((self.Nr, self.Ns), np.uint8)
             else:
                 self.choose_sensitivity_matrix(**sens_params)
@@ -603,7 +603,7 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
     elif distribution == 'log_normal' or distribution == 'log-normal':
         # log normal distribution
         if 'spread' in kwargs:
-            logging.warn('Deprecated argument `spread`. Use `width` instead.')
+            logging.warning('Deprecated argument `spread`. Use `width` instead')
             kwargs.setdefault('width', kwargs['spread'])
 
         if 'variance' in kwargs:

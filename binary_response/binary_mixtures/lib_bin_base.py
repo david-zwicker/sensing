@@ -66,8 +66,8 @@ class LibraryBinaryBase(LibraryBase):
                 logging.debug('Choose commonness from given parameters')
                 self.choose_commonness(**commonness_parameters)
             else:
-                logging.warn('Requested to set commonness from parameters, '
-                             'but parameters were not supplied.')
+                logging.warning('Requested to set commonness from parameters, '
+                                'but parameters were not supplied.')
                 self.commonness = None
                         
         else:
@@ -97,8 +97,8 @@ class LibraryBinaryBase(LibraryBase):
                 logging.debug('Choose correlation from given parameters')
                 self.choose_correlations(**correlation_parameters)
             else:
-                logging.warn('Requested to set correlation from parameters, '
-                             'but parameters were not supplied.')
+                logging.warning('Requested to set correlation from parameters, '
+                                'but parameters were not supplied.')
                 self.correlations = None
                 
         else:

@@ -114,8 +114,8 @@ def AdaptiveThresholdNumeric_receptor_activity_monte_carlo(
     mixtures """
     fixed_mixture_size = self.parameters['fixed_mixture_size']
     if self.is_correlated_mixture or fixed_mixture_size is not None:
-        logging.warn('Numba code not implemented for correlated mixtures. '
-                     'Falling back to pure-python method.')
+        logging.warning('Numba code not implemented for correlated mixtures. '
+                        'Falling back to pure-python method.')
         this = AdaptiveThresholdNumeric_receptor_activity_monte_carlo
         return this._python_function(self, ret_correlations)
 
@@ -158,8 +158,8 @@ def AdaptiveThresholdNumeric_receptor_activity_monte_carlo(
         )
         
     else:
-        logging.warn('Numba code is not implemented for distribution `%s`. '
-                     'Falling back to pure-python method.', c_distribution)
+        logging.warning('Numba code is not implemented for distribution `%s`. '
+                        'Falling back to pure-python method.', c_distribution)
         this = AdaptiveThresholdNumeric_receptor_activity_monte_carlo
         return this._python_function(self, ret_correlations)
     
@@ -258,8 +258,8 @@ def AdaptiveThresholdNumeric_mutual_information_monte_carlo(
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.is_correlated_mixture:
-        logging.warn('Numba code not implemented for correlated mixtures. '
-                     'Falling back to pure-python method.')
+        logging.warning('Numba code not implemented for correlated mixtures. '
+                        'Falling back to pure-python method.')
         this = AdaptiveThresholdNumeric_mutual_information_monte_carlo
         return this._python_function(self, ret_prob_activity)
 
@@ -300,8 +300,8 @@ def AdaptiveThresholdNumeric_mutual_information_monte_carlo(
         )        
         
     else:
-        logging.warn('Numba code is not implemented for distribution `%s`. '
-                     'Falling back to pure-python method.', c_distribution)
+        logging.warning('Numba code is not implemented for distribution `%s`. '
+                        'Falling back to pure-python method.', c_distribution)
         this = AdaptiveThresholdNumeric_mutual_information_monte_carlo
         return this._python_function(self, ret_prob_activity)
     

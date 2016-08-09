@@ -391,8 +391,8 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
                 width_opt = np.sqrt(np.log(width_braket + 1))
                 std_opt = self.mean_sensitivity * np.sqrt(width_braket)
             else:
-                logging.warn('Given mean sensitivity is too small to find a '
-                             'suitable width parameter')
+                logging.warning('Given mean sensitivity is too small to find a '
+                                'suitable width parameter')
                 width_opt = 0
                 std_opt = 0
             

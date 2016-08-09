@@ -279,10 +279,11 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         sD = (s - sB) # number of different ligands
         
         if not self.is_homogeneous_mixture:
-            logging.warn('Activity distances can only be estimated for '
-                         'homogeneous mixtures, where all ligands have the '
-                         'same concentration distribution. We are thus using '
-                         'the means of the concentration means and variances.')
+            logging.warning('Activity distances can only be estimated for '
+                            'homogeneous mixtures, where all ligands have the '
+                            'same concentration distribution. We are thus '
+                            'using the means of the concentration means and '
+                            'variances.')
 
         c_mean = self.c_means.mean()
         c_var = self.c_vars.mean()

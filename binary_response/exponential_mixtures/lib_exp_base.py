@@ -65,8 +65,8 @@ class LibraryExponentialBase(LibraryBase):
                 logging.debug('Choose concentrations from given parameters')
                 self.choose_concentrations(**conc_params)
             else:
-                logging.warn('Requested to set concentrations from parameters, '
-                             'but parameters were not supplied.')
+                logging.warning('Requested to set concentrations from '
+                                'parameters, but parameters were not supplied.')
                 self.concentrations = None
                     
         else:

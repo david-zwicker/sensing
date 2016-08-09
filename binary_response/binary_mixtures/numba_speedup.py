@@ -794,8 +794,8 @@ def LibraryBinaryNumeric_mutual_information_estimate(self, approx_prob=False):
     """ calculate the mutual information by constructing all possible
     mixtures """
     if self.is_correlated_mixture:
-        logging.warn('Numba code not implemented for correlated mixtures. '
-                     'Falling back to pure-python method.')
+        logging.warning('Numba code not implemented for correlated mixtures. '
+                        'Falling back to pure-python method.')
         this = LibraryBinaryNumeric_mutual_information_estimate
         return this._python_function(self, approx_prob)
 
