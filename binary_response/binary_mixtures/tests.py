@@ -16,7 +16,7 @@ from scipy import misc
 from .lib_bin_base import LibraryBinaryBase
 from .lib_bin_numeric import LibraryBinaryNumeric
 from .numba_speedup import numba_patcher
-from utils.tests import TestBase 
+from utils.testing import TestBase 
 
       
 

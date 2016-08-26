@@ -10,7 +10,7 @@ import unittest
 import numpy as np
 
 from .receptor_distribution import ExcitationProfiles, ReceptorDistribution
-from utils.tests import TestBase
+from utils.testing import TestBase
 
 
 

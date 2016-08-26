@@ -10,7 +10,7 @@ import unittest
 
 from .lib_gau_base import LibraryGaussianBase
 from .lib_gau_numeric import LibraryGaussianNumeric
-from utils.tests import TestBase
+from utils.testing import TestBase
 
 
 

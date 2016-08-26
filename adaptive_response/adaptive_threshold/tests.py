@@ -18,7 +18,7 @@ from .at_numeric import AdaptiveThresholdNumeric
 from .at_theory import (AdaptiveThresholdTheory,
                         AdaptiveThresholdTheoryReceptorFactors)
 from . import numba_patcher
-from utils.tests import TestBase 
+from utils.testing import TestBase 
 
       
 

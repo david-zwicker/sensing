@@ -18,7 +18,7 @@ from .lib_spr_numeric import LibrarySparseNumeric
 from .lib_spr_theory import (LibrarySparseBinary, LibrarySparseLogNormal,
                              LibrarySparseLogUniform)
 from .numba_speedup import numba_patcher
-from utils.tests import TestBase 
+from utils.testing import TestBase 
 
       
       
