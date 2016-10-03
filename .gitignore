@@ -62,3 +62,4 @@ docs/_build/
 *.log
 *.synctex.gz
 /Papers/
+node_modules/
