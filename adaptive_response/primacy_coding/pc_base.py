@@ -46,9 +46,9 @@ class PrimacyCodingMixin(object):
     
     
     @coding_receptors.setter
-    def coding_receptors(self, Nr_k):
+    def coding_receptors(self, Nc):
         """ set the number of receptors used for coding """
-        self.parameters['coding_receptors'] = Nr_k
+        self.parameters['coding_receptors'] = Nc
 
 
     @property
