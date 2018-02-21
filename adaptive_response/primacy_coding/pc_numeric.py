@@ -43,9 +43,15 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
     encode their signal using the `coding_receptors` most active receptors """
             
 
-    def excitation_threshold_monte_carlo(self):
+    def excitation_threshold_monte_carlo(self, ret_upper=True):
         """ calculates the average excitation that is necessary to excite
-        receptors """
+        receptors
+        
+        `ret_upper` is a flag that determines whether the upper threshold (based
+            on the smallest excitation still included in the primacy set) or the
+            lower threshold (based on the largest excitation not included in the
+            primacy set) is returned
+        """
         S_ni = self.sens_mat
         mean = 0
         M2 = 0
@@ -53,8 +59,12 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
         for step, c_i in enumerate(self._sample_mixtures(), 1):
             # get the threshold value for this sample
             e_n = np.dot(S_ni, c_i)
-            indices = nlargest_indices(e_n, self.coding_receptors)
-            thresh = e_n[indices].min()
+            if ret_upper:
+                indices = nlargest_indices(e_n, self.coding_receptors)
+                thresh = e_n[indices].min()
+                assert thresh == np.sort(e_n)[-self.coding_receptors]
+            else:
+                thresh = np.sort(e_n)[-self.coding_receptors - 1]
             
             # accumulate the statistics
             delta = thresh - mean
@@ -67,6 +77,38 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
             std = np.sqrt(M2 / (step - 1))
             
         return mean, std
+            
+            
+    def excitation_threshold_histogram(self, bins, ret_upper=True, steps=None):
+        """ calculates the average excitation that is necessary to excite
+        receptors
+        
+        `bins` defines the bins of the histogram (assuming ascending order). The
+            returned counts array has one entry more, corresponding to
+            thresholds beyond the last entry in `bins`
+        `ret_upper` is a flag that determines whether the upper threshold (based
+            on the smallest excitation still included in the primacy set) or the
+            lower threshold (based on the largest excitation not included in the
+            primacy set) is returned
+        `steps` determines how many mixtures are sampled
+        """
+        S_ni = self.sens_mat
+        counts = np.zeros(len(bins) + 1)
+                
+        for c_i in self._sample_mixtures(steps=steps):
+            # get the threshold value for this sample
+            e_n = np.dot(S_ni, c_i)
+            if ret_upper:
+                indices = nlargest_indices(e_n, self.coding_receptors)
+                thresh = e_n[indices].min()
+                assert thresh == np.sort(e_n)[-self.coding_receptors]
+            else:
+                thresh = np.sort(e_n)[-self.coding_receptors - 1]
+            
+            idx = np.searchsorted(bins, thresh)
+            counts[idx] += 1
+            
+        return counts
             
             
     def activation_pattern_for_mixture(self, c_i):

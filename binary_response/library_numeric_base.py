@@ -117,7 +117,27 @@ class LibraryNumericMixin(object):
         return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
                 'cov': cij_corr}
 
+
+    def concentration_histogram(self, bins, steps=None):
+        """ calculates the histogram of the concentrations. The statistics are
+        calculated for each substrate separately and the result is returned as
+        an array with shape Ns x (len(bins) + 1).
         
+        `bins` defines the bins of the histogram (assuming ascending order). The
+            returned counts array has one entry more, corresponding to
+            thresholds beyond the last entry in `bins`
+        `steps` determines how many mixtures are sampled
+        """
+        counts = np.zeros((self.Ns, len(bins) + 1))
+        ns = np.arange(self.Ns)
+                
+        for c_i in self._sample_mixtures(steps=steps):
+            idx = np.searchsorted(bins, c_i)  # find the right bins
+            counts[ns, idx] += 1
+            
+        return counts
+    
+            
     def excitation_statistics(self, method='auto', ret_correlations=True,
                               **kwargs):
         """ calculates the statistics of the excitation of the receptors.
@@ -219,7 +239,29 @@ class LibraryNumericMixin(object):
         return {'mean': en_mean, 'std': np.sqrt(en_var), 'var': en_var,
                 'cov': enm_cov}
         
+
+    def excitation_histogram(self, bins, steps=None):
+        """ calculates the histogram of the excitation. The statistics are
+        calculated for each receptor separately and the result is returned as an
+        array with shape Nr x (len(bins) + 1).
         
+        `bins` defines the bins of the histogram (assuming ascending order). The
+            returned counts array has one entry more, corresponding to
+            thresholds beyond the last entry in `bins`
+        `steps` determines how many mixtures are sampled
+        """
+        S_ni = self.sens_mat
+        counts = np.zeros((self.Nr, len(bins) + 1))
+        ns = np.arange(self.Nr)
+                
+        for c_i in self._sample_mixtures(steps=steps):
+            e_n = np.dot(S_ni, c_i)           # obtain excitations
+            idx = np.searchsorted(bins, e_n)  # find the right bins
+            counts[ns, idx] += 1
+            
+        return counts
+            
+                    
     def receptor_activity(self, method='auto', ret_correlations=False, **kwargs):
         """ calculates the average activity of each receptor
         

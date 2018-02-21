@@ -32,7 +32,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
     parameters_default = {
         'excitation_distribution': 'log-normal', 
         'excitation_threshold_method': 'integrate',
-        'order_statistics_alpha': 0,
+        'order_statistics_alpha': np.pi / 8,
         # two common choices for `order_statistics_alpha` are
         #     0: H. A. David and H. N. Nagaraja, Order statistics, Wiley (1970)
         #            see section 4.5, in particular equation (4.5.1)
@@ -72,7 +72,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         """
         # approximate the order statistics
         alpha = self.parameters['order_statistics_alpha']
-        gamma = (n - alpha)/(self.Nr - 2*alpha + 1)
+        gamma = (n - alpha) / (self.Nr - 2*alpha + 1)
 
         # get the distribution of the excitations
         en_dist = self.excitation_distribution()
@@ -104,12 +104,14 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             definition of the distribution function of x_power-th moment of the
             k-th order statistics of n variables
             """
-            prefactor = k * special.binom(n, k)
-            Fx = en_dist.cdf(x) # cdf of the excitations
-            fx = en_dist.pdf(x) # pdf of the excitations
+            prefactor = k * special.binom(n, k)  # = n!/(k - 1)!/(n - k)!
+            
+            Fx = en_dist.cdf(x)  # cdf of the excitations
+            fx = en_dist.pdf(x)  # pdf of the excitations
             return prefactor * x**x_power * Fx**(k - 1) * (1 - Fx)**(n - k) * fx
+            # TODO: Check whether this integrand is correct
         
-        # determine the integration interval 
+        # determine the integration interval from the approximation
         mean, std = self.en_order_statistics_approx(n)
         int_min = mean - 10*std
         int_max = mean + 10*std
@@ -161,9 +163,16 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         """ returns the approximate excitation threshold that receptors have to
         overcome to be part of the activation pattern.
         
-        Depending on the chosen method, this function either returns the
-        expected value or a tuple consisting of the expected value and the
-        associated standard deviation.
+        Returns a tuple consisting of the expected value and the associated
+        standard deviation.
+        
+        `method` can be either `integrate` in which case the expectation value
+            of the threshold is calculated by integrating the distribution of
+            the order statistics. Alternative, when method == `approx`, this
+            integral is approximated. The default value `auto` chooses the
+            method based on the parameter `excitation_threshold_method`.
+        `corr_term` is the correcting term between 0 and 1, that determines
+            whether the lower or upper excitation threshold is considered.
         """
         if method == 'auto':
             method = self.parameters['excitation_threshold_method']
