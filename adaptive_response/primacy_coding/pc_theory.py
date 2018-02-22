@@ -211,7 +211,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return 2*Nc*(1 - Nc/self.Nr)
     
             
-    def _activity_distance_from_distributions_int(self,
+    def _activity_distance_from_distributions_quad(self,
                           en_dist_background, en_dist_target, gamma_1, gamma_2):
         """ numerically solves the integrals for the probabilities of a channel
         becoming active and inactive. Returns the two probabilities.
@@ -260,7 +260,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         assert gamma_2 > gamma_1  # this is assumed below
         
         # call the integration routine
-        p_on, p_off = self._activity_distance_from_distributions_int(
+        p_on, p_off = self._activity_distance_from_distributions_quad(
                         en_dist_background, en_dist_target, gamma_1, gamma_2)
         
         return self.Nr * (p_on + p_off)

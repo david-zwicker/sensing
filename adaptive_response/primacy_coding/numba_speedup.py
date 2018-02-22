@@ -555,7 +555,7 @@ def nb_integrand_off(n_arg, x):
     return cdf * pdf
 
 
-def PrimacyCodingTheory_activity_distance_from_distributions_int(self,
+def PrimacyCodingTheory_activity_distance_from_distributions_quad(self,
                          en_dist_background, en_dist_target, gamma_1, gamma_2):
     """ numerically solves the integrals for the probabilities of a channel
     becoming active and inactive. Returns the two probabilities. """
@@ -563,7 +563,7 @@ def PrimacyCodingTheory_activity_distance_from_distributions_int(self,
             en_dist_target.dist.name != 'lognorm'):
         logging.warning('Numba code only implemented for log-normal '
                         'distributions. Falling back to pure-python method.')
-        this = PrimacyCodingTheory_activity_distance_from_distributions_int
+        this = PrimacyCodingTheory_activity_distance_from_distributions_quad
         return this._python_function(self, en_dist_background,
                                      en_dist_target, gamma_1, gamma_2)
 
@@ -588,8 +588,8 @@ def PrimacyCodingTheory_activity_distance_from_distributions_int(self,
 
 
 numba_patcher_theory.register_method(
-    'PrimacyCodingTheory._activity_distance_from_distributions_int',
-    PrimacyCodingTheory_activity_distance_from_distributions_int,
+    'PrimacyCodingTheory._activity_distance_from_distributions_quad',
+    PrimacyCodingTheory_activity_distance_from_distributions_quad,
     check_return_value_approx
 )
 
