@@ -114,14 +114,9 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             return pre * x**x_power * Fx**(k - 1) * (1 - Fx)**(Nr - k) * fx
             # TODO: Check whether this integrand is correct
         
-        # determine the integration interval from the approximation
-#         mean, std = self.en_order_statistics_approx(n)
-#         int_min = mean - 10*std
-#         int_max = mean + 10*std
-
         def distribution_func_inf(n, x_power):
             """ function that performs the integration """
-            return integrate.quad(distribution_func, en_dist.a, en_dist.b, #int_min, int_max,
+            return integrate.quad(distribution_func, en_dist.a, en_dist.b,
                                   args=(self.Nr, n, x_power), limit=1000)[0]
         
         if check_norm:
@@ -271,28 +266,28 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return self.Nr * (p_on + p_off)
         
             
-    def activity_distance_target_background_approx_small(self, c_ratio):
-        """ calculate the expected difference (Hamming distance) between the
-        activity pattern of a single ligand and this ligand plus a second one
-        at a concentration `c_ratio` times the concentration of the first one.
-        
-        This function approximated the distance for small `c_ratios`
-        """
-        en_dist = self.excitation_distribution()
-        en_thresh = self.excitation_threshold('approx')[0]
-        
-        # estimate the probability that a receptor was inactive and gets
-        # activated
-        p_on = (c_ratio
-                * en_dist.pdf(en_thresh)
-                * integrate.quad(en_dist.sf, en_thresh, en_dist.b)[0])
-        
-        # estimate the probability that a receptor was active and gets shut down
-        Nc = self.coding_receptors
-        Nr = self.Nr
-        p_off = c_ratio * Nc/Nr * (1 - Nc/Nr)
-        
-        return Nr*(p_on + p_off)
+#     def activity_distance_target_background_approx_small(self, c_ratio):
+#         """ calculate the expected difference (Hamming distance) between the
+#         activity pattern of a single ligand and this ligand plus a second one
+#         at a concentration `c_ratio` times the concentration of the first one.
+#         
+#         This function approximated the distance for small `c_ratios`
+#         """
+#         en_dist = self.excitation_distribution()
+#         en_thresh = self.excitation_threshold('approx')[0]
+#         
+#         # estimate the probability that a receptor was inactive and gets
+#         # activated
+#         p_on = (c_ratio
+#                 * en_dist.pdf(en_thresh)
+#                 * integrate.quad(en_dist.sf, en_thresh, en_dist.b)[0])
+#         
+#         # estimate the probability that a receptor was active and gets shut down
+#         Nc = self.coding_receptors
+#         Nr = self.Nr
+#         p_off = c_ratio * Nc/Nr * (1 - Nc/Nr)
+#         
+#         return Nr*(p_on + p_off)
             
             
     def activity_distance_target_background(self, c_ratio):
@@ -309,34 +304,18 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         elif np.isinf(c_ratio):
             return self.activity_distance_uncorrelated
         
-        # determine the excitation thresholds
-        p_inact = 1 - self.coding_receptors / self.Nr
-        en_dist = self.excitation_distribution()
-        e_thresh_0 = en_dist.ppf(p_inact)
-        e_thresh_rho = (1 + c_ratio) * e_thresh_0
-        
-        # determine the probability of changing the activity of a receptor
-        if (self.parameters['excitation_distribution'] == 'log-normal'
-            and _activity_distance_tb_lognorm_integrand_numba):
-            # use the numba enhanced integrand
-            integrand = _activity_distance_tb_lognorm_integrand_numba
-            args = (c_ratio, e_thresh_rho, en_dist.mean(), en_dist.var())
-            
-        else:
-            # use the general definition of the integral
-            def integrand(e1):
-                """ integrand for the activation probability """ 
-                cdf_val = en_dist.cdf((e_thresh_rho - e1) / c_ratio)
-                return cdf_val * en_dist.pdf(e1)
-            
-            args = ()
-            
-        p_on = p_inact - integrate.quad(integrand, en_dist.a, e_thresh_0,
-                                        args=args)[0]
-        p_off = integrate.quad(integrand, e_thresh_0, en_dist.b,
-                               args=args)[0]
+        S_stats = self.sensitivity_stats()
+        en_mean = S_stats['mean']
+        en_var = S_stats['var']
+        # the statistics of the excitation only depend on the statistics of the
+        # sensitivity matrix, since the concentrations are given
     
-        return self.Nr * (p_on + p_off)
+        # get the excitation distributions of different mixture sizes
+        en_dist_b = lognorm_mean_var(en_mean, en_var)
+        en_dist_t = lognorm_mean_var(c_ratio * en_mean, c_ratio**2 * en_var)
+        
+        # determine the excitation thresholds
+        return self._activity_distance_from_distributions(en_dist_b, en_dist_t)        
                 
 
     def activity_distance_mixtures(self, mixture_size, mixture_overlap=0):
@@ -344,6 +323,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         pattern of two mixtures with `mixture_size` ligands of equal 
         concentration. `mixture_overlap` denotes the number of
         ligands that are the same in the two mixtures """
+        raise NotImplementedError('This method has not been tested')
         if not 0 <= mixture_overlap <= mixture_size:
             raise ValueError('Mixture overlap `mixture_overlap` must be '
                              'between 0 and `mixture_size`.')
