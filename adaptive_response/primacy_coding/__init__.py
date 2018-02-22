@@ -5,8 +5,10 @@ __all__ = ['PrimacyCodingNumeric', 'PrimacyCodingTheory']
 
 # try importing numba for speeding up calculations
 try:
-    from .numba_speedup import numba_patcher
-    numba_patcher.enable() #< enable the speed-up by default
+    from .numba_speedup import numba_patcher, numba_patcher_theory
+    # enable the speed-up by default
+    numba_patcher.enable()
+    numba_patcher_theory.enable()
 except ImportError:
     import logging
     logging.warning('Numba could not be loaded. Slow functions will be used')

@@ -134,6 +134,15 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
             # boolean b vector is True for the ligands that are present
             yield generate_concentrations(b)
 
+
+    def _sample_excitations(self, steps=None):
+        """ sample excitation vectors """
+        S_ni = self.sens_mat
+
+        # iterate over mixtures and yield corresponding excitations
+        for c_i in self._sample_mixtures(steps):
+            yield np.dot(S_ni, c_i)
+            
         
     def concentration_statistics_estimate(self):
         """ estimate the statistics for each individual substrate """

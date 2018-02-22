@@ -124,6 +124,16 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
     #===========================================================================
 
 
+    def _sample_activity_indices(self, steps=None):
+        """ sample activity vector. Returns indices of active channels """
+        S_ni = self.sens_mat
+
+        # iterate over mixtures and yield corresponding activities
+        for c_i in self._sample_mixtures(steps):
+            e_n = np.dot(S_ni, c_i)
+            yield nlargest_indices(e_n, self.coding_receptors)
+
+
     def receptor_activity_monte_carlo(self, ret_correlations=False):
         """ calculates the average activity of each receptor """
         # prevent integer overflow in collecting activity patterns

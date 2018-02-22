@@ -31,7 +31,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
 
     parameters_default = {
         'excitation_distribution': 'log-normal', 
-        'excitation_threshold_method': 'integrate',
+        'excitation_threshold_method': 'approx',
         'order_statistics_alpha': np.pi / 8,
         # two common choices for `order_statistics_alpha` are
         #     0: H. A. David and H. N. Nagaraja, Order statistics, Wiley (1970)
@@ -56,7 +56,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                              "are ['gaussian', 'log-normal']" % excitation_dist)
             
 
-    def en_order_statistics_approx(self, n):
+    def en_order_statistics_approx(self, n, en_dist=None):
         """
         approximates the expected value of the n-th variable of the order
         statistics of the Nr excitations. Here, n runs from 1 .. Nr.
@@ -72,11 +72,12 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         """
         # approximate the order statistics
         alpha = self.parameters['order_statistics_alpha']
-        gamma = (n - alpha) / (self.Nr - 2*alpha + 1)
+        arg = (n - alpha) / (self.Nr - 2*alpha + 1)
 
         # get the distribution of the excitations
-        en_dist = self.excitation_distribution()
-        en_order_mean = en_dist.ppf(gamma)
+        if en_dist is None:
+            en_dist = self.excitation_distribution()
+        en_order_mean = en_dist.ppf(arg)
         
         # approximate the standard deviation using a formula for the standard
         # deviation of the minimum of Nr Gaussian variables. This overestimates
@@ -87,7 +88,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return en_order_mean, en_order_std
     
     
-    def en_order_statistics_integrate(self, n, check_norm=True):
+    def en_order_statistics_integrate(self, n, check_norm=True, en_dist=None):
         """
         calculates the expected value and the associated standard deviation of
         the n-th variable of the order statistics of self.Nr excitations
@@ -97,33 +98,35 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             order statistics is unity. This is a test for the accuracy of the
             integration routine.
         """
-        en_dist = self.excitation_distribution()
+        if en_dist is None:
+            en_dist = self.excitation_distribution()
         
-        def distribution_func(x, n, k, x_power):
+        def distribution_func(x, Nr, k, x_power=0):
             """
             definition of the distribution function of x_power-th moment of the
-            k-th order statistics of n variables
+            k-th order statistics of Nr variables
             """
-            prefactor = k * special.binom(n, k)  # = n!/(k - 1)!/(n - k)!
+            # prefactor of the distribution
+            pre = k * special.binom(Nr, k)  # = Nr! / (k - 1)! / (Nr - k)!
             
             Fx = en_dist.cdf(x)  # cdf of the excitations
             fx = en_dist.pdf(x)  # pdf of the excitations
-            return prefactor * x**x_power * Fx**(k - 1) * (1 - Fx)**(n - k) * fx
+            return pre * x**x_power * Fx**(k - 1) * (1 - Fx)**(Nr - k) * fx
             # TODO: Check whether this integrand is correct
         
         # determine the integration interval from the approximation
-        mean, std = self.en_order_statistics_approx(n)
-        int_min = mean - 10*std
-        int_max = mean + 10*std
+#         mean, std = self.en_order_statistics_approx(n)
+#         int_min = mean - 10*std
+#         int_max = mean + 10*std
 
-        def distribution_func_inf(x_power):
+        def distribution_func_inf(n, x_power):
             """ function that performs the integration """
-            return integrate.quad(distribution_func, int_min, int_max,
+            return integrate.quad(distribution_func, en_dist.a, en_dist.b, #int_min, int_max,
                                   args=(self.Nr, n, x_power), limit=1000)[0]
         
         if check_norm:
             # get the norm of the distribution to test the integration routine
-            norm = distribution_func_inf(0)
+            norm = distribution_func_inf(n=n, x_power=0)
             
             if not np.isclose(norm, 1):
                 raise RuntimeError('Integration did not converge for `norm` '
@@ -131,10 +134,10 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                                    % (norm, n))
         
         # calculate the expected value of the order statistics
-        mean = distribution_func_inf(1)
+        mean = distribution_func_inf(n=n, x_power=1)
 
         # calculate the expected value of the order statistics
-        M2 = distribution_func_inf(2)
+        M2 = distribution_func_inf(n=n, x_power=2)
                             
         return mean, np.sqrt(M2 - mean**2)
 
@@ -150,16 +153,25 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         Nr = self.Nr
         alpha = self.parameters['order_statistics_alpha']
         n_thresh = (Nr * (1 + Nr - alpha)
-                    - self.coding_receptors * (1 + Nr - 2*alpha)
+                    - self.coding_receptors * (Nr + 1 - 2*alpha)
                     ) / Nr
+        # This complex expression follows from the fact that the expectation of
+        # the n-th excitation is
+        #     <e_(n)> = F^-1((n - alpha)/(Nr + 1 - 2*alpha))
+        # and that the condition Nc = \sum_n P(a_n) = Nr*(1 - F(gamma)) implies
+        #     gamma = F^-1(1 - Nc/Nr)
+        # To be able to express gamma = <e_(n_thresh)>, we have to equate the
+        # arguments of F^-1, which leads to the expression above
+        #
         # For alpha = 0, this reduces to the simple form
         #     n_thresh = (1 + 1/self.Nr) * (self.Nr - self.coding_receptors)
-        # which is close to naive expectation
+        # which is close to the naive expectation
         #     n_thresh = self.Nr - self.coding_receptors
         return n_thresh
 
 
-    def excitation_threshold(self, method='auto', corr_term='approx'):
+    def excitation_threshold(self, method='auto', corr_term='approx',
+                             en_dist=None):
         """ returns the approximate excitation threshold that receptors have to
         overcome to be part of the activation pattern.
         
@@ -173,25 +185,27 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             method based on the parameter `excitation_threshold_method`.
         `corr_term` is the correcting term between 0 and 1, that determines
             whether the lower or upper excitation threshold is considered.
+        `en_dist` can specify a particular excitation distribution. If `None`
+            it is estimated based on the ensemble average over odors
         """
         if method == 'auto':
             method = self.parameters['excitation_threshold_method']
         
+        # calculate the threshold
+        if corr_term == 'approx':
+            n_thresh = self._excitation_threshold_order()
+        else:
+            n_thresh = self.Nr - self.coding_receptors + corr_term
+        
         # determine which method to use for getting the order statistics
-        if method == 'integrate':
-            en_order_statistics = self.en_order_statistics_integrate
-        elif method == 'approx':
-            en_order_statistics = self.en_order_statistics_approx
+        if method == 'approx':
+            return self.en_order_statistics_approx(n_thresh, en_dist=en_dist)
+        elif method == 'integrate':
+            return self.en_order_statistics_integrate(n_thresh, en_dist=en_dist)
         else:
             raise ValueError('Unknown method `%s` for calculating the '
                              'excitation threshold.' % method)
             
-        # calculate the threshold
-        if corr_term == 'approx':
-            return en_order_statistics(self._excitation_threshold_order()) 
-        else:
-            return en_order_statistics(self.Nr - self.coding_receptors
-                                       + corr_term)
             
             
     def activity_distance_uncorrelated(self):
@@ -200,6 +214,61 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         """
         Nc = self.coding_receptors
         return 2*Nc*(1 - Nc/self.Nr)
+    
+            
+    def _activity_distance_from_distributions_int(self,
+                          en_dist_background, en_dist_target, gamma_1, gamma_2):
+        """ numerically solves the integrals for the probabilities of a channel
+        becoming active and inactive. Returns the two probabilities.
+        
+        This calculation has been separate into its own method, so it can be
+        easily overwritten with a numba-accelerated one """   
+        # determine the probability that a channel turns on
+        def integrand_on(e_1):
+            return (en_dist_target.sf(gamma_2 - e_1) *
+                    en_dist_background.pdf(e_1))
+        p_on = integrate.quad(integrand_on, 0, gamma_1)[0]
+
+        # determine the probability that a channel turns off
+        def integrand_off(e_1):
+            return (en_dist_target.cdf(gamma_2 - e_1) *
+                    en_dist_background.pdf(e_1))
+        p_off = integrate.quad(integrand_off, gamma_1, gamma_2)[0]
+        return p_on, p_off
+                
+
+    def _activity_distance_from_distributions(self, en_dist_background,
+                                              en_dist_target, en_dist_sum=None):
+        """ calculates the expected difference between the activities associated
+        with a background odor and the mixture of that odor with a target. The
+        excitation probability distributions are given as parameters and it is
+        assumed that all excitations are uncorrelated
+        
+        We thus compare the following two odors:
+            odor 1: background
+            odor 2: sum = background + target 
+        
+        `en_dist_sum` is the excitation distribution of the sum. If it is not
+            given it is approximated by a log-normal distribution with mean and
+            variance given by the sum of the respective values of the two other
+            distributions
+        """
+        if en_dist_sum is None:
+            # determine distribution of the sum if it is not given
+            en_sum_mean = en_dist_background.mean() + en_dist_target.mean()
+            en_sum_var =  en_dist_background.var() + en_dist_target.var()
+            en_dist_sum = lognorm_mean_var(en_sum_mean, en_sum_var)
+            
+        # determine the excitation thresholds
+        gamma_1, _ = self.excitation_threshold(en_dist=en_dist_background)
+        gamma_2, _ = self.excitation_threshold(en_dist=en_dist_sum)
+        assert gamma_2 > gamma_1  # this is assumed below
+        
+        # call the integration routine
+        p_on, p_off = self._activity_distance_from_distributions_int(
+                        en_dist_background, en_dist_target, gamma_1, gamma_2)
+        
+        return self.Nr * (p_on + p_off)
         
             
     def activity_distance_target_background_approx_small(self, c_ratio):
@@ -238,7 +307,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         elif c_ratio == 0:
             return 0
         elif np.isinf(c_ratio):
-            return self.mixture_distance_uncorrelated()
+            return self.activity_distance_uncorrelated
         
         # determine the excitation thresholds
         p_inact = 1 - self.coding_receptors / self.Nr
