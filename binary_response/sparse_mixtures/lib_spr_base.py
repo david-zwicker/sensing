@@ -192,7 +192,7 @@ class LibrarySparseBase(LibraryBinaryBase):
             if np.isscalar(variances):
                 self._c_vars = np.full(self.Ns, variances, np.double)
             else:
-                self._c_vars = variances
+                self._c_vars = np.asarray(variances)
             # save the values, since they were set explicitly 
             self.parameters['c_var_vector'] = self._c_vars
     

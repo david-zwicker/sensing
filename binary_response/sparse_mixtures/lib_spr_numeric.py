@@ -24,14 +24,14 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
 
     # default parameters that are used to initialize a class if not overwritten
     parameters_default = {
-        'max_num_receptors': 28,           #< prevents memory overflows
-        'max_steps': 1e7,                  #< maximal number of steps 
-        'sensitivity_matrix': None,        #< will be calculated if not given
-        'sensitivity_matrix_params': None, #< parameters determining I_ai
-        'fixed_mixture_size': None,     #< fixed m or None
-        'monte_carlo_steps': 'auto',       #< default steps for monte carlo
-        'monte_carlo_steps_min': 1e4,      #< minimal steps for monte carlo
-        'monte_carlo_steps_max': 1e5,      #< maximal steps for monte carlo
+        'max_num_receptors': 28,            # prevents memory overflows
+        'max_steps': 1e7,                   # maximal number of steps 
+        'sensitivity_matrix': None,         # will be calculated if not given
+        'sensitivity_matrix_params': None,  # parameters determining S_ni
+        'fixed_mixture_size': None,         # fixed m or None
+        'monte_carlo_steps': 'auto',        # default steps for monte carlo
+        'monte_carlo_steps_min': 1e4,       # minimal steps for monte carlo
+        'monte_carlo_steps_max': 1e5,       # maximal steps for monte carlo
     }
          
             
