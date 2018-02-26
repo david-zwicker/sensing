@@ -257,7 +257,10 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         # determine the excitation thresholds
         gamma_1, _ = self.excitation_threshold(en_dist=en_dist_background)
         gamma_2, _ = self.excitation_threshold(en_dist=en_dist_sum)
-        assert gamma_2 >= gamma_1  # this is assumed below
+        if gamma_2 < gamma_1:
+            # gamma_2 >= gamma_1 is assumed below
+            raise RuntimeError('Threshold with target is smaller than without '
+                               '(%g < %g)' % (gamma_2, gamma_1))
         
         # call the integration routine
         p_on, p_off = self._activity_distance_from_distributions_quad(
