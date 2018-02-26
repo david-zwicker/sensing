@@ -225,10 +225,14 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         p_on = integrate.quad(integrand_on, 0, gamma_1)[0]
 
         # determine the probability that a channel turns off
-        def integrand_off(e_1):
-            return (en_dist_target.cdf(gamma_2 - e_1) *
-                    en_dist_background.pdf(e_1))
-        p_off = integrate.quad(integrand_off, gamma_1, gamma_2)[0]
+        if gamma_2 > gamma_1:
+            def integrand_off(e_1):
+                return (en_dist_target.cdf(gamma_2 - e_1) *
+                        en_dist_background.pdf(e_1))
+            p_off = integrate.quad(integrand_off, gamma_1, gamma_2)[0]
+        else:
+            p_off = 0
+            
         return p_on, p_off
                 
 
@@ -259,8 +263,8 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         gamma_2, _ = self.excitation_threshold(en_dist=en_dist_sum)
         if gamma_2 < gamma_1:
             # gamma_2 >= gamma_1 is assumed below
-            raise RuntimeError('Threshold with target is smaller than without '
-                               '(%g < %g)' % (gamma_2, gamma_1))
+            logging.warning('Threshold with target is smaller than without '
+                            '(%g < %g)', gamma_2, gamma_1)
         
         # call the integration routine
         p_on, p_off = self._activity_distance_from_distributions_quad(

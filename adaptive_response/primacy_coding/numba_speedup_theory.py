@@ -86,10 +86,13 @@ def PrimacyCodingTheory_activity_distance_from_distributions_quad(self,
             args=(mean_b, var_b, mean_t, var_t, gamma_2)
         )[0]
         
-    p_off = integrate.quad(
-            LowLevelCallable(nb_integrand_off.ctypes), gamma_1, gamma_2,
-            args=(mean_b, var_b, mean_t, var_t, gamma_2)
-        )[0]
+    if gamma_2 > gamma_1:
+        p_off = integrate.quad(
+                LowLevelCallable(nb_integrand_off.ctypes), gamma_1, gamma_2,
+                args=(mean_b, var_b, mean_t, var_t, gamma_2)
+            )[0]
+    else:
+        p_off = 0
     
     return p_on, p_off        
 
