@@ -17,7 +17,7 @@ from .pc_base import PrimacyCodingMixin
 from utils.math.distributions import lognorm_mean_var
 
 try:
-    from .numba_speedup import (_activity_distance_tb_lognorm_integrand_numba,
+    from adaptive_response.primacy_coding.numba_speedup_numeric import (_activity_distance_tb_lognorm_integrand_numba,
                                 _activity_distance_m_lognorm_integrand_numba)
 except ImportError:
     _activity_distance_tb_lognorm_integrand_numba = None
@@ -257,7 +257,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         # determine the excitation thresholds
         gamma_1, _ = self.excitation_threshold(en_dist=en_dist_background)
         gamma_2, _ = self.excitation_threshold(en_dist=en_dist_sum)
-        assert gamma_2 > gamma_1  # this is assumed below
+        assert gamma_2 >= gamma_1  # this is assumed below
         
         # call the integration routine
         p_on, p_off = self._activity_distance_from_distributions_quad(
