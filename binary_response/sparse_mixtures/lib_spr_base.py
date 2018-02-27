@@ -204,15 +204,30 @@ class LibrarySparseBase(LibraryBinaryBase):
         return self.substrate_probabilities * self.c_means
 
     
-    def get_concentration_distribution(self, i):
-        """ returns the concentration distribution for component i """
+    def get_concentration_distribution(self, i=None):
+        """ returns the concentration distribution for component `i`. If `i` is
+        not given, a homogeneous mixtures is assumed and the statistics of a
+        generic ligand are returned """
+        # determine the statistics of the chosen ligand
+        if i is None:
+            if not self.is_homogeneous_mixture:
+                logging.warning('Generic concentration distribution is '
+                                'requested, but mixture is not homogeneous. '
+                                'Using mean values instead.')
+            c_mean = self.c_means.mean()
+            c_var = self.c_vars.mean()
+        else:
+            c_mean = self.c_means[i]
+            c_var = self.c_vars[i]
+        
+        # return the associated distribution
         c_distribution = self.parameters['c_distribution']
         if c_distribution == 'exponential':
-            return stats.expon(scale=self.c_means[i])
+            return stats.expon(scale=c_mean)
         elif c_distribution == 'log-normal':
-            return lognorm_mean_var(self.c_means[i], self.c_vars[i])
+            return lognorm_mean_var(c_mean, c_var)
         elif c_distribution == 'bernoulli':
-            return DeterministicDistribution(self.c_means[i])
+            return DeterministicDistribution(c_mean)
         else:
             raise ValueError('Unknown concentration distribution `%s`'
                              % c_distribution)
@@ -226,7 +241,7 @@ class LibrarySparseBase(LibraryBinaryBase):
         pi = self.substrate_probabilities
         c_means = self.c_means
         ci_mean = pi * c_means
-        ci_var = pi * ((1 - pi)*c_means**2 + self.c_vars)
+        ci_var = pi * ((1 - pi) * c_means**2 + self.c_vars)
         
         # return the results in a dictionary to be able to extend it later
         return {'mean': ci_mean, 'std': np.sqrt(ci_var), 'var': ci_var,
@@ -235,7 +250,8 @@ class LibrarySparseBase(LibraryBinaryBase):
     
     @property
     def is_homogeneous_mixture(self):
-        """ returns True if the mixture is homogeneous """
+        """ returns True if the mixture is homogeneous, i.e., if all ligands have
+        the same probability of appearing and the same distribution """
         return all(np.allclose(arr, arr.mean())
                    for arr in (self.commonness, self.c_means, self.c_vars))
             

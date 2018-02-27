@@ -230,7 +230,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         activity pattern of two completely uncorrelated mixtures.
         """
         Nc = self.coding_receptors
-        return 2*Nc*(1 - Nc/self.Nr)
+        return 2 * Nc * (1 - Nc / self.Nr)
     
             
     def _activity_distance_from_distributions_quad(self,
