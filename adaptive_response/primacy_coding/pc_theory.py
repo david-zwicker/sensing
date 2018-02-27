@@ -112,7 +112,6 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             Fx = en_dist.cdf(x)  # cdf of the excitations
             fx = en_dist.pdf(x)  # pdf of the excitations
             return pre * x**x_power * Fx**(k - 1) * (1 - Fx)**(Nr - k) * fx
-            # TODO: Check whether this integrand is correct
         
         def distribution_func_inf(n, x_power):
             """ function that performs the integration """
@@ -163,6 +162,29 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         # which is close to the naive expectation
         #     n_thresh = self.Nr - self.coding_receptors
         return n_thresh
+    
+    
+    def _excitation_statistics_single_ligand(self):
+        """ return the excitation statistics when a single ligand comes in """
+        if not self.is_homogeneous_mixture:
+            logging.warning('Activity distances can only be estimated for '
+                            'homogeneous mixtures, where all ligands have the '
+                            'same concentration distribution. We are thus '
+                            'using the means of the concentration means and '
+                            'variances.')
+
+        # concentration statistics of the single ligand
+        c_mean = self.c_means.mean()
+        c_var = self.c_vars.mean()
+        c2_mean = c_mean**2 + c_var
+
+        # statistics of the sensitivity matrix
+        S_stats = self.sensitivity_stats()
+    
+        # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
+        en_mean = S_stats['mean'] * c_mean
+        en_var  = S_stats['mean']**2 * c_var + S_stats['var'] * c2_mean
+        return en_mean, en_var
 
 
     def excitation_threshold(self, method='auto', corr_term='approx',
@@ -273,30 +295,6 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return self.Nr * (p_on + p_off)
         
             
-#     def activity_distance_target_background_approx_small(self, c_ratio):
-#         """ calculate the expected difference (Hamming distance) between the
-#         activity pattern of a single ligand and this ligand plus a second one
-#         at a concentration `c_ratio` times the concentration of the first one.
-#         
-#         This function approximated the distance for small `c_ratios`
-#         """
-#         en_dist = self.excitation_distribution()
-#         en_thresh = self.excitation_threshold('approx')[0]
-#         
-#         # estimate the probability that a receptor was inactive and gets
-#         # activated
-#         p_on = (c_ratio
-#                 * en_dist.pdf(en_thresh)
-#                 * integrate.quad(en_dist.sf, en_thresh, en_dist.b)[0])
-#         
-#         # estimate the probability that a receptor was active and gets shut down
-#         Nc = self.coding_receptors
-#         Nr = self.Nr
-#         p_off = c_ratio * Nc/Nr * (1 - Nc/Nr)
-#         
-#         return Nr*(p_on + p_off)
-            
-            
     def activity_distance_target_background(self, c_ratio):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of a single ligand and this ligand plus a second one
@@ -311,83 +309,77 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         elif np.isinf(c_ratio):
             return self.activity_distance_uncorrelated
         
-        S_stats = self.sensitivity_stats()
-        en_mean = S_stats['mean']
-        en_var = S_stats['var']
-        # the statistics of the excitation only depend on the statistics of the
-        # sensitivity matrix, since the concentrations are given
-    
         # get the excitation distributions of different mixture sizes
+        en_mean, en_var = self._excitation_statistics_single_ligand()
         en_dist_b = lognorm_mean_var(en_mean, en_var)
         en_dist_t = lognorm_mean_var(c_ratio * en_mean, c_ratio**2 * en_var)
         
-        # determine the excitation thresholds
+        # determine the expected activity distance
+        return self._activity_distance_from_distributions(en_dist_b, en_dist_t)        
+                
+            
+    def activity_distance_mixture_size(self, mixture_size):
+        """ calculate the expected difference (Hamming distance) between the
+        activity pattern of a mixture of size `mixture_size` and the same
+        mixture plus an additional ligand. The concentrations of the ligands are
+        chosen according to the current concentration statistics.
+        """
+        # handle some special cases to avoid numerical problems at the
+        # integration boundaries
+        if mixture_size < 0:
+            raise ValueError('Mixture size must be positive.')
+        elif mixture_size == 0:
+            return self.activity_distance_uncorrelated()
+        elif np.isinf(mixture_size):
+            return 0
+        
+        # get the excitation distributions of different mixture sizes
+        en_mean, en_var = self._excitation_statistics_single_ligand()
+        en_dist_b = lognorm_mean_var(mixture_size * en_mean,
+                                     mixture_size * en_var)
+        en_dist_t = lognorm_mean_var(en_mean, en_var)
+        
+        # determine the expected activity distance
         return self._activity_distance_from_distributions(en_dist_b, en_dist_t)        
                 
 
-    def activity_distance_mixtures(self, mixture_size, mixture_overlap=0):
+    def activity_distance_mixture_similarity(self, mixture_size, overlap=0):
         """ calculates the expected Hamming distance between the activation
         pattern of two mixtures with `mixture_size` ligands of equal 
-        concentration. `mixture_overlap` denotes the number of
+        concentration. `overlap` denotes the number of
         ligands that are the same in the two mixtures """
-        raise NotImplementedError('This method has not been tested')
-        if not 0 <= mixture_overlap <= mixture_size:
-            raise ValueError('Mixture overlap `mixture_overlap` must be '
-                             'between 0 and `mixture_size`.')
-        elif mixture_overlap == mixture_size:
+        if not 0 <= overlap <= mixture_size:
+            raise ValueError('Mixture overlap `overlap` must be between 0 and '
+                             '`mixture_size`.')
+        elif overlap == mixture_size:
             return 0
-        elif mixture_overlap == 0:
+        elif overlap == 0:
             return self.activity_distance_uncorrelated()
     
         s = mixture_size
-        sB = mixture_overlap
-        sD = (s - sB) # number of different ligands
-        
-        if not self.is_homogeneous_mixture:
-            logging.warning('Activity distances can only be estimated for '
-                            'homogeneous mixtures, where all ligands have the '
-                            'same concentration distribution. We are thus '
-                            'using the means of the concentration means and '
-                            'variances.')
-
-        c_mean = self.c_means.mean()
-        c_var = self.c_vars.mean()
-        S_stats = self.sensitivity_stats()
-        en_mean = S_stats['mean'] * c_mean
-        en_var = (S_stats['mean']**2 + S_stats['var']) * c_var
+        sB = overlap
+        sD = (s - sB)  # number of different ligands
     
         # get the excitation distributions of different mixture sizes
+        en_mean, en_var = self._excitation_statistics_single_ligand()
         en_dist_total = lognorm_mean_var(s*en_mean, s*en_var)
+        en_dist_same = lognorm_mean_var(sB*en_mean, sB*en_var)
+        en_dist_diff = lognorm_mean_var(sD*en_mean, sD*en_var)
     
         # determine the excitation thresholds
-        p_inact = 1 - self.coding_receptors / self.Nr
-        e_thresh_total = en_dist_total.ppf(p_inact)
-
-        # determine the probability of changing the activity of a receptor
-        if (self.parameters['excitation_distribution'] == 'log-normal'
-            and _activity_distance_m_lognorm_integrand_numba):
-            # use the numba enhanced integrand
-            p_change_xor = _activity_distance_m_lognorm_integrand_numba
-            args = (e_thresh_total, sB, sD, en_mean, en_var)
-            
-        else:
-            # use the general definition of the integral
-            en_dist_same = lognorm_mean_var(sB*en_mean, sB*en_var)
-            en_dist_diff = lognorm_mean_var(sD*en_mean, sD*en_var)
-
-            # use the general definition of the integral
-            def p_change_xor(e_same):
-                """ probability that the different ligands of either mixture
-                bring the excitation above threshold """ 
-                # prob that the excitation does not exceed threshold
-                cdf_val = en_dist_diff.cdf(e_thresh_total - e_same) 
-                return cdf_val * (1 - cdf_val) * en_dist_same.pdf(e_same)
-
-            args = ()
+        gamma, _ = self.excitation_threshold(en_dist=en_dist_total)
     
-        # integrate over all excitations of the common ligands
-        p_different = integrate.quad(p_change_xor, en_dist_total.a,
-                                     e_thresh_total, args=args)[0]
+        # use the general definition of the integral
+        def p_change_xor(e_same):
+            """ probability that the different ligands of either mixture
+            bring the excitation above threshold """ 
+            # probability that the excitation does not exceed threshold
+            cdf_val = en_dist_diff.cdf(gamma - e_same)
+            return cdf_val * (1 - cdf_val) * en_dist_same.pdf(e_same)
+    
+        # TODO: replace this using numba?
+        # look at `_activity_distance_m_lognorm_integrand_numba`
+        p_different = integrate.quad(p_change_xor, en_dist_same.a, gamma)[0]
     
         return 2 * self.Nr * p_different
     
@@ -419,7 +411,6 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
 
     def mutual_information(self):
         """ calculates the typical mutual information """
-        # TODO: estimate correlations and incorporate this knowledge into I
         raise NotImplementedError
             
             
