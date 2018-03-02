@@ -164,8 +164,15 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return n_thresh
     
     
-    def _excitation_statistics_single_ligand(self):
-        """ return the excitation statistics when a single ligand comes in """
+    def _excitation_statistics_single_ligand(self, assume_present=True):
+        """ return the excitation statistics when a single ligand comes in
+        
+        `assume_present` is a flag that determines whether the statistics should
+            be calculated assuming that the ligand is always present.
+            Alternatively, when the value is set to `False`, we assume that the
+            ligand is only present with probability p, given by
+            self.substrate_probabilities
+        """
         if not self.is_homogeneous_mixture:
             logging.warning('Activity distances can only be estimated for '
                             'homogeneous mixtures, where all ligands have the '
@@ -174,9 +181,17 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
                             'variances.')
 
         # concentration statistics of the single ligand
-        c_mean = self.c_means.mean()
-        c_var = self.c_vars.mean()
-        c2_mean = c_mean**2 + c_var
+        if assume_present:
+            c_mean = self.c_means.mean()
+            c_var = self.c_vars.mean()
+            c2_mean = c_mean**2 + c_var
+        else:
+            p = self.substrate_probabilities.mean()  # prob. of being present
+            c_mean_pres = self.c_means.mean()  # mean concentration if present
+            c_var_pres = self.c_vars.mean()    # variance if present
+            c_mean = p * c_mean_pres
+            c_var = p * ((1 - p) * c_mean_pres**2 + c_var_pres)
+            c2_mean = p * (c_mean_pres**2 + c_var_pres)
 
         # statistics of the sensitivity matrix
         S_stats = self.sensitivity_stats()

@@ -165,8 +165,8 @@ class LibrarySparseBinary(LibrarySparseTheoryBase):
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseBinary, self).repr_params
-        params.append('xi=%g' % self.density)
-        params.append('<S>=%g' % self.mean_sensitivity)
+        params.append('S=binary(mean=%g, density=%g)' %
+                      (self.mean_sensitivity, self.density))
         return params
 
 
@@ -299,9 +299,10 @@ class LibrarySparseLogNormal(LibrarySparseTheoryBase):
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogNormal, self).repr_params
-        params.append('<S>=%g' % self.mean_sensitivity)
-        params.append('width=%g' % self.width)
-        params.append('correlation=%g' % self.correlation)
+        s_args = 'mean=%g, width=%g' % (self.mean_sensitivity, self.width)
+        if self.correlation:
+            s_args += ', correlation=%g' % self.correlation
+        params.append('S=lognorm(%s)' % s_args)
         return params
 
 
@@ -491,8 +492,8 @@ class LibrarySparseLogUniform(LibrarySparseTheoryBase):
     def repr_params(self):
         """ return the important parameters that are shown in __repr__ """
         params = super(LibrarySparseLogUniform, self).repr_params
-        params.append('width=%g' % self.width)
-        params.append('<S>=%g' % self.mean_sensitivity)
+        params.append('S=loguniform(mean=%g, width=%g)' %
+                      (self.mean_sensitivity, self.width))
         return params
 
 
