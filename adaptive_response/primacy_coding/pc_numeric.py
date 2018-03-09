@@ -60,9 +60,7 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
             # get the threshold value for this sample
             e_n = np.dot(S_ni, c_i)
             if ret_upper:
-                indices = nlargest_indices(e_n, self.coding_receptors)
-                thresh = e_n[indices].min()
-                assert thresh == np.sort(e_n)[-self.coding_receptors]
+                thresh = np.sort(e_n)[-self.coding_receptors]
             else:
                 thresh = np.sort(e_n)[-self.coding_receptors - 1]
             
@@ -93,17 +91,16 @@ class PrimacyCodingNumeric(PrimacyCodingMixin, LibrarySparseNumeric):
         `steps` determines how many mixtures are sampled
         """
         S_ni = self.sens_mat
+        Nc = self.coding_receptors
         counts = np.zeros(len(bins) + 1)
                 
         for c_i in self._sample_mixtures(steps=steps):
             # get the threshold value for this sample
             e_n = np.dot(S_ni, c_i)
             if ret_upper:
-                indices = nlargest_indices(e_n, self.coding_receptors)
-                thresh = e_n[indices].min()
-                assert thresh == np.sort(e_n)[-self.coding_receptors]
+                thresh = np.sort(e_n)[-Nc]
             else:
-                thresh = np.sort(e_n)[-self.coding_receptors - 1]
+                thresh = np.sort(e_n)[-Nc - 1]
             
             idx = np.searchsorted(bins, thresh)
             counts[idx] += 1

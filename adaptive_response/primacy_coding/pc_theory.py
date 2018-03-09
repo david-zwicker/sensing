@@ -55,115 +55,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             raise ValueError("Unknown excitation distribution `%s`. Supported "
                              "are ['gaussian', 'log-normal']" % excitation_dist)
             
-
-    def en_order_statistics_approx(self, n, en_dist=None):
-        """
-        approximates the expected value of the n-th variable of the order
-        statistics of the Nr excitations. Here, n runs from 1 .. Nr.
-        
-        The code for the expectation value is inspired by
-            http://stats.stackexchange.com/q/9001/88762
-        
-        The approximation of the standard deviation has been copied from
-            'Accurate approximation to the extreme order statistics of gaussian 
-            samples'
-            C.-C. Chen and C. W. Tyler
-            Commun. Statist. Simula. 28 177-188 (1999)
-        """
-        # approximate the order statistics
-        alpha = self.parameters['order_statistics_alpha']
-        arg = (n - alpha) / (self.Nr - 2*alpha + 1)
-
-        # get the distribution of the excitations
-        if en_dist is None:
-            en_dist = self.excitation_distribution()
-        en_order_mean = en_dist.ppf(arg)
-        
-        # approximate the standard deviation using a formula for the standard
-        # deviation of the minimum of Nr Gaussian variables. This overestimates
-        # the true standard deviation. 
-        en_order_std = 0.5 * (en_dist.ppf(0.8832**(1/self.Nr))
-                              - en_dist.ppf(0.2142**(1/self.Nr)))
-        
-        return en_order_mean, en_order_std
-    
-    
-    def en_order_statistics_integrate(self, n, check_norm=True, en_dist=None):
-        """
-        calculates the expected value and the associated standard deviation of
-        the n-th variable of the order statistics of self.Nr excitations
-        
-        `check_norm` determines whether an additional integral is performed
-            to check whether the norm of the probability distribution of the
-            order statistics is unity. This is a test for the accuracy of the
-            integration routine.
-        """
-        if en_dist is None:
-            en_dist = self.excitation_distribution()
-        
-        def distribution_func(x, Nr, k, x_power=0):
-            """
-            definition of the distribution function of x_power-th moment of the
-            k-th order statistics of Nr variables
-            """
-            # prefactor of the distribution
-            pre = k * special.binom(Nr, k)  # = Nr! / (k - 1)! / (Nr - k)!
             
-            Fx = en_dist.cdf(x)  # cdf of the excitations
-            fx = en_dist.pdf(x)  # pdf of the excitations
-            return pre * x**x_power * Fx**(k - 1) * (1 - Fx)**(Nr - k) * fx
-        
-        def distribution_func_inf(n, x_power):
-            """ function that performs the integration """
-            return integrate.quad(distribution_func, en_dist.a, en_dist.b,
-                                  args=(self.Nr, n, x_power), limit=1000)[0]
-        
-        if check_norm:
-            # get the norm of the distribution to test the integration routine
-            norm = distribution_func_inf(n=n, x_power=0)
-            
-            if not np.isclose(norm, 1):
-                raise RuntimeError('Integration did not converge for `norm` '
-                                   'and resulted in %g for n=%d'
-                                   % (norm, n))
-        
-        # calculate the expected value of the order statistics
-        mean = distribution_func_inf(n=n, x_power=1)
-
-        # calculate the expected value of the order statistics
-        M2 = distribution_func_inf(n=n, x_power=2)
-                            
-        return mean, np.sqrt(M2 - mean**2)
-
-
-    def _excitation_threshold_order(self):
-        """ return the (real-valued) index in the order statistics of the
-        excitations that corresponds to the excitation threshold. The index is
-        calculated such that \sum_n a_n = Nc on average if approximate order
-        statistics are used. This does not (yet) work for integrated order
-        statistics
-        """
-        # if the approximate order statistics are used 
-        Nr = self.Nr
-        alpha = self.parameters['order_statistics_alpha']
-        n_thresh = (Nr * (1 + Nr - alpha)
-                    - self.coding_receptors * (Nr + 1 - 2*alpha)
-                    ) / Nr
-        # This complex expression follows from the fact that the expectation of
-        # the n-th excitation is
-        #     <e_(n)> = F^-1((n - alpha)/(Nr + 1 - 2*alpha))
-        # and that the condition Nc = \sum_n P(a_n) = Nr*(1 - F(gamma)) implies
-        #     gamma = F^-1(1 - Nc/Nr)
-        # To be able to express gamma = <e_(n_thresh)>, we have to equate the
-        # arguments of F^-1, which leads to the expression above
-        #
-        # For alpha = 0, this reduces to the simple form
-        #     n_thresh = (1 + 1/self.Nr) * (self.Nr - self.coding_receptors)
-        # which is close to the naive expectation
-        #     n_thresh = self.Nr - self.coding_receptors
-        return n_thresh
-    
-    
     def _excitation_statistics_single_ligand(self, assume_present=True):
         """ return the excitation statistics when a single ligand comes in
         
@@ -202,6 +94,135 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return en_mean, en_var
 
 
+    def en_order_statistics_approx(self, n, en_dist=None):
+        """
+        approximates the expected value of the n-th variable of the order
+        statistics of the Nr excitations. Here, n runs from 1 .. Nr.
+        
+        The code for the expectation value is inspired by
+            http://stats.stackexchange.com/q/9001/88762
+        
+        The approximation of the standard deviation has been copied from
+            'Accurate approximation to the extreme order statistics of gaussian 
+            samples'
+            C.-C. Chen and C. W. Tyler
+            Commun. Statist. Simula. 28 177-188 (1999)
+        """
+        # approximate the order statistics
+        alpha = self.parameters['order_statistics_alpha']
+        arg = (n - alpha) / (self.Nr - 2*alpha + 1)
+
+        # get the distribution of the excitations
+        if en_dist is None:
+            en_dist = self.excitation_distribution()
+        en_order_mean = en_dist.ppf(arg)
+        
+        # approximate the standard deviation using a formula for the standard
+        # deviation of the minimum of Nr Gaussian variables. This overestimates
+        # the true standard deviation. 
+        en_order_std = 0.5 * (en_dist.ppf(0.8832**(1/self.Nr))
+                              - en_dist.ppf(0.2142**(1/self.Nr)))
+        
+        return en_order_mean, en_order_std
+    
+    
+    def en_order_statistics_dist(self, n, en_dist=None):
+        """ returns the distribution of the n-th order statistics using the
+        underlying distribution `en_dist` """
+        if en_dist is None:
+            en_dist = self.excitation_distribution()
+
+        # prefactor of the distribution
+        Nr = self.Nr
+        pre = n * special.binom(Nr, n)  # = Nr! / (n - 1)! / (Nr - n)!
+        
+        class order_dist(stats.rv_continuous):
+            def _pdf(self,x):
+                Fx = en_dist.cdf(x)  # cdf of the excitations
+                fx = en_dist.pdf(x)  # pdf of the excitations
+                return pre * Fx**(n - 1) * (1 - Fx)**(Nr - n) * fx
+
+        return order_dist(a=en_dist.a, b=en_dist.b, name='order statistics')
+    
+    
+    def en_order_statistics_integrate(self, n, check_norm=True, en_dist=None):
+        """
+        calculates the expected value and the associated standard deviation of
+        the n-th variable of the order statistics of self.Nr excitations
+        
+        `check_norm` determines whether an additional integral is performed
+            to check whether the norm of the probability distribution of the
+            order statistics is unity. This is a test for the accuracy of the
+            integration routine.
+        """
+        if en_dist is None:
+            en_dist = self.excitation_distribution()
+        
+        # prefactor of the distribution
+        Nr = self.Nr
+        pre = n * special.binom(Nr, n)  # = Nr! / (n - 1)! / (Nr - n)!
+        
+        def distribution_func(x, power=0):
+            """
+            definition of the distribution function of power-th moment of the
+            n-th order statistics of Nr variables
+            """
+            Fx = en_dist.cdf(x)  # cdf of the excitations
+            fx = en_dist.pdf(x)  # pdf of the excitations
+            return pre * x**power * Fx**(n - 1) * (1 - Fx)**(Nr - n) * fx
+        
+        def distribution_func_inf(power):
+            """ function that performs the integration """
+            return integrate.quad(distribution_func, en_dist.a, en_dist.b,
+                                  args=(power,), limit=1000)[0]
+        
+        if check_norm:
+            # get the norm of the distribution to test the integration routine
+            norm = distribution_func_inf(power=0)
+            
+            if not np.isclose(norm, 1):
+                raise RuntimeError('Integration did not converge for `norm` '
+                                   'and resulted in %g for n=%d'
+                                   % (norm, n))
+        
+        # calculate the expected value of the order statistics
+        mean = distribution_func_inf(power=1)
+
+        # calculate the expected value of the order statistics
+        M2 = distribution_func_inf(power=2)
+        var = M2 - mean**2
+                            
+        return mean, np.sqrt(var)
+
+
+    def _excitation_threshold_order(self):
+        """ return the (real-valued) index in the order statistics of the
+        excitations that corresponds to the excitation threshold. The index is
+        calculated such that \sum_n a_n = Nc on average if approximate order
+        statistics are used. This does not (yet) work for integrated order
+        statistics
+        """
+        # if the approximate order statistics are used 
+        Nr = self.Nr
+        alpha = self.parameters['order_statistics_alpha']
+        n_thresh = (Nr * (1 + Nr - alpha)
+                    - self.coding_receptors * (Nr + 1 - 2*alpha)
+                    ) / Nr
+        # This complex expression follows from the fact that the expectation of
+        # the n-th excitation is
+        #     <e_(n)> = F^-1((n - alpha)/(Nr + 1 - 2*alpha))
+        # and that the condition Nc = \sum_n P(a_n) = Nr*(1 - F(gamma)) implies
+        #     gamma = F^-1(1 - Nc/Nr)
+        # To be able to express gamma = <e_(n_thresh)>, we have to equate the
+        # arguments of F^-1, which leads to the expression above
+        #
+        # For alpha = 0, this reduces to the simple form
+        #     n_thresh = (1 + 1/self.Nr) * (self.Nr - self.coding_receptors)
+        # which is close to the naive expectation
+        #     n_thresh = self.Nr - self.coding_receptors
+        return n_thresh
+    
+
     def excitation_threshold(self, method='auto', corr_term='approx',
                              en_dist=None):
         """ returns the approximate excitation threshold that receptors have to
@@ -237,7 +258,6 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         else:
             raise ValueError('Unknown method `%s` for calculating the '
                              'excitation threshold.' % method)
-            
             
             
     def activity_distance_uncorrelated(self):
