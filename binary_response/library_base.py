@@ -102,6 +102,7 @@ class LibraryBase(object):
         instance """
         # create object with parameters from other object
         init_arguments = other.init_arguments
+        init_arguments['parameters'].update(kwargs.pop('parameters', {}))
         init_arguments.update(kwargs)
         return cls(**init_arguments)
 
