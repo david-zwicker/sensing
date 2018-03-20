@@ -15,7 +15,8 @@ from binary_response.sparse_mixtures.lib_spr_base import LibrarySparseBase
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
 
 from .at_base import AdaptiveThresholdMixin
-from utils.math.distributions import lognorm_mean_var, lognorm_sum
+from utils.math.distributions import (lognorm_mean_var, lognorm_sum,
+                                      gamma_mean_var)
 from utils.math import xlog2x
 
 
@@ -114,8 +115,9 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
             
             # calculate statistics of the sum e_n = \sum_i S_ni * c_i        
             en_mean = 1
-            en_var  = S_var * c2_mean_sum
-            enm_cov = S_cov * c2_mean_sum
+            en_var  = S_var * c2_mean_sum  
+            enm_cov = S_cov * c2_mean_sum  
+            # Note that the concentration statistics have already been normalized
             
         else: # not normalized
             # get statistics of the total concentration c_tot = \sum_i c_i
@@ -149,13 +151,16 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         excitation_dist = self.parameters['excitation_distribution']
         en_stats = self.excitation_statistics(normalized=normalized)
         
-        if excitation_dist == 'gaussian':
+        if  excitation_dist == 'gaussian' or excitation_dist == 'normal':
             return stats.norm(en_stats['mean'], en_stats['std'])
-        elif excitation_dist == 'log-normal':
+        elif  excitation_dist == 'log-normal':
             return lognorm_mean_var(en_stats['mean'], en_stats['var'])
+        elif  excitation_dist == 'gamma':
+            return gamma_mean_var(en_stats['mean'], en_stats['var'])
         else:
             raise ValueError("Unknown excitation distribution `%s`. Supported "
-                             "are ['gaussian', 'log-normal']" % excitation_dist)
+                             "are ['normal', 'log-normal', 'gamma']"
+                             % excitation_dist)
     
     
     def excitation_distribution_mixture(self, concentration=1, mixture_size=1,
@@ -179,13 +184,16 @@ class AdaptiveThresholdTheory(AdaptiveThresholdMixin, LibrarySparseLogNormal):
         
         # return the appropriate distribution
         excitation_dist = self.parameters['excitation_distribution']
-        if  excitation_dist == 'gaussian':
+        if  excitation_dist == 'gaussian' or excitation_dist == 'normal':
             return stats.norm(en_mean, np.sqrt(en_var))
         elif  excitation_dist == 'log-normal':
             return lognorm_mean_var(en_mean, en_var)
+        elif  excitation_dist == 'gamma':
+            return gamma_mean_var(en_mean, en_var)
         else:
             raise ValueError("Unknown excitation distribution `%s`. Supported "
-                             "are ['gaussian', 'log-normal']" % excitation_dist)
+                             "are ['normal', 'log-normal', 'gamma']"
+                             % excitation_dist)
 
     
     @property
@@ -657,13 +665,16 @@ class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
         excitation_dist = self.parameters['excitation_distribution']
         en_stats = self.excitation_statistics(with_receptor_factors=False)
         
-        if  excitation_dist == 'gaussian':
+        if  excitation_dist == 'gaussian' or excitation_dist == 'normal':
             return stats.norm(en_stats['mean'], en_stats['std'])
         elif  excitation_dist == 'log-normal':
             return lognorm_mean_var(en_stats['mean'], en_stats['var'])
+        elif  excitation_dist == 'gamma':
+            return gamma_mean_var(en_stats['mean'], en_stats['var'])
         else:
             raise ValueError("Unknown excitation distribution `%s`. Supported "
-                             "are ['gaussian', 'log-normal']" % excitation_dist)   
+                             "are ['normal', 'log-normal', 'gamma']"
+                             % excitation_dist)
             
 
     def excitation_distributions(self):
@@ -673,15 +684,19 @@ class AdaptiveThresholdTheoryReceptorFactors(AdaptiveThresholdMixin,
         excitation_dist = self.parameters['excitation_distribution']
         en_stats = self.excitation_statistics(with_receptor_factors=True)
         
-        if  excitation_dist == 'gaussian':
+        if  excitation_dist == 'gaussian' or excitation_dist == 'normal':
             return [stats.norm(mean, std)
                     for mean, std in zip(en_stats['mean'], en_stats['std'])]
         elif  excitation_dist == 'log-normal':
             return [lognorm_mean_var(mean, var)
                     for mean, var in zip(en_stats['mean'], en_stats['var'])]
+        elif  excitation_dist == 'gamma':
+            return [gamma_mean_var(mean, var)
+                    for mean, var in zip(en_stats['mean'], en_stats['var'])]
         else:
             raise ValueError("Unknown excitation distribution `%s`. Supported "
-                             "are ['gaussian', 'log-normal']" % excitation_dist)    
+                             "are ['normal', 'log-normal', 'gamma']"
+                             % excitation_dist)
     
         
     def receptor_activity(self):

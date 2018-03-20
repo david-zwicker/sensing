@@ -14,7 +14,7 @@ from scipy import integrate, stats, special
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
 
 from .pc_base import PrimacyCodingMixin
-from utils.math.distributions import lognorm_mean_var
+from utils.math.distributions import lognorm_mean_var, gamma_mean_var
 
 try:
     from adaptive_response.primacy_coding.numba_speedup_numeric import (_activity_distance_tb_lognorm_integrand_numba,
@@ -47,13 +47,16 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         excitation_dist = self.parameters['excitation_distribution']
         en_stats = self.excitation_statistics()
         
-        if  excitation_dist == 'gaussian':
+        if  excitation_dist == 'gaussian' or excitation_dist == 'normal':
             return stats.norm(en_stats['mean'], en_stats['std'])
         elif  excitation_dist == 'log-normal':
             return lognorm_mean_var(en_stats['mean'], en_stats['var'])
+        elif  excitation_dist == 'gamma':
+            return gamma_mean_var(en_stats['mean'], en_stats['var'])
         else:
             raise ValueError("Unknown excitation distribution `%s`. Supported "
-                             "are ['gaussian', 'log-normal']" % excitation_dist)
+                             "are ['normal', 'log-normal', 'gamma']"
+                             % excitation_dist)
             
             
     def _excitation_statistics_single_ligand(self, assume_present=True):
@@ -171,25 +174,25 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             fx = en_dist.pdf(x)  # pdf of the excitations
             return pre * x**power * Fx**(n - 1) * (1 - Fx)**(Nr - n) * fx
         
-        def distribution_func_inf(power):
+        def distribution_func_integrate(power):
             """ function that performs the integration """
             return integrate.quad(distribution_func, en_dist.a, en_dist.b,
                                   args=(power,), limit=1000)[0]
         
         if check_norm:
             # get the norm of the distribution to test the integration routine
-            norm = distribution_func_inf(power=0)
+            norm = distribution_func_integrate(power=0)
             
             if not np.isclose(norm, 1):
                 raise RuntimeError('Integration did not converge for `norm` '
-                                   'and resulted in %g for n=%d'
-                                   % (norm, n))
+                                   'and resulted in %g for %d-th order '
+                                   'statistics ' % (norm, n))
         
         # calculate the expected value of the order statistics
-        mean = distribution_func_inf(power=1)
+        mean = distribution_func_integrate(power=1)
 
         # calculate the expected value of the order statistics
-        M2 = distribution_func_inf(power=2)
+        M2 = distribution_func_integrate(power=2)
         var = M2 - mean**2
                             
         return mean, np.sqrt(var)
@@ -237,7 +240,8 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
             integral is approximated. The default value `auto` chooses the
             method based on the parameter `excitation_threshold_method`.
         `corr_term` is the correcting term between 0 and 1, that determines
-            whether the lower or upper excitation threshold is considered.
+            whether the upper (value 0), lower (value 1), or an intermediated
+            excitation threshold is considered.
         `en_dist` can specify a particular excitation distribution. If `None`
             it is estimated based on the ensemble average over odors
         """
