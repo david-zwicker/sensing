@@ -13,7 +13,8 @@ import time
 import numpy as np
 from scipy import optimize
 
-from utils.math.distributions import lognorm_mean, loguniform_mean
+from utils.math.distributions import (lognorm_mean, loguniform_mean,
+                                      loguniform_mean_var)
 from utils.math import is_pos_semidef
 
 
@@ -690,18 +691,34 @@ def get_sensitivity_matrix(Nr, Ns, distribution, mean_sensitivity=1,
             
     elif distribution == 'log_uniform' or distribution == 'log-uniform':
         # log uniform distribution
-        width = kwargs.pop('width', 1)
-        sens_mat_params['width'] = width
-
-        if width == 0:
-            sens_mat = np.full(shape, mean_sensitivity, np.double)
+        if 'standard_deviation' in kwargs:
+            kwargs['variance'] = kwargs.pop('standard_deviation')**2
+            
+        if 'variance' in kwargs:
+            variance = kwargs.pop('variance')
+            dist = loguniform_mean_var(mean_sensitivity, variance)
+        
         else:
+            try:
+                width = kwargs.pop('width')
+            except KeyError:
+                raise TypeError('`standard_deviation`, `variance` or `width`, '
+                                'must be specified for log-uniform '
+                                'distributed sensitivity matrix')
+            sens_mat_params['width'] = width
             dist = loguniform_mean(mean_sensitivity, np.exp(width))
-            sens_mat = dist.rvs(shape)
+
+        sens_mat = dist.rvs(shape)
+        sens_mat_params['standard_deviation'] = dist.std()
         
     elif distribution == 'normal':
         # normal distribution
-        width = kwargs.pop('width', 1)
+        try:
+            width = kwargs.pop('width')
+        except KeyError:
+            raise TypeError('`width` must be specified for normal distributed '
+                            'sensitivity matrix')
+            
         correlation = kwargs.pop('correlation', 0)
         sens_mat_params['width'] = width
         sens_mat_params['correlation'] = correlation
