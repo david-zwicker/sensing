@@ -17,7 +17,8 @@ from .pc_base import PrimacyCodingMixin
 from utils.math.distributions import lognorm_mean_var, gamma_mean_var
 
 try:
-    from adaptive_response.primacy_coding.numba_speedup_numeric import (_activity_distance_tb_lognorm_integrand_numba,
+    from adaptive_response.primacy_coding.numba_speedup_numeric import (
+                                _activity_distance_tb_lognorm_integrand_numba,
                                 _activity_distance_m_lognorm_integrand_numba)
 except ImportError:
     _activity_distance_tb_lognorm_integrand_numba = None
