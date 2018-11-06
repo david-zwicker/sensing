@@ -7,6 +7,7 @@ Created on Jan 5, 2016
 from __future__ import division
 
 import logging
+import warnings
 
 import numpy as np
 from scipy import integrate, stats, special
@@ -335,10 +336,15 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return self.Nr * (p_on + p_off)
         
             
-    def activity_distance_target_background(self, c_ratio):
+    def activity_distance_target_background(self, c_ratio, background_size=1):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of a single ligand and this ligand plus a second one
         at a concentration `c_ratio` times the concentration of the first one.
+        
+        `background_size` gives the number of ligands in the background mixture.
+            Here, we assume that each ligands enters with a concentration weight
+            of `1`, such that the ratio of foreground to background is given by
+            c_ratio / background_size
         """
         # handle some special cases to avoid numerical problems at the
         # integration boundaries
@@ -349,9 +355,17 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         elif np.isinf(c_ratio):
             return self.activity_distance_uncorrelated
         
+        if background_size < 0:
+            raise ValueError('Mixture size must be positive.')
+        elif background_size == 0:
+            return self.activity_distance_uncorrelated()
+        elif np.isinf(background_size):
+            return 0
+        
         # get the excitation distributions of different mixture sizes
         en_mean, en_var = self._excitation_statistics_single_ligand()
-        en_dist_b = lognorm_mean_var(en_mean, en_var)
+        en_dist_b = lognorm_mean_var(background_size * en_mean,
+                                     background_size * en_var)
         en_dist_t = lognorm_mean_var(c_ratio * en_mean, c_ratio**2 * en_var)
         
         # determine the expected activity distance
@@ -364,23 +378,11 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         mixture plus an additional ligand. The concentrations of the ligands are
         chosen according to the current concentration statistics.
         """
-        # handle some special cases to avoid numerical problems at the
-        # integration boundaries
-        if mixture_size < 0:
-            raise ValueError('Mixture size must be positive.')
-        elif mixture_size == 0:
-            return self.activity_distance_uncorrelated()
-        elif np.isinf(mixture_size):
-            return 0
-        
-        # get the excitation distributions of different mixture sizes
-        en_mean, en_var = self._excitation_statistics_single_ligand()
-        en_dist_b = lognorm_mean_var(mixture_size * en_mean,
-                                     mixture_size * en_var)
-        en_dist_t = lognorm_mean_var(en_mean, en_var)
-        
-        # determine the expected activity distance
-        return self._activity_distance_from_distributions(en_dist_b, en_dist_t)        
+        warnings.warn("Method `activity_distance_mixture_size` has been "
+                      "replace by `activity_distance_target_background`",
+                      DeprecationWarning)
+        return self.activity_distance_target_background(
+                                        c_ratio=1, background_size=mixture_size)
                 
 
     def activity_distance_mixture_similarity(self, mixture_size, overlap=0):
