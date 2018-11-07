@@ -34,6 +34,9 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
     parameters_default = {
         'excitation_distribution': 'log-normal', 
         'excitation_threshold_method': 'approx',
+        'discriminability_factor': 2,
+        # factor affecting how discriminability scores are calculated from
+        # activity distances
         'order_statistics_alpha': np.pi / 8,
         # two common choices for `order_statistics_alpha` are
         #     0: H. A. David and H. N. Nagaraja, Order statistics, Wiley (1970)
@@ -336,7 +339,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         return self.Nr * (p_on + p_off)
         
             
-    def activity_distance_target_background(self, c_ratio, background_size=1):
+    def activity_distance_target_background(self, c_ratio=1, background_size=1):
         """ calculate the expected difference (Hamming distance) between the
         activity pattern of a single ligand and this ligand plus a second one
         at a concentration `c_ratio` times the concentration of the first one.
@@ -425,6 +428,46 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
     
         return 2 * self.Nr * p_different
     
+    
+    def discriminability_from_activity_distance(self, distance):
+        """ calculates the probability that two mixtures can be discriminated
+        from the expected distance between them
+        """
+        # calculate probability that a single receptor deviates
+        factor = self.parameters['discriminability_factor'] 
+        p = distance / (factor * self.Nr) 
+        return 1 - (1 - p)**self.Nr
+         
+    
+    def discriminability_uncorrelated(self): 
+        """ calculate the discriminability of two completely uncorrelated
+        mixtures.
+        """
+        d = self.activity_distance_uncorrelated()
+        return self.discriminability_from_activity_distance(d)
+    
+    
+    def discriminability_target_background(self, c_ratio=1, background_size=1):
+        """ calculate the probability that the two activity pattern of a single
+        ligand and this ligand plus a second one at a concentration `c_ratio`
+        times the concentration of the first one can be discriminated. 
+        
+        `background_size` gives the number of ligands in the background mixture.
+            Here, we assume that each ligands enters with a concentration weight
+            of `1`, such that the ratio of foreground to background is given by
+            c_ratio / background_size
+        """
+        d = self.activity_distance_target_background(c_ratio, background_size)
+        return self.discriminability_from_activity_distance(d)
+                    
+    
+    def discriminability_mixture_similarity(self, mixture_size, overlap=0):
+        """ calculates the discriminability of two mixtures with `mixture_size`
+        ligands of equal  concentration. `overlap` denotes the number of
+        ligands that are the same in the two mixtures """
+        d = self.activity_distance_mixture_similarity(mixture_size, overlap)
+        return self.discriminability_from_activity_distance(d)
+                    
     
     #===========================================================================
     # OVERWRITE METHODS OF THE BINARY RESPONSE MODEL
