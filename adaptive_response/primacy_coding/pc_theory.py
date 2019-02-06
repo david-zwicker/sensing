@@ -10,7 +10,7 @@ import logging
 import warnings
 
 import numpy as np
-from scipy import integrate, stats, special
+from scipy import integrate, stats, special, optimize
 
 from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
 
@@ -34,7 +34,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
     parameters_default = {
         'excitation_distribution': 'log-normal', 
         'excitation_threshold_method': 'approx',
-        'discriminability_factor': 2,
+        'discriminability_method': 'binomial',
         # factor affecting how discriminability scores are calculated from
         # activity distances
         'order_statistics_alpha': np.pi / 8,
@@ -425,6 +425,7 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         # TODO: replace this using numba?
         # look at `_activity_distance_m_lognorm_integrand_numba`
         p_different = integrate.quad(p_change_xor, en_dist_same.a, gamma)[0]
+        # en_dist_same.a is the lower bound of the excitation distribution
     
         return 2 * self.Nr * p_different
     
@@ -433,10 +434,70 @@ class PrimacyCodingTheory(PrimacyCodingMixin, LibrarySparseLogNormal):
         """ calculates the probability that two mixtures can be discriminated
         from the expected distance between them
         """
-        # calculate probability that a single receptor deviates
-        factor = self.parameters['discriminability_factor'] 
-        p = distance / (factor * self.Nr) 
-        return 1 - (1 - p)**self.Nr
+        # calculate probability that at least one receptor deviates based on an
+        # estimate of the distribution of distances, which is chosen by `method`
+        # The probability that activities are distinguishable is then given by
+        #    1 - P(n=0)   ,
+        # where P(n=0) is the probability that the two activities are identical
+        method = self.parameters['discriminability_method']
+        
+        if method == 'poisson':
+            # Use a simple poisson distribution using the fact that distances
+            # must be even.
+            # Note that this is also the limiting case of the binomial method
+            # for large Nc
+            return 1 - np.exp(-distance / 2)
+        
+        elif method == 'poisson_truncated':
+            # Use a simple poisson distribution using the fact that distances
+            # must be even and additionally that the maximal distance is 2 * Nc
+            Nc = self.coding_receptors
+            def rhs(x):
+                mean = (2. * x) - (2. / (np.exp(x) * special.expn(-Nc,x)))
+                return mean - distance
+            lmbd = optimize.root(rhs, 1 - np.exp(-distance)).x[0]
+            p0 = np.exp(-lmbd) / special.gammaincc(1. + Nc, lmbd)
+            return 1 - p0
+
+        elif method == 'binomial':
+            # Use a binomial distribution taking into account that distances
+            # are even and the maximal distance is 2 * Nc
+            Nc = self.coding_receptors
+            p = distance / (2 * Nc)
+            return 1 - (1 - p)**Nc
+        
+        elif method == 'max_entropy':
+            # use an exponential distribution, which follows from a maximal
+            # entropy argument taking into account that distances are even and 
+            # the maximal distance is 2 * Nc
+        
+            Nc = self.coding_receptors
+            
+            def rhs(x):
+                """ helper function that is used to determine the parameters
+                pref and r such that the distribution has mean `distance` and is
+                normalized
+                """
+                pref, r = x
+                f1 = r**(2 + 2 * Nc)
+                f2 = Nc * (r**2 - 1) - 1
+                mean = (2 * pref * (r**2 + f1 * f2)) / (r**2 - 1)**2
+                tot = pref * (f1 - 1) / (r**2 - 1)
+                return mean - distance, tot - 1
+        
+            estimate = np.array([2 / (2 + distance),
+                                 np.sqrt(distance / (2 + distance))])
+            pref = optimize.root(rhs, estimate).x[0]
+            return 1 - pref
+
+        elif method == 'max_entropy_estimate':
+            # take the limit of the maximal entropy distribution for many
+            # coding receptors, i.e. take  Nc -> inf
+            return distance / (2 + distance)
+        
+        else:
+            raise ValueError('Unknown method `%s` for determining '
+                             'discriminability' % method)
          
     
     def discriminability_uncorrelated(self): 
