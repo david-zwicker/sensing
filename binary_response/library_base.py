@@ -180,13 +180,21 @@ class LibraryBase(object):
             
             # run the calculations in multiple processes
             arguments = (self.__class__, init_arguments, method, args)
-            pool = mp.Pool(processes=self.get_number_of_cores())
-            results = pool.map(_ensemble_average_job, [arguments] * avg_num)
-            
-            # Apparently, multiprocessing sometimes opens too many files if
-            # processes are launched to quickly and the garbage collector cannot
-            # keep up. We thus explicitly terminate the pool here.
-            pool.terminate()
+            arguments = [arguments] * avg_num
+            num_cores = self.get_number_of_cores()
+            if num_cores < 2:
+                # we don't need multiprocessing 
+                results = map(_ensemble_average_job, arguments)
+                
+            else:
+                # use actual multiprocessing
+                pool = mp.Pool(processes=self.get_number_of_cores())
+                results = pool.map(_ensemble_average_job, args)
+                
+                # Apparently, multiprocessing sometimes opens too many files if
+                # processes are launched to quickly and the garbage collector
+                # cannot keep up. We thus explicitly terminate the pool here.
+                pool.terminate()
             
         else:
             # run the calculations in this process
