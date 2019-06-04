@@ -77,7 +77,7 @@ class TestLibraryExponential(TestBase):
     def _check_histogram(self, observations, distribution, bins=32):
         """ checks whether the observations were likely drawn from the given
         distribution """
-        count1, bins = np.histogram(observations, bins=bins, normed=True)
+        count1, bins = np.histogram(observations, bins=bins, density=True)
         xs = 0.5*(bins[1:] + bins[:-1])
         count2 = distribution.pdf(xs)
         self.assertAllClose(count1, count2, atol=1e-2, rtol=1e-1,

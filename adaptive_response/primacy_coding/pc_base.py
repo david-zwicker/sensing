@@ -7,7 +7,7 @@ Created on Jan 5, 2016
 from __future__ import division
 
 import numpy as np
-from scipy import misc
+from scipy import special
 
 
 
@@ -54,5 +54,5 @@ class PrimacyCodingMixin(object):
     @property
     def mutual_information_max(self):
         """ returns an upper bound to the mutual information """
-        return np.log2(misc.comb(self.Nr, self.coding_receptors))
+        return np.log2(special.comb(self.Nr, self.coding_receptors))
   

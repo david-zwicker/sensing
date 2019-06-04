@@ -27,7 +27,7 @@ import multiprocessing as mp
 import random
 
 import numpy as np
-import scipy.misc
+import scipy.special
 from six.moves import range, zip
 
 from .lib_bin_base import LibraryBinaryBase
@@ -231,7 +231,7 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
         if mixture_size is None:
             return 2 ** self.Ns
         else:
-            return scipy.misc.comb(self.Ns, mixture_size, exact=True)
+            return scipy.special.comb(self.Ns, mixture_size, exact=True)
         
         
     def _iterate_mixtures(self):
@@ -1086,7 +1086,7 @@ def _sample_binary_mixtures(model, steps, dtype=np.uint):
         Jij = model.correlations
         
         # start with a random concentration vector 
-        c = np.random.random_integers(0, 1, model.Ns).astype(dtype)
+        c = np.random.randint(0, 2, model.Ns).astype(dtype)
         E_last = -np.dot(np.dot(Jij, c) + hi, c)
         
         for _ in range(int(steps)):

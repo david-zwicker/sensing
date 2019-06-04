@@ -12,7 +12,7 @@ import logging
 import unittest
 
 import numpy as np
-from scipy import misc
+from scipy import special
 
 from .at_numeric import AdaptiveThresholdNumeric
 from .at_theory import (AdaptiveThresholdTheory,
@@ -70,7 +70,7 @@ class TestLibraryPrimacyCoding(TestBase):
         hval = np.random.random() - 0.5
         model.commonness = [hval] * model.Ns
         m_s = np.arange(0, model.Ns + 1)
-        p_m = (misc.comb(model.Ns, m_s)
+        p_m = (special.comb(model.Ns, m_s)
                * np.exp(hval*m_s)/(1 + np.exp(hval))**model.Ns)
         
         self.assertAllClose(p_m, model.mixture_size_distribution())
