@@ -38,7 +38,7 @@ Package     | Usage
 numpy       | Array library used for manipulating data
 scipy       | Miscellaneous scientific functions
 six         | Compatibility layer to support python 2 and 3
-
+utils       | Utility functions published at https://github.com/david-zwicker/py-utils
 
 Optional python packages, which can be installed through `pip` or similar means
 include:
