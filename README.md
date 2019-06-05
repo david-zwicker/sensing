@@ -60,15 +60,18 @@ The classes in the project are organized as follows:
         of ligands is controlled by an Ising-like distribution.
     - continuous mixtures: all ligands are present at random concentrations. The
         probability distribution of the concentration vector is specified by the
-        mean concentrations and a covariance matrix.
+        mean concentrations and a covariance matrix. Exponential mixtures and
+        gaussian mixtures have been implemented.
     - sparse mixtures: the ligands that are present have random concentrations.
         Here, we use the algorithm from the binary mixtures to determine which
         ligands are present in a mixture and then chose their concentrations
         independently from exponential distributions. 
-    The code for these mixtures is organized in different modules.
-- The package `adaptive_response` is an extension of the `binary_response`,
-    which looks into adaptive excitation thresholds, in particular normalized
-    response and primacy response.
+    The code for these mixtures is organized in sub-modules in the
+    `binary_response` module.
+- The classes in `binary_response` all implement a simple binary representation,
+  where a fixed threshold is used.
+- Two adaptive thresholds are implemented in the separate modules `adaptive_threshold`
+  and `primacy_coding`. They extend the code in `binary_response`.
 - We distinguish between general classes and classes  with a concrete receptor
     library. Here, we distinguish libraries that do numerical simulations and
     libraries that provide analytical results.
