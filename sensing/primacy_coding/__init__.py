@@ -6,8 +6,7 @@ __all__ = ['PrimacyCodingNumeric', 'PrimacyCodingTheory']
 
 # try importing numba for speeding up calculations for numeric module
 try:
-    from adaptive_response.primacy_coding.numba_speedup_numeric import \
-                                        numba_patcher as number_patcher_numeric
+    from .numba_speedup_numeric import numba_patcher as number_patcher_numeric
 except ImportError:
     # numba does not seem to be available -> fall back on python methods
     import logging
@@ -20,8 +19,7 @@ else:
 
 # try importing numba for speeding up calculations for theory module
 try:
-    from adaptive_response.primacy_coding.numba_speedup_numeric import \
-                                        numba_patcher as number_patcher_theory
+    from .numba_speedup_numeric import numba_patcher as number_patcher_theory
 except ImportError:
     # numba does not seem to be available -> fall back on python methods
     import logging

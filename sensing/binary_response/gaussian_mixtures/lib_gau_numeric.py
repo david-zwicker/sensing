@@ -37,7 +37,7 @@ class LibraryGaussianNumeric(LibraryNumericMixin, LibraryGaussianBase):
         obj = super(LibraryGaussianNumeric, cls).create_test_instance(**kwargs)
 
         # determine optimal parameters for the interaction matrix
-#         from binary_response.gaussian_mixtures.lib_gau_theory import LibraryContinuousLogNormal
+#         from .lib_gau_theory import LibraryContinuousLogNormal
 #         theory = LibraryContinuousLogNormal.from_other(obj)
 #         obj.choose_sensitivity_matrix(**theory.get_optimal_library())
         return obj

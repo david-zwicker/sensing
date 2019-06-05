@@ -12,7 +12,8 @@ import warnings
 import numpy as np
 from scipy import integrate, stats, special, optimize
 
-from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
+from ..binary_response.sparse_mixtures.lib_spr_theory import \
+    LibrarySparseLogNormal
 
 from .pc_base import PrimacyCodingMixin
 from utils.math.distributions import lognorm_mean_var, gamma_mean_var

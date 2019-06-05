@@ -149,7 +149,7 @@ class LibraryBinaryNumeric(LibraryNumericMixin, LibraryBinaryBase):
         
         if density == 'auto':
             # determine optimal parameters for the interaction matrix
-            from binary_response.binary_mixtures.lib_bin_theory import LibraryBinaryUniform
+            from .lib_bin_theory import LibraryBinaryUniform
             theory = LibraryBinaryUniform.from_other(self)
             density = theory.get_optimal_library()['density']
             
