@@ -56,7 +56,7 @@ class LibrarySparseNumeric(LibraryNumericMixin, LibrarySparseBase):
         obj_base = parent.create_test_instance(**kwargs)
 
         # determine optimal parameters for the sensitivity matrix
-        from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal  
+        from .lib_spr_theory import LibrarySparseLogNormal  
         theory = LibrarySparseLogNormal.from_other(obj_base, width=3) 
         
         obj = cls.from_other(obj_base)

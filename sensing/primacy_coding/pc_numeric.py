@@ -8,7 +8,8 @@ from __future__ import division, absolute_import
 
 import numpy as np
 
-from binary_response.sparse_mixtures.lib_spr_numeric import LibrarySparseNumeric
+from ..binary_response.sparse_mixtures.lib_spr_numeric import \
+    LibrarySparseNumeric
 from .pc_base import PrimacyCodingMixin
 from utils.math import take_popcount
 

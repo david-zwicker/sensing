@@ -17,7 +17,7 @@ import numpy as np
 
 # these methods are used in getattr calls
 from . import pc_numeric
-from binary_response.sparse_mixtures.numba_speedup import \
+from ..binary_response.sparse_mixtures.numba_speedup import \
                         LibrarySparseNumeric_excitation_statistics_monte_carlo
 from utils.math import take_popcount
 from utils.math.distributions import lognorm_mean_var_to_mu_sigma

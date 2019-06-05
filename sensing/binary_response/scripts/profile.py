@@ -17,7 +17,7 @@ import cProfile
 import pstats
 import tempfile
 
-from binary_response import LibraryBinaryNumeric
+from .. import LibraryBinaryNumeric
 
 # parameters
 Ns, Nr, m = 16, 8, 4

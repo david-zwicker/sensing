@@ -15,7 +15,7 @@ from scipy import special
 
 from .pc_numeric import PrimacyCodingNumeric, nlargest_indices
 from .pc_theory import PrimacyCodingTheory
-from adaptive_response.primacy_coding.numba_speedup_numeric import numba_patcher, nlargest_indices_numba
+from .numba_speedup_numeric import numba_patcher, nlargest_indices_numba
 from utils.testing import TestBase 
 
       

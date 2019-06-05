@@ -8,7 +8,8 @@ from __future__ import division, absolute_import
 
 import numpy as np
 
-from binary_response.sparse_mixtures.lib_spr_numeric import LibrarySparseNumeric
+from ..binary_response.sparse_mixtures.lib_spr_numeric import \
+    LibrarySparseNumeric
 from .at_base import AdaptiveThresholdMixin
 from utils.math.stats import StatisticsAccumulator
 
@@ -219,7 +220,7 @@ class AdaptiveThresholdNumeric(AdaptiveThresholdMixin, LibrarySparseNumeric):
         # lazy import of the Covariance Matrix Adaptation Evolution Strategy
         # package since it is only used in this method and the rest of the code
         # should be able to run without it
-        import cma
+        import cma  # @UnresolvedImport
         
         if not 0 < activity < 1:
             raise ValueError('Activity must be between 0 and 1')

@@ -11,8 +11,10 @@ import logging
 import numpy as np
 from scipy import stats, integrate, optimize
 
-from binary_response.sparse_mixtures.lib_spr_base import LibrarySparseBase
-from binary_response.sparse_mixtures.lib_spr_theory import LibrarySparseLogNormal
+from ..binary_response.sparse_mixtures.lib_spr_base import \
+    LibrarySparseBase
+from ..binary_response.sparse_mixtures.lib_spr_theory import \
+    LibrarySparseLogNormal
 
 from .at_base import AdaptiveThresholdMixin
 from utils.math.distributions import (lognorm_mean_var, lognorm_sum,

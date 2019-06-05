@@ -273,7 +273,7 @@ class TestLibraryBinary(TestBase):
         ]
         
         try:
-            import simanneal
+            import simanneal  # @UnresolvedImport
         except:
             pass
         else:
