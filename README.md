@@ -3,16 +3,16 @@
 This repository contains code for studying the information processing of an
 array of sensors, in particular in the olfactory system.
 
-This package is the basis of the following three published papers:
+This package is the basis of the following three published papers by the [Zwicker Group](https://www.zwickergroup.org):
 * D. Zwicker, A. Murugan, and M. P. Brenner,
   "Receptor arrays optimized for natural odor statistics",
   [*Proc. Natl. Acad. Sci. USA* 113 (2016)](http://dx.doi.org/10.1073/pnas.1600357113)
 * D. Zwicker, 
   "Normalized Neural Representations of Complex Odors",
-  [*PLoS One* 11 (2016)](http://dx.doi.org/10.1371/journal.pone.0166456)
+  [*PLOS One* 11 (2016)](http://dx.doi.org/10.1371/journal.pone.0166456)
 * D. Zwicker,
   "Primacy coding facilitates effective odor discrimination when receptor sensitivities are tuned",
-  (under review)
+  *PLOS Comp. Biol.* (in press)
 
 
 An example of how to use this package can be found in the github repository
@@ -27,7 +27,7 @@ However, not all combinations of python versions and package versions have been
 tested.
 To obtain a first idea whether the package is functional, run `python -m unittest discover`
 in the root directory of the package, which runs some unittests.
-Note that thhis may take a while and might also yield errors due to numerical
+Note that this may take a while and might also yield errors due to numerical
 randomness. 
 
 The package only requires a few necessary python packages, which should be
@@ -45,10 +45,8 @@ include:
 
 Package     | Usage                                      
 ------------|-------------------------------------------
-coverage    | For measuring test coverage
 cma         | For optimizations using CMA-ES
 numba       | For creating compiled code for faster processing
-nose        | For parallel testing
 simanneal   | Simulated annealing algorithm published on github
 
 
@@ -71,7 +69,7 @@ The classes in the project are organized as follows:
 - The classes in `binary_response` all implement a simple binary representation,
   where a fixed threshold is used.
 - Two adaptive thresholds are implemented in the separate modules `adaptive_threshold`
-  and `primacy_coding`. They extend the code in `binary_response`.
-- We distinguish between general classes and classes  with a concrete receptor
-    library. Here, we distinguish libraries that do numerical simulations and
+  and `primacy_coding`, which extend the code in `binary_response`.
+- We distinguish between general classes and classes with a concrete receptor
+    library. Moreover, we distinguish libraries that do numerical simulations and
     libraries that provide analytical results.
