@@ -9,10 +9,10 @@ This package is the basis of the following three published papers:
   [*Proc. Natl. Acad. Sci. USA* 113 (2016)](http://dx.doi.org/10.1073/pnas.1600357113)
 * D. Zwicker, 
   "Normalized Neural Representations of Complex Odors",
-  [*PLoS One* 11 (2016)](http://dx.doi.org/10.1371/journal.pone.0166456)
+  [*PLOS One* 11 (2016)](http://dx.doi.org/10.1371/journal.pone.0166456)
 * D. Zwicker,
   "Primacy coding facilitates effective odor discrimination when receptor sensitivities are tuned",
-  (under review)
+  *PLOS Comp. Biol.* (in press)
 
 
 An example of how to use this package can be found in the github repository
