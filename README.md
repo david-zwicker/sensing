@@ -3,7 +3,7 @@
 This repository contains code for studying the information processing of an
 array of sensors, in particular in the olfactory system.
 
-This package is the basis of the following three published papers:
+This package is the basis of the following three published papers by the [Zwicker Group](https://www.zwickergroup.org):
 * D. Zwicker, A. Murugan, and M. P. Brenner,
   "Receptor arrays optimized for natural odor statistics",
   [*Proc. Natl. Acad. Sci. USA* 113 (2016)](http://dx.doi.org/10.1073/pnas.1600357113)
