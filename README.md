@@ -27,7 +27,7 @@ However, not all combinations of python versions and package versions have been
 tested.
 To obtain a first idea whether the package is functional, run `python -m unittest discover`
 in the root directory of the package, which runs some unittests.
-Note that thhis may take a while and might also yield errors due to numerical
+Note that this may take a while and might also yield errors due to numerical
 randomness. 
 
 The package only requires a few necessary python packages, which should be
@@ -45,10 +45,8 @@ include:
 
 Package     | Usage                                      
 ------------|-------------------------------------------
-coverage    | For measuring test coverage
 cma         | For optimizations using CMA-ES
 numba       | For creating compiled code for faster processing
-nose        | For parallel testing
 simanneal   | Simulated annealing algorithm published on github
 
 
@@ -71,7 +69,7 @@ The classes in the project are organized as follows:
 - The classes in `binary_response` all implement a simple binary representation,
   where a fixed threshold is used.
 - Two adaptive thresholds are implemented in the separate modules `adaptive_threshold`
-  and `primacy_coding`. They extend the code in `binary_response`.
-- We distinguish between general classes and classes  with a concrete receptor
-    library. Here, we distinguish libraries that do numerical simulations and
+  and `primacy_coding`, which extend the code in `binary_response`.
+- We distinguish between general classes and classes with a concrete receptor
+    library. Moreover, we distinguish libraries that do numerical simulations and
     libraries that provide analytical results.
