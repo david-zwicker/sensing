@@ -12,7 +12,7 @@ This package is the basis of the following three published papers by the [Zwicke
   [*PLOS One* 11 (2016)](http://dx.doi.org/10.1371/journal.pone.0166456)
 * D. Zwicker,
   "Primacy coding facilitates effective odor discrimination when receptor sensitivities are tuned",
-  *PLOS Comp. Biol.* (in press)
+  [*PLOS Comp. Biol.* (2019)](https://doi.org/10.1371/journal.pcbi.1007188)
 
 
 An example of how to use this package can be found in the github repository
